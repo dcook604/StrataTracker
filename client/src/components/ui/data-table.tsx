@@ -1,15 +1,15 @@
-import * as React from "react";
+import * as React from "react"
 import {
   ColumnDef,
+  ColumnFiltersState,
+  SortingState,
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
-  useReactTable,
-  SortingState,
-  getSortedRowModel,
-  ColumnFiltersState,
   getFilteredRowModel,
-} from "@tanstack/react-table";
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table"
 
 import {
   Table,
@@ -18,30 +18,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
-  data: TData[] | undefined;
-  isLoading?: boolean;
-  searchKey?: string;
+  columns: ColumnDef<TData, TValue>[]
+  data: TData[]
+  searchColumn?: string
+  searchPlaceholder?: string
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
-  isLoading = false,
-  searchKey,
+  searchColumn,
+  searchPlaceholder = "Search..."
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
 
   const table = useReactTable({
-    data: data || [],
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -53,64 +51,17 @@ export function DataTable<TData, TValue>({
       sorting,
       columnFilters,
     },
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <div>
-        {searchKey && (
-          <div className="flex items-center py-4">
-            <Skeleton className="h-10 w-[250px]" />
-          </div>
-        )}
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      <Skeleton className="h-6 w-full" />
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {Array.from({ length: 5 }).map((_, index) => (
-                <TableRow key={index}>
-                  {columns.map((_, cellIndex) => (
-                    <TableCell key={cellIndex}>
-                      <Skeleton className="h-6 w-full" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="flex items-center justify-end space-x-2 py-4">
-          <Skeleton className="h-10 w-[100px]" />
-          <Skeleton className="h-10 w-[70px]" />
-        </div>
-      </div>
-    );
-  }
+  })
 
   return (
     <div>
-      {searchKey && (
+      {searchColumn && (
         <div className="flex items-center py-4">
           <Input
-            placeholder="Search..."
-            value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+            placeholder={searchPlaceholder}
+            value={(table.getColumn(searchColumn)?.getFilterValue() as string) ?? ""}
             onChange={(event) =>
-              table.getColumn(searchKey)?.setFilterValue(event.target.value)
+              table.getColumn(searchColumn)?.setFilterValue(event.target.value)
             }
             className="max-w-sm"
           />
@@ -121,16 +72,18 @@ export function DataTable<TData, TValue>({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -143,20 +96,14 @@ export function DataTable<TData, TValue>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>
@@ -183,5 +130,5 @@ export function DataTable<TData, TValue>({
         </Button>
       </div>
     </div>
-  );
+  )
 }
