@@ -92,10 +92,13 @@ export default function AuthPage() {
         <div className="flex items-center justify-center">
           <Card className="w-full max-w-md">
             <CardHeader className="space-y-1 text-center">
-              <div className="flex justify-center mb-2">
-                <AlertCircle className="h-10 w-10 text-primary" />
+              <div className="flex justify-center mb-4">
+                <img 
+                  src="/images/spectrum4-logo.png" 
+                  alt="Spectrum 4 Logo" 
+                  className="h-20" 
+                />
               </div>
-              <CardTitle className="text-2xl font-bold">Spectrum 4</CardTitle>
               <CardDescription>
                 Violation Management System
               </CardDescription>

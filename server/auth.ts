@@ -1,10 +1,13 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { storage } from "./storage";
 import { User as SelectUser, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
+import { randomBytes } from "crypto";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 declare global {
   namespace Express {
@@ -13,13 +16,40 @@ declare global {
 }
 
 export function setupAuth(app: Express) {
+  // Apply security middlewares
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+      },
+    },
+    xssFilter: true,
+    noSniff: true,
+    referrerPolicy: { policy: "same-origin" }
+  }));
+
+  // Rate limiting to prevent brute force attacks
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 login requests per window
+    message: "Too many login attempts, please try again after 15 minutes",
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Generate a secure session secret if one is not provided
+  const sessionSecret = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
+  
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "strata-violation-system-secret",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+      maxAge: 1000 * 60 * 60 * 8, // 8 hours
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax"
@@ -31,19 +61,38 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Configure Passport to use email as the username field
   passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user || !(await storage.comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
+    new LocalStrategy(
+      { usernameField: 'email' },
+      async (email, password, done) => {
+        try {
+          const user = await storage.getUserByEmail(email);
+          
+          // Check if account is locked
+          if (user?.accountLocked) {
+            return done(null, false, { message: "Account locked due to too many failed attempts" });
+          }
+          
+          // Check credentials
+          if (!user || !(await storage.comparePasswords(password, user.password))) {
+            // Increment failed login attempts
+            if (user) {
+              await storage.incrementFailedLoginAttempts(user.id);
+            }
+            return done(null, false, { message: "Invalid email or password" });
+          } 
+          
+          // Successful login - reset failed attempts and update last login
+          await storage.resetFailedLoginAttempts(user.id);
+          await storage.updateLastLogin(user.id);
+          
           return done(null, user);
+        } catch (error) {
+          return done(error);
         }
-      } catch (error) {
-        return done(error);
       }
-    }),
+    ),
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
@@ -58,30 +107,53 @@ export function setupAuth(app: Express) {
 
   // Schema for registration with additional validation
   const registerSchema = insertUserSchema.extend({
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: z.string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number")
+      .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
     email: z.string().email("Invalid email format"),
     fullName: z.string().min(2, "Full name is required")
   });
 
+  // Apply rate limiting to login route
+  app.post("/api/login", loginLimiter, (req, res, next) => {
+    passport.authenticate("local", (err: Error, user: SelectUser | false, info: { message: string }) => {
+      if (err) return next(err);
+      if (!user) return res.status(401).json({ message: info?.message || "Invalid email or password" });
+      
+      req.login(user, (err) => {
+        if (err) return next(err);
+        
+        // Remove sensitive fields before sending the user object
+        const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+        res.status(200).json(safeUser);
+      });
+    })(req, res, next);
+  });
+
+  // Admin-only user registration
   app.post("/api/register", async (req, res, next) => {
     try {
+      // Check if the request is from an admin
+      if (!req.isAuthenticated() || !req.user.isAdmin) {
+        return res.status(403).json({ message: "Only administrators can register new users" });
+      }
+
       // Validate request body
       const validatedData = registerSchema.parse(req.body);
       
-      const existingUser = await storage.getUserByUsername(validatedData.username);
+      const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
-        return res.status(400).send("Username already exists");
+        return res.status(400).json({ message: "Email already exists" });
       }
 
       const user = await storage.createUser(validatedData);
 
-      req.login(user, (err) => {
-        if (err) return next(err);
-        
-        // Remove password before sending the user object
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
-      });
+      // Remove sensitive fields before sending the user object
+      const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+      res.status(201).json(safeUser);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
@@ -90,19 +162,81 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
-      if (err) return next(err);
-      if (!user) return res.status(401).json({ message: "Invalid username or password" });
+  // User management APIs (admin only)
+  app.get("/api/users", async (req, res, next) => {
+    try {
+      // Check if the request is from an admin
+      if (!req.isAuthenticated() || !req.user.isAdmin) {
+        return res.status(403).json({ message: "Only administrators can view user list" });
+      }
+
+      const users = await storage.getAllUsers();
       
-      req.login(user, (err) => {
-        if (err) return next(err);
-        
-        // Remove password before sending the user object
-        const { password, ...userWithoutPassword } = user;
-        res.status(200).json(userWithoutPassword);
+      // Remove sensitive information before sending
+      const safeUsers = users.map(user => {
+        const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+        return safeUser;
       });
-    })(req, res, next);
+      
+      res.json(safeUsers);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/users/:id", async (req, res, next) => {
+    try {
+      // Check if the request is from an admin
+      if (!req.isAuthenticated() || !req.user.isAdmin) {
+        return res.status(403).json({ message: "Only administrators can update users" });
+      }
+
+      const userId = parseInt(req.params.id, 10);
+      
+      // Don't allow changing email to one that already exists
+      if (req.body.email) {
+        const existingUser = await storage.getUserByEmail(req.body.email);
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ message: "Email already in use" });
+        }
+      }
+      
+      const updatedUser = await storage.updateUser(userId, req.body);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove sensitive fields before sending the user object
+      const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = updatedUser;
+      res.json(safeUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/users/:id", async (req, res, next) => {
+    try {
+      // Check if the request is from an admin
+      if (!req.isAuthenticated() || !req.user.isAdmin) {
+        return res.status(403).json({ message: "Only administrators can delete users" });
+      }
+
+      const userId = parseInt(req.params.id, 10);
+      
+      // Don't allow admins to delete themselves
+      if (req.user.id === userId) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+      
+      const deleted = await storage.deleteUser(userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post("/api/logout", (req, res, next) => {
@@ -115,8 +249,8 @@ export function setupAuth(app: Express) {
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
-    // Remove password before sending the user object
-    const { password, ...userWithoutPassword } = req.user;
-    res.json(userWithoutPassword);
+    // Remove sensitive fields before sending the user object
+    const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
+    res.json(safeUser);
   });
 }
