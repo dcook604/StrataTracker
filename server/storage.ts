@@ -1,12 +1,21 @@
 import { 
   users, 
-  propertyUnits, 
+  customers,
+  propertyUnits,
+  violationCategories,
+  systemSettings,
   violations,
   violationHistories,
   type User, 
-  type InsertUser, 
+  type InsertUser,
+  type Customer,
+  type InsertCustomer,
   type PropertyUnit, 
   type InsertPropertyUnit,
+  type ViolationCategory,
+  type InsertViolationCategory,
+  type SystemSetting,
+  type InsertSystemSetting,
   type Violation,
   type InsertViolation,
   type ViolationHistory,
@@ -30,6 +39,14 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
+  // Customer operations
+  getCustomer(id: number): Promise<Customer | undefined>;
+  getCustomerByUnitNumber(unitNumber: string): Promise<Customer | undefined>;
+  getAllCustomers(page?: number, limit?: number): Promise<{ customers: Customer[], total: number }>;
+  searchCustomers(query: string): Promise<Customer[]>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
+  
   // Property units operations
   getPropertyUnit(id: number): Promise<PropertyUnit | undefined>;
   getPropertyUnitByUnitNumber(unitNumber: string): Promise<PropertyUnit | undefined>;
@@ -37,18 +54,32 @@ export interface IStorage {
   createPropertyUnit(unit: InsertPropertyUnit): Promise<PropertyUnit>;
   updatePropertyUnit(id: number, unit: Partial<InsertPropertyUnit>): Promise<PropertyUnit | undefined>;
   
+  // Violation category operations
+  getViolationCategory(id: number): Promise<ViolationCategory | undefined>;
+  getAllViolationCategories(activeOnly?: boolean): Promise<ViolationCategory[]>;
+  createViolationCategory(category: InsertViolationCategory): Promise<ViolationCategory>;
+  updateViolationCategory(id: number, category: Partial<InsertViolationCategory>): Promise<ViolationCategory | undefined>;
+  
+  // System settings operations
+  getSystemSetting(key: string): Promise<SystemSetting | undefined>;
+  getAllSystemSettings(): Promise<SystemSetting[]>;
+  updateSystemSetting(key: string, value: string, userId: number): Promise<SystemSetting>;
+  
   // Violation operations
   getViolation(id: number): Promise<Violation | undefined>;
+  getViolationByReference(referenceNumber: string): Promise<Violation | undefined>;
   getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit }) | undefined>;
   getAllViolations(): Promise<Violation[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<Violation[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
   getViolationsByReporter(userId: number): Promise<Violation[]>;
+  getViolationsByCategory(categoryId: number): Promise<Violation[]>;
   getRecentViolations(limit: number): Promise<(Violation & { unit: PropertyUnit })[]>;
   createViolation(violation: InsertViolation): Promise<Violation>;
   updateViolation(id: number, violation: Partial<InsertViolation>): Promise<Violation | undefined>;
   updateViolationStatus(id: number, status: ViolationStatus): Promise<Violation | undefined>;
   setViolationFine(id: number, amount: number): Promise<Violation | undefined>;
+  generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined>;
   
   // Violation history operations
   getViolationHistory(violationId: number): Promise<ViolationHistory[]>;

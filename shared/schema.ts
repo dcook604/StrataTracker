@@ -77,13 +77,52 @@ export const insertPropertyUnitSchema = createInsertSchema(propertyUnits).pick({
   tenantEmail: true,
 });
 
+// Violation categories schema
+export const violationCategories = pgTable("violation_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  bylawReference: text("bylaw_reference"),
+  defaultFineAmount: integer("default_fine_amount"),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertViolationCategorySchema = createInsertSchema(violationCategories).pick({
+  name: true,
+  description: true,
+  bylawReference: true,
+  defaultFineAmount: true,
+  active: true,
+});
+
+// System settings schema (for global email settings, etc.)
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  settingKey: text("setting_key").notNull().unique(),
+  settingValue: text("setting_value"),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedById: integer("updated_by_id").references(() => users.id),
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).pick({
+  settingKey: true,
+  settingValue: true,
+  description: true,
+  updatedById: true,
+});
+
 // Violation schema
 export type ViolationStatus = "new" | "pending_approval" | "approved" | "disputed" | "rejected";
 
 export const violations = pgTable("violations", {
   id: serial("id").primaryKey(),
+  referenceNumber: uuid("reference_number").defaultRandom().notNull().unique(),
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
   reportedById: integer("reported_by_id").notNull().references(() => users.id),
+  categoryId: integer("category_id").references(() => violationCategories.id),
   violationType: text("violation_type").notNull(),
   violationDate: timestamp("violation_date").notNull(),
   violationTime: text("violation_time"),
@@ -94,6 +133,8 @@ export const violations = pgTable("violations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   attachments: jsonb("attachments").$type<string[]>().default([]),
+  pdfGenerated: boolean("pdf_generated").default(false),
+  pdfPath: text("pdf_path"),
 });
 
 export const violationsRelations = relations(violations, ({ one }) => ({
@@ -105,11 +146,16 @@ export const violationsRelations = relations(violations, ({ one }) => ({
     fields: [violations.reportedById],
     references: [users.id],
   }),
+  category: one(violationCategories, {
+    fields: [violations.categoryId],
+    references: [violationCategories.id],
+  }),
 }));
 
 export const insertViolationSchema = createInsertSchema(violations).pick({
   unitId: true,
   reportedById: true,
+  categoryId: true,
   violationType: true,
   violationDate: true,
   violationTime: true,
@@ -148,10 +194,32 @@ export const insertViolationHistorySchema = createInsertSchema(violationHistorie
 });
 
 // Types
+// Define relationships for property units
+export const propertyUnitsRelations = relations(propertyUnits, ({ one }) => ({
+  customer: one(customers, {
+    fields: [propertyUnits.customerId],
+    references: [customers.id],
+  }),
+}));
+
+// Define relationships for system settings
+export const systemSettingsRelations = relations(systemSettings, ({ one }) => ({
+  updatedBy: one(users, {
+    fields: [systemSettings.updatedById],
+    references: [users.id],
+  }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type PropertyUnit = typeof propertyUnits.$inferSelect;
 export type InsertPropertyUnit = z.infer<typeof insertPropertyUnitSchema>;
+export type ViolationCategory = typeof violationCategories.$inferSelect;
+export type InsertViolationCategory = z.infer<typeof insertViolationCategorySchema>;
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
 export type Violation = typeof violations.$inferSelect;
 export type InsertViolation = z.infer<typeof insertViolationSchema>;
 export type ViolationHistory = typeof violationHistories.$inferSelect;
