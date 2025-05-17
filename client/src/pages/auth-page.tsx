@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Building2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { 
   Card, 
   CardContent, 
@@ -92,11 +92,11 @@ export default function AuthPage() {
           <Card className="w-full max-w-md">
             <CardHeader className="space-y-1 text-center">
               <div className="flex justify-center mb-2">
-                <Building2 className="h-10 w-10 text-primary" />
+                <AlertCircle className="h-10 w-10 text-primary" />
               </div>
-              <CardTitle className="text-2xl font-bold">StrataGuard</CardTitle>
+              <CardTitle className="text-2xl font-bold">Spectrum 4</CardTitle>
               <CardDescription>
-                Your strata violation management system
+                Violation Management System
               </CardDescription>
             </CardHeader>
             <CardContent>
