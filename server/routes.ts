@@ -4,7 +4,14 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { sendViolationNotification, sendViolationApprovedNotification } from "./email";
 import { z } from "zod";
-import { insertViolationSchema, insertPropertyUnitSchema, insertViolationHistorySchema } from "@shared/schema";
+import { 
+  insertViolationSchema, 
+  insertPropertyUnitSchema, 
+  insertViolationHistorySchema,
+  insertViolationCategorySchema,
+  insertCustomerSchema,
+  insertSystemSettingSchema
+} from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -330,6 +337,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(repeatViolations);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch repeat violations" });
+    }
+  });
+  
+  // Violation Categories API endpoints
+  app.get("/api/violation-categories", ensureAuthenticated, async (req, res) => {
+    try {
+      const activeOnly = req.query.activeOnly === 'true';
+      const categories = await global.storage.getAllViolationCategories(activeOnly);
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch violation categories" });
+    }
+  });
+  
+  app.get("/api/violation-categories/:id", ensureAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const category = await global.storage.getViolationCategory(id);
+      
+      if (!category) {
+        return res.status(404).json({ message: "Violation category not found" });
+      }
+      
+      res.json(category);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch violation category" });
+    }
+  });
+  
+  app.post("/api/violation-categories", ensureCouncilMember, async (req, res) => {
+    try {
+      const categoryData = insertViolationCategorySchema.parse(req.body);
+      const newCategory = await global.storage.createViolationCategory(categoryData);
+      res.status(201).json(newCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create violation category" });
+    }
+  });
+  
+  app.patch("/api/violation-categories/:id", ensureCouncilMember, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const categoryData = insertViolationCategorySchema.partial().parse(req.body);
+      const updatedCategory = await global.storage.updateViolationCategory(id, categoryData);
+      
+      if (!updatedCategory) {
+        return res.status(404).json({ message: "Violation category not found" });
+      }
+      
+      res.json(updatedCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update violation category" });
+    }
+  });
+  
+  // Customer Management API endpoints
+  app.get("/api/customers", ensureCouncilMember, async (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const result = await global.storage.getAllCustomers(page, limit);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+  
+  app.get("/api/customers/search", ensureCouncilMember, async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.trim().length < 2) {
+        return res.status(400).json({ message: "Search query must be at least 2 characters" });
+      }
+      
+      const customers = await global.storage.searchCustomers(query);
+      res.json(customers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to search customers" });
+    }
+  });
+  
+  app.get("/api/customers/:id", ensureCouncilMember, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const customer = await global.storage.getCustomer(id);
+      
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customer" });
+    }
+  });
+  
+  app.post("/api/customers", ensureCouncilMember, async (req, res) => {
+    try {
+      const customerData = insertCustomerSchema.parse(req.body);
+      const newCustomer = await global.storage.createCustomer(customerData);
+      res.status(201).json(newCustomer);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid customer data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create customer" });
+    }
+  });
+  
+  app.patch("/api/customers/:id", ensureCouncilMember, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const customerData = insertCustomerSchema.partial().parse(req.body);
+      const updatedCustomer = await global.storage.updateCustomer(id, customerData);
+      
+      if (!updatedCustomer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      
+      res.json(updatedCustomer);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid customer data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update customer" });
+    }
+  });
+  
+  // System Settings API endpoints
+  app.get("/api/settings", ensureCouncilMember, async (req, res) => {
+    try {
+      const settings = await global.storage.getAllSystemSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch system settings" });
+    }
+  });
+  
+  app.get("/api/settings/:key", ensureCouncilMember, async (req, res) => {
+    try {
+      const key = req.params.key;
+      const setting = await global.storage.getSystemSetting(key);
+      
+      if (!setting) {
+        return res.status(404).json({ message: "Setting not found" });
+      }
+      
+      res.json(setting);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch setting" });
+    }
+  });
+  
+  app.post("/api/settings/:key", ensureCouncilMember, async (req, res) => {
+    try {
+      const key = req.params.key;
+      const { value } = req.body;
+      
+      if (value === undefined) {
+        return res.status(400).json({ message: "Setting value is required" });
+      }
+      
+      const setting = await global.storage.updateSystemSetting(key, value, req.user.id);
+      res.json(setting);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update setting" });
     }
   });
 

@@ -111,7 +111,7 @@ export class DatabaseStorage implements IStorage {
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({
-      pool: db.driver.client,
+      pool: db.$client,
       createTableIfMissing: true,
     });
   }
@@ -128,6 +128,149 @@ export class DatabaseStorage implements IStorage {
     const hashedBuf = Buffer.from(hashed, "hex");
     const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
     return timingSafeEqual(hashedBuf, suppliedBuf);
+  }
+  
+  // Customer management
+  async getCustomer(id: number): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer;
+  }
+  
+  async getCustomerByUnitNumber(unitNumber: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.unitNumber, unitNumber));
+    return customer;
+  }
+  
+  async getAllCustomers(page: number = 1, limit: number = 10): Promise<{ customers: Customer[], total: number }> {
+    const offset = (page - 1) * limit;
+    const customersList = await db.select().from(customers)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(customers.unitNumber);
+      
+    const [countResult] = await db.select({
+      count: sql`count(*)`
+    }).from(customers);
+    
+    return {
+      customers: customersList,
+      total: Number(countResult.count)
+    };
+  }
+  
+  async searchCustomers(query: string): Promise<Customer[]> {
+    return db.select().from(customers)
+      .where(
+        or(
+          like(customers.unitNumber, `%${query}%`),
+          like(customers.ownerName, `%${query}%`),
+          like(customers.ownerEmail, `%${query}%`),
+          like(customers.tenantName || '', `%${query}%`),
+          like(customers.tenantEmail || '', `%${query}%`),
+          like(customers.phone || '', `%${query}%`)
+        )
+      )
+      .orderBy(customers.unitNumber);
+  }
+  
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const [newCustomer] = await db.insert(customers)
+      .values({
+        ...customer,
+        updatedAt: new Date()
+      })
+      .returning();
+      
+    return newCustomer;
+  }
+  
+  async updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined> {
+    const [updatedCustomer] = await db.update(customers)
+      .set({
+        ...customer,
+        updatedAt: new Date()
+      })
+      .where(eq(customers.id, id))
+      .returning();
+      
+    return updatedCustomer;
+  }
+  
+  // Violation category operations
+  async getViolationCategory(id: number): Promise<ViolationCategory | undefined> {
+    const [category] = await db.select().from(violationCategories).where(eq(violationCategories.id, id));
+    return category;
+  }
+  
+  async getAllViolationCategories(activeOnly: boolean = false): Promise<ViolationCategory[]> {
+    let query = db.select().from(violationCategories);
+    
+    if (activeOnly) {
+      query = query.where(eq(violationCategories.active, true));
+    }
+    
+    return query.orderBy(violationCategories.name);
+  }
+  
+  async createViolationCategory(category: InsertViolationCategory): Promise<ViolationCategory> {
+    const [newCategory] = await db.insert(violationCategories)
+      .values({
+        ...category,
+        updatedAt: new Date()
+      })
+      .returning();
+      
+    return newCategory;
+  }
+  
+  async updateViolationCategory(id: number, category: Partial<InsertViolationCategory>): Promise<ViolationCategory | undefined> {
+    const [updatedCategory] = await db.update(violationCategories)
+      .set({
+        ...category, 
+        updatedAt: new Date()
+      })
+      .where(eq(violationCategories.id, id))
+      .returning();
+      
+    return updatedCategory;
+  }
+  
+  // System settings operations
+  async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
+    const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.settingKey, key));
+    return setting;
+  }
+  
+  async getAllSystemSettings(): Promise<SystemSetting[]> {
+    return db.select().from(systemSettings).orderBy(systemSettings.settingKey);
+  }
+  
+  async updateSystemSetting(key: string, value: string, userId: number): Promise<SystemSetting> {
+    // Check if setting exists
+    const existing = await this.getSystemSetting(key);
+    
+    if (existing) {
+      const [updated] = await db.update(systemSettings)
+        .set({
+          settingValue: value,
+          updatedAt: new Date(),
+          updatedById: userId
+        })
+        .where(eq(systemSettings.settingKey, key))
+        .returning();
+      
+      return updated;
+    } else {
+      const [created] = await db.insert(systemSettings)
+        .values({
+          settingKey: key,
+          settingValue: value,
+          updatedById: userId
+        })
+        .returning();
+      
+      return created;
+    }
   }
 
   // User operations
@@ -182,6 +325,11 @@ export class DatabaseStorage implements IStorage {
   // Violation operations
   async getViolation(id: number): Promise<Violation | undefined> {
     const [violation] = await db.select().from(violations).where(eq(violations.id, id));
+    return violation;
+  }
+  
+  async getViolationByReference(referenceNumber: string): Promise<Violation | undefined> {
+    const [violation] = await db.select().from(violations).where(eq(violations.referenceNumber, referenceNumber));
     return violation;
   }
 
@@ -245,6 +393,25 @@ export class DatabaseStorage implements IStorage {
   async createViolation(violation: InsertViolation): Promise<Violation> {
     const [newViolation] = await db.insert(violations).values(violation).returning();
     return newViolation;
+  }
+  
+  async getViolationsByCategory(categoryId: number): Promise<Violation[]> {
+    return db.select().from(violations)
+      .where(eq(violations.categoryId, categoryId))
+      .orderBy(desc(violations.createdAt));
+  }
+  
+  async generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined> {
+    const [violation] = await db.update(violations)
+      .set({
+        pdfGenerated: true,
+        pdfPath,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.id, id))
+      .returning();
+      
+    return violation;
   }
 
   async updateViolation(id: number, violation: Partial<InsertViolation>): Promise<Violation | undefined> {
