@@ -12,6 +12,9 @@ import NewViolationPage from "@/pages/new-violation-page";
 import AllViolationsPage from "@/pages/all-violations-page";
 import ViolationDetailPage from "@/pages/violation-detail-page";
 import ReportsPage from "@/pages/reports-page";
+import CustomersPage from "@/pages/customers-page";
+import CategoriesPage from "@/pages/categories-page";
+import SettingsPage from "@/pages/settings-page";
 import { Route } from "wouter";
 import { ThemeProvider } from "next-themes";
 
@@ -23,6 +26,9 @@ function Router() {
       <ProtectedRoute path="/violations" component={AllViolationsPage} />
       <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
+      <ProtectedRoute path="/customers" component={CustomersPage} />
+      <ProtectedRoute path="/categories" component={CategoriesPage} />
+      <ProtectedRoute path="/settings" component={SettingsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

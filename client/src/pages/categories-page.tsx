@@ -49,7 +49,10 @@ export default function CategoriesPage() {
   
   const { data, isLoading } = useQuery<ViolationCategory[]>({
     queryKey: ["/api/violation-categories"],
-    queryFn: ({ signal }) => apiRequest("GET", "/api/violation-categories", undefined, { signal }),
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/violation-categories");
+      return res.json();
+    },
   });
   
   const form = useForm<FormValues>({

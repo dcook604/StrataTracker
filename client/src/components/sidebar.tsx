@@ -12,6 +12,8 @@ import {
   Settings, 
   LogOut,
   Menu,
+  Users,
+  Tags,
 } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/logo";
@@ -56,6 +58,24 @@ export function Sidebar({ className }: SidebarProps) {
       icon: <BarChart className="h-5 w-5" />,
       href: "/reports",
     },
+    {
+      title: "Customers",
+      icon: <Users className="h-5 w-5" />,
+      href: "/customers", 
+      adminOnly: true,
+    },
+    {
+      title: "Categories",
+      icon: <Tags className="h-5 w-5" />,
+      href: "/categories",
+      adminOnly: true,
+    },
+    {
+      title: "Settings",
+      icon: <Settings className="h-5 w-5" />,
+      href: "/settings",
+      adminOnly: true,
+    },
   ];
 
   const NavContent = () => (
@@ -65,21 +85,23 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
       <ScrollArea className="flex-1 px-4 py-4">
         <nav className="flex flex-col gap-1">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={isActive(item.href) ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-2",
-                  isActive(item.href) && "bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-50"
-                )}
-                onClick={() => setOpen(false)}
-              >
-                {item.icon}
-                {item.title}
-              </Button>
-            </Link>
-          ))}
+          {navItems
+            .filter(item => !item.adminOnly || (user && user.isAdmin))
+            .map((item) => (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={isActive(item.href) ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-2",
+                    isActive(item.href) && "bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-50"
+                  )}
+                  onClick={() => setOpen(false)}
+                >
+                  {item.icon}
+                  {item.title}
+                </Button>
+              </Link>
+            ))}
           <div className="mt-auto pt-4 border-t border-neutral-200 dark:border-neutral-800 mt-4">
             <Button
               variant="ghost"
