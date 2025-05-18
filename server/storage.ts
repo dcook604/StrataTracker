@@ -130,10 +130,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async comparePasswords(supplied: string, stored: string): Promise<boolean> {
-    const [hashed, salt] = stored.split(".");
-    const hashedBuf = Buffer.from(hashed, "hex");
-    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-    return timingSafeEqual(hashedBuf, suppliedBuf);
+    try {
+      // Check if stored password has the correct format (hash.salt)
+      if (!stored || !stored.includes(".")) {
+        console.error("Invalid stored password format, should be 'hash.salt'");
+        return false;
+      }
+      
+      const [hashed, salt] = stored.split(".");
+      
+      // Check if both hash and salt are present
+      if (!hashed || !salt) {
+        console.error("Missing hash or salt in stored password");
+        return false;
+      }
+      
+      const hashedBuf = Buffer.from(hashed, "hex");
+      const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+      return timingSafeEqual(hashedBuf, suppliedBuf);
+    } catch (error) {
+      console.error("Error comparing passwords:", error);
+      return false;
+    }
   }
   
   // Customer management
