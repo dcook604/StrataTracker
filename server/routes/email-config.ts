@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Middleware to check if user is admin
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (!req.user || !(req.user as any).isAdmin) {
+  if (!req.user || !(req.user as any).is_admin) {
     return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
   }
   next();

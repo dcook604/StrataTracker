@@ -29,7 +29,7 @@ const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
 
 // Ensure user is council member middleware
 const ensureCouncilMember = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated() && req.user && (req.user as any).isCouncilMember) {
+  if (req.isAuthenticated() && req.user && (req.user as any).is_council_member) {
     return next();
   }
   res.status(403).json({ message: "Forbidden - Council access required" });

@@ -109,7 +109,9 @@ export function setupAuth(app: Express) {
             return done(null, false, { message: "Authentication error" });
           }
           
-          // Successful login - reset failed attempts and update last login if those features are available
+          // This code is unreachable due to the return statements above
+          // Keeping it commented out for reference
+          /*
           if (typeof dbStorage.resetFailedLoginAttempts === 'function') {
             await dbStorage.resetFailedLoginAttempts(user.id);
           }
@@ -118,6 +120,7 @@ export function setupAuth(app: Express) {
           }
           
           return done(null, user);
+          */
         } catch (error) {
           return done(error);
         }
@@ -196,7 +199,7 @@ export function setupAuth(app: Express) {
   app.get("/api/users", async (req, res, next) => {
     try {
       // Check if the request is from an admin
-      if (!req.isAuthenticated() || !req.user.isAdmin) {
+      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
         return res.status(403).json({ message: "Only administrators can view user list" });
       }
 
@@ -217,7 +220,7 @@ export function setupAuth(app: Express) {
   app.patch("/api/users/:id", async (req, res, next) => {
     try {
       // Check if the request is from an admin
-      if (!req.isAuthenticated() || !req.user.isAdmin) {
+      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
         return res.status(403).json({ message: "Only administrators can update users" });
       }
 
@@ -247,7 +250,7 @@ export function setupAuth(app: Express) {
   app.delete("/api/users/:id", async (req, res, next) => {
     try {
       // Check if the request is from an admin
-      if (!req.isAuthenticated() || !req.user.isAdmin) {
+      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
         return res.status(403).json({ message: "Only administrators can delete users" });
       }
 
