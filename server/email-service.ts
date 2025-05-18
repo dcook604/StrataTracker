@@ -32,7 +32,7 @@ let transporter = nodemailer.createTransport({
   host: emailConfig.host,
   port: emailConfig.port,
   secure: emailConfig.secure,
-  auth: emailConfig.auth
+  auth: emailConfig.auth.user ? emailConfig.auth : undefined
 });
 
 // Load email settings from database

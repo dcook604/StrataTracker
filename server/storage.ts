@@ -39,6 +39,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
+  updateUserPassword(id: number, password: string): Promise<boolean>;
+  updateUserPasswordResetToken(id: number, token: string | null, expires: Date | null): Promise<boolean>;
   deleteUser(id: number): Promise<boolean>;
   getAllUsers(): Promise<User[]>;
   incrementFailedLoginAttempts(id: number): Promise<void>;
@@ -707,6 +709,43 @@ export class DatabaseStorage implements IStorage {
     .from(violations)
     .groupBy(violations.violationType)
     .orderBy(desc(sql<number>`count(*)`));
+  }
+  
+  // Implement password management methods
+  async updateUserPassword(id: number, password: string): Promise<boolean> {
+    try {
+      const hashedPassword = await this.hashPassword(password);
+      
+      const result = await db.update(users)
+        .set({
+          password: hashedPassword,
+          forcePasswordChange: false,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, id));
+      
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error('Error updating user password:', error);
+      return false;
+    }
+  }
+  
+  async updateUserPasswordResetToken(id: number, token: string | null, expires: Date | null): Promise<boolean> {
+    try {
+      const result = await db.update(users)
+        .set({
+          passwordResetToken: token,
+          passwordResetExpires: expires,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, id));
+      
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error('Error updating password reset token:', error);
+      return false;
+    }
   }
 }
 
