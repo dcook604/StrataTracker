@@ -72,10 +72,32 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
         console.error('Error parsing email config:', error);
       }
     }
-    return null;
+    
+    // Return default config if no setting found
+    return {
+      host: 'localhost',
+      port: 25,
+      secure: false,
+      auth: {
+        user: '',
+        pass: ''
+      },
+      from: 'noreply@strataviolations.com'
+    };
   } catch (error) {
     console.error('Error loading email settings:', error);
-    return null;
+    
+    // Return default config on error
+    return {
+      host: 'localhost',
+      port: 25,
+      secure: false,
+      auth: {
+        user: '',
+        pass: ''
+      },
+      from: 'noreply@strataviolations.com'
+    };
   }
 }
 

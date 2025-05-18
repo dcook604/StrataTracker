@@ -12,6 +12,8 @@ import {
   insertCustomerSchema,
   insertSystemSettingSchema
 } from "@shared/schema";
+import userManagementRoutes from "./routes/user-management";
+import emailConfigRoutes from "./routes/email-config";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -41,6 +43,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (error) {
     console.error("Failed to create uploads directory:", error);
   }
+  
+  // Register user management routes
+  app.use("/api/users", userManagementRoutes);
+  
+  // Register email configuration routes
+  app.use("/api/email-config", emailConfigRoutes);
 
   // Configure multer for file uploads
   const storage = multer.diskStorage({

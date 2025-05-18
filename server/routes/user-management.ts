@@ -155,12 +155,7 @@ router.post('/forgot-password', async (req, res) => {
     const resetExpires = new Date(Date.now() + 3600000); // 1 hour
     
     // Save token to database
-    await db.update(users)
-      .set({
-        passwordResetToken: resetToken,
-        passwordResetExpires: resetExpires
-      })
-      .where(eq(users.id, user.id));
+    await storage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
     
     // Send reset email
     await sendPasswordResetEmail(user.email, resetToken);
@@ -196,12 +191,9 @@ router.post('/reset-password', async (req, res) => {
     }
     
     // Update password
-    await storage.updateUser(user.id, {
-      password,
-      passwordResetToken: null,
-      passwordResetExpires: null,
-      forcePasswordChange: false
-    });
+    await storage.updateUserPassword(user.id, password);
+    // Clear reset token
+    await storage.updateUserPasswordResetToken(user.id, null, null);
     
     res.json({ message: 'Password has been updated successfully' });
   } catch (error) {
@@ -233,8 +225,10 @@ router.post('/change-password', async (req, res) => {
     }
     
     // Update password
+    await storage.updateUserPassword(userId, newPassword);
+    
+    // Make sure forcePasswordChange is set to false
     await storage.updateUser(userId, {
-      password: newPassword,
       forcePasswordChange: false
     });
     
