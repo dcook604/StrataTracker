@@ -76,13 +76,30 @@ export function setupAuth(app: Express) {
           }
           
           // Check credentials
-          if (!user || !(await storage.comparePasswords(password, user.password))) {
-            // Increment failed login attempts if that feature is available
-            if (user && typeof storage.incrementFailedLoginAttempts === 'function') {
-              await storage.incrementFailedLoginAttempts(user.id);
-            }
+          if (!user) {
             return done(null, false, { message: "Invalid email or password" });
-          } 
+          }
+          
+          // For debugging purposes
+          console.log("Comparing passwords...");
+          console.log("Password provided:", password);
+          console.log("Stored password format:", user.password);
+          
+          try {
+            const isMatch = await storage.comparePasswords(password, user.password);
+            console.log("Password match result:", isMatch);
+            
+            if (!isMatch) {
+              // Increment failed login attempts if that feature is available
+              if (typeof storage.incrementFailedLoginAttempts === 'function') {
+                await storage.incrementFailedLoginAttempts(user.id);
+              }
+              return done(null, false, { message: "Invalid email or password" });
+            }
+          } catch (error) {
+            console.error("Error comparing passwords:", error);
+            return done(null, false, { message: "Authentication error" });
+          }
           
           // Successful login - reset failed attempts and update last login if those features are available
           if (typeof storage.resetFailedLoginAttempts === 'function') {
