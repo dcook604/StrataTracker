@@ -8,25 +8,31 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   uuid: uuid("uuid").defaultRandom().notNull().unique(),
   email: text("email").notNull().unique(),
+  username: text("username").notNull(),
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
   isCouncilMember: boolean("is_council_member").default(false).notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
+  isUser: boolean("is_user").default(true).notNull(),
   lastLogin: timestamp("last_login"),
   failedLoginAttempts: integer("failed_login_attempts").default(0),
   accountLocked: boolean("account_locked").default(false),
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
+  forcePasswordChange: boolean("force_password_change").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
+  username: true,
   password: true,
   fullName: true,
   isCouncilMember: true,
   isAdmin: true,
+  isUser: true,
+  forcePasswordChange: true,
 });
 
 // Customer records schema (enhanced property units)
