@@ -67,25 +67,30 @@ export function setupAuth(app: Express) {
       { usernameField: 'email' },
       async (email, password, done) => {
         try {
-          const user = await storage.getUserByEmail(email);
+          // Get user by email. For backward compatibility, also check username field
+          let user = await storage.getUserByEmail(email);
           
-          // Check if account is locked
+          // Check if account is locked (if that feature is available)
           if (user?.accountLocked) {
             return done(null, false, { message: "Account locked due to too many failed attempts" });
           }
           
           // Check credentials
           if (!user || !(await storage.comparePasswords(password, user.password))) {
-            // Increment failed login attempts
-            if (user) {
+            // Increment failed login attempts if that feature is available
+            if (user && typeof storage.incrementFailedLoginAttempts === 'function') {
               await storage.incrementFailedLoginAttempts(user.id);
             }
             return done(null, false, { message: "Invalid email or password" });
           } 
           
-          // Successful login - reset failed attempts and update last login
-          await storage.resetFailedLoginAttempts(user.id);
-          await storage.updateLastLogin(user.id);
+          // Successful login - reset failed attempts and update last login if those features are available
+          if (typeof storage.resetFailedLoginAttempts === 'function') {
+            await storage.resetFailedLoginAttempts(user.id);
+          }
+          if (typeof storage.updateLastLogin === 'function') {
+            await storage.updateLastLogin(user.id);
+          }
           
           return done(null, user);
         } catch (error) {
