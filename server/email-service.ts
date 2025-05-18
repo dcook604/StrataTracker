@@ -43,7 +43,7 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
     
     if (settings.length > 0) {
       try {
-        const config = JSON.parse(settings[0].settingValue);
+        const config = JSON.parse(settings[0].settingValue || '{}');
         
         // Validate the config has the required fields
         if (config.host && config.port && config.from) {

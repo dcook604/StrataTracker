@@ -30,7 +30,7 @@ router.get('/', isAdmin, async (req, res) => {
     }
     
     // Parse the JSON value from settings
-    const config = JSON.parse(setting.settingValue);
+    const config = JSON.parse(setting.settingValue || '{}');
     
     // Don't return the actual password in the response
     if (config.auth && config.auth.pass) {
@@ -67,8 +67,8 @@ router.post('/', isAdmin, async (req, res) => {
     // If password is masked, get the current password from database
     if (auth?.pass === '********') {
       const currentSetting = await storage.getSystemSetting('email_config');
-      if (currentSetting) {
-        const currentConfig = JSON.parse(currentSetting.settingValue);
+      if (currentSetting && currentSetting.settingValue) {
+        const currentConfig = JSON.parse(currentSetting.settingValue || '{}');
         if (currentConfig.auth && currentConfig.auth.pass) {
           config.auth.pass = currentConfig.auth.pass;
         }
@@ -114,8 +114,8 @@ router.post('/test', isAdmin, async (req, res) => {
     // If password is masked, get the current password from database
     if (auth?.pass === '********') {
       const currentSetting = await storage.getSystemSetting('email_config');
-      if (currentSetting) {
-        const currentConfig = JSON.parse(currentSetting.settingValue);
+      if (currentSetting && currentSetting.settingValue) {
+        const currentConfig = JSON.parse(currentSetting.settingValue || '{}');
         if (currentConfig.auth && currentConfig.auth.pass) {
           config.auth.pass = currentConfig.auth.pass;
         }
