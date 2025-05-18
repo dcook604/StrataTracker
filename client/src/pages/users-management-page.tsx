@@ -33,7 +33,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, UserPlus, RefreshCw } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
+// We're using direct fetch calls instead of apiRequest
 
 // Define user type
 type User = {
@@ -87,8 +87,11 @@ export function UsersManagementPage() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (data: CreateUserFormData) => {
-      return apiRequest('/api/users', {
+      const response = await fetch('/api/users', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           email: data.email,
           fullName: data.fullName,
@@ -97,6 +100,13 @@ export function UsersManagementPage() {
           isUser: data.role === 'user',
         }),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create user');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
@@ -119,9 +129,16 @@ export function UsersManagementPage() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      return apiRequest(`/api/users/${userId}`, {
+      const response = await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete user');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
@@ -144,10 +161,20 @@ export function UsersManagementPage() {
   // Send password reset email
   const resetPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
-      return apiRequest('/api/users/forgot-password', {
+      const response = await fetch('/api/users/forgot-password', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email }),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send password reset');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({

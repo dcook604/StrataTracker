@@ -271,9 +271,9 @@ export function EmailSettingsPage() {
                         <FormLabel className="text-base">
                           Use SSL/TLS
                         </FormLabel>
-                        <FormDescription>
+                        <p className="text-sm text-muted-foreground">
                           Enable for secure SMTP connection (usually port 465)
-                        </FormDescription>
+                        </p>
                       </div>
                       <FormControl>
                         <Switch
