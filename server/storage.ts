@@ -109,11 +109,11 @@ export interface IStorage {
   comparePasswords(supplied: string, stored: string): Promise<boolean>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using 'any' to avoid SessionStore type issues
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({
@@ -328,16 +328,6 @@ export class DatabaseStorage implements IStorage {
       .returning();
       
     return updatedUser;
-    
-    const [updatedUser] = await db.update(users)
-      .set({
-        ...dataToUpdate,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, id))
-      .returning();
-      
-    return updatedUser;
   }
   
   async deleteUser(id: number): Promise<boolean> {
@@ -387,47 +377,6 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Failed to update last login:', error);
     }
-  }
-      .returning();
-      
-    return updatedUser;
-  }
-  
-  async deleteUser(id: number): Promise<boolean> {
-    const result = await db.delete(users)
-      .where(eq(users.id, id));
-    
-    return result.rowCount > 0;
-  }
-  
-  async getAllUsers(): Promise<User[]> {
-    return db.select().from(users).orderBy(users.fullName);
-  }
-  
-  async incrementFailedLoginAttempts(id: number): Promise<void> {
-    await db.update(users)
-      .set({
-        failedLoginAttempts: sql`COALESCE(${users.failedLoginAttempts}, 0) + 1`,
-        accountLocked: sql`CASE WHEN COALESCE(${users.failedLoginAttempts}, 0) + 1 >= 5 THEN true ELSE ${users.accountLocked} END`
-      })
-      .where(eq(users.id, id));
-  }
-  
-  async resetFailedLoginAttempts(id: number): Promise<void> {
-    await db.update(users)
-      .set({
-        failedLoginAttempts: 0,
-        accountLocked: false
-      })
-      .where(eq(users.id, id));
-  }
-  
-  async updateLastLogin(id: number): Promise<void> {
-    await db.update(users)
-      .set({
-        lastLogin: new Date()
-      })
-      .where(eq(users.id, id));
   }
 
   // Property units operations
@@ -479,37 +428,53 @@ export class DatabaseStorage implements IStorage {
       .from(violations)
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .where(eq(violations.id, id));
-
-    if (result.length === 0) return undefined;
-
+      
+    if (result.length === 0) {
+      return undefined;
+    }
+    
     return {
       ...result[0].violation,
       unit: result[0].unit
     };
   }
-
+  
   async getAllViolations(): Promise<Violation[]> {
     return db.select().from(violations).orderBy(desc(violations.createdAt));
   }
-
+  
   async getViolationsByStatus(status: ViolationStatus): Promise<Violation[]> {
-    return db.select().from(violations)
+    return db
+      .select()
+      .from(violations)
       .where(eq(violations.status, status))
       .orderBy(desc(violations.createdAt));
   }
-
+  
   async getViolationsByUnit(unitId: number): Promise<Violation[]> {
-    return db.select().from(violations)
+    return db
+      .select()
+      .from(violations)
       .where(eq(violations.unitId, unitId))
       .orderBy(desc(violations.createdAt));
   }
-
+  
   async getViolationsByReporter(userId: number): Promise<Violation[]> {
-    return db.select().from(violations)
+    return db
+      .select()
+      .from(violations)
       .where(eq(violations.reportedById, userId))
       .orderBy(desc(violations.createdAt));
   }
-
+  
+  async getViolationsByCategory(categoryId: number): Promise<Violation[]> {
+    return db
+      .select()
+      .from(violations)
+      .where(eq(violations.categoryId, categoryId))
+      .orderBy(desc(violations.createdAt));
+  }
+  
   async getRecentViolations(limit: number): Promise<(Violation & { unit: PropertyUnit })[]> {
     const result = await db
       .select({
@@ -520,108 +485,146 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .orderBy(desc(violations.createdAt))
       .limit(limit);
-
+      
     return result.map(r => ({
       ...r.violation,
       unit: r.unit
     }));
   }
-
+  
   async createViolation(violation: InsertViolation): Promise<Violation> {
-    const [newViolation] = await db.insert(violations).values(violation).returning();
+    const [newViolation] = await db
+      .insert(violations)
+      .values({
+        ...violation,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+      
     return newViolation;
   }
   
-  async getViolationsByCategory(categoryId: number): Promise<Violation[]> {
-    return db.select().from(violations)
-      .where(eq(violations.categoryId, categoryId))
-      .orderBy(desc(violations.createdAt));
+  async updateViolation(id: number, violation: Partial<InsertViolation>): Promise<Violation | undefined> {
+    const [updatedViolation] = await db
+      .update(violations)
+      .set({
+        ...violation,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.id, id))
+      .returning();
+      
+    return updatedViolation;
+  }
+  
+  async updateViolationStatus(id: number, status: ViolationStatus): Promise<Violation | undefined> {
+    const [updatedViolation] = await db
+      .update(violations)
+      .set({
+        status,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.id, id))
+      .returning();
+      
+    return updatedViolation;
+  }
+  
+  async setViolationFine(id: number, amount: number): Promise<Violation | undefined> {
+    const [updatedViolation] = await db
+      .update(violations)
+      .set({
+        fineAmount: amount,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.id, id))
+      .returning();
+      
+    return updatedViolation;
   }
   
   async generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined> {
-    const [violation] = await db.update(violations)
+    const violation = await this.getViolation(id);
+    
+    if (!violation) {
+      return undefined;
+    }
+    
+    const [updatedViolation] = await db
+      .update(violations)
       .set({
-        pdfGenerated: true,
         pdfPath,
         updatedAt: new Date()
       })
       .where(eq(violations.id, id))
       .returning();
       
-    return violation;
-  }
-
-  async updateViolation(id: number, violation: Partial<InsertViolation>): Promise<Violation | undefined> {
-    const [updatedViolation] = await db
-      .update(violations)
-      .set({ ...violation, updatedAt: new Date() })
-      .where(eq(violations.id, id))
-      .returning();
     return updatedViolation;
   }
-
-  async updateViolationStatus(id: number, status: ViolationStatus): Promise<Violation | undefined> {
-    return this.updateViolation(id, { status });
-  }
-
-  async setViolationFine(id: number, amount: number): Promise<Violation | undefined> {
-    return this.updateViolation(id, { fineAmount: amount });
-  }
-
+  
   // Violation history operations
   async getViolationHistory(violationId: number): Promise<ViolationHistory[]> {
-    return db.select()
+    return db
+      .select()
       .from(violationHistories)
       .where(eq(violationHistories.violationId, violationId))
-      .orderBy(violationHistories.createdAt);
+      .orderBy(desc(violationHistories.createdAt));
   }
-
+  
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
-    const [newHistory] = await db.insert(violationHistories).values(history).returning();
+    const [newHistory] = await db
+      .insert(violationHistories)
+      .values(history)
+      .returning();
+      
     return newHistory;
   }
-
+  
   // Reporting operations
   async getRepeatViolations(minCount: number): Promise<{ unitId: number, unitNumber: string, count: number, lastViolationDate: Date }[]> {
-    const result = await db.query.violations.findMany({
-      columns: {
-        unitId: true,
-      },
-      with: {
-        unit: {
-          columns: {
-            unitNumber: true
-          }
-        }
-      }
+    const result = await db
+      .select({
+        unitId: violations.unitId,
+        count: sql<number>`count(*)`,
+        lastViolation: sql<Date>`max(${violations.createdAt})`
+      })
+      .from(violations)
+      .groupBy(violations.unitId)
+      .having(sql`count(*) >= ${minCount}`);
+      
+    // Get unit numbers for each unit ID
+    const unitIds = result.map(r => r.unitId);
+    
+    if (unitIds.length === 0) {
+      return [];
+    }
+    
+    const units = await db
+      .select({
+        id: propertyUnits.id,
+        unitNumber: propertyUnits.unitNumber
+      })
+      .from(propertyUnits)
+      .where(
+        or(...unitIds.map(id => eq(propertyUnits.id, id)))
+      );
+    
+    // Create a map of unit IDs to unit numbers
+    const unitMap = new Map();
+    units.forEach(unit => {
+      unitMap.set(unit.id, unit.unitNumber);
     });
-
-    // Process results to count violations per unit
-    const countMap = new Map<number, { unitNumber: string, count: number, dates: Date[] }>();
     
-    result.forEach(v => {
-      const currentUnitData = countMap.get(v.unitId) || { unitNumber: v.unit.unitNumber, count: 0, dates: [] };
-      currentUnitData.count += 1;
-      if (v.violationDate) {
-        currentUnitData.dates.push(new Date(v.violationDate));
-      }
-      countMap.set(v.unitId, currentUnitData);
-    });
-    
-    // Filter and format
-    const repeatViolations = Array.from(countMap.entries())
-      .filter(([_, data]) => data.count >= minCount)
-      .map(([unitId, data]) => ({
-        unitId,
-        unitNumber: data.unitNumber,
-        count: data.count,
-        lastViolationDate: data.dates.sort((a, b) => b.getTime() - a.getTime())[0] // most recent date
-      }))
-      .sort((a, b) => b.count - a.count);
-    
-    return repeatViolations;
+    // Create the final result
+    return result.map(r => ({
+      unitId: r.unitId,
+      unitNumber: unitMap.get(r.unitId) || 'Unknown',
+      count: Number(r.count),
+      lastViolationDate: r.lastViolation
+    })).sort((a, b) => b.count - a.count);
   }
-
+  
   async getViolationStats(): Promise<{ 
     totalViolations: number,
     newViolations: number,
@@ -630,23 +633,27 @@ export class DatabaseStorage implements IStorage {
     disputedViolations: number,
     rejectedViolations: number
   }> {
-    const totalViolations = await db.select({ count: sql<number>`count(*)` }).from(violations);
-    const newViolations = await db.select({ count: sql<number>`count(*)` }).from(violations).where(eq(violations.status, "new"));
-    const pendingViolations = await db.select({ count: sql<number>`count(*)` }).from(violations).where(eq(violations.status, "pending_approval"));
-    const approvedViolations = await db.select({ count: sql<number>`count(*)` }).from(violations).where(eq(violations.status, "approved"));
-    const disputedViolations = await db.select({ count: sql<number>`count(*)` }).from(violations).where(eq(violations.status, "disputed"));
-    const rejectedViolations = await db.select({ count: sql<number>`count(*)` }).from(violations).where(eq(violations.status, "rejected"));
-    
+    const [counts] = await db
+      .select({
+        total: sql<number>`count(*)`,
+        new: sql<number>`count(*) filter (where ${violations.status} = 'new')`,
+        pending: sql<number>`count(*) filter (where ${violations.status} = 'pending_approval')`,
+        approved: sql<number>`count(*) filter (where ${violations.status} = 'approved')`,
+        disputed: sql<number>`count(*) filter (where ${violations.status} = 'disputed')`,
+        rejected: sql<number>`count(*) filter (where ${violations.status} = 'rejected')`
+      })
+      .from(violations);
+      
     return {
-      totalViolations: totalViolations[0].count,
-      newViolations: newViolations[0].count,
-      pendingViolations: pendingViolations[0].count,
-      approvedViolations: approvedViolations[0].count,
-      disputedViolations: disputedViolations[0].count,
-      rejectedViolations: rejectedViolations[0].count
+      totalViolations: Number(counts.total) || 0,
+      newViolations: Number(counts.new) || 0,
+      pendingViolations: Number(counts.pending) || 0,
+      approvedViolations: Number(counts.approved) || 0,
+      disputedViolations: Number(counts.disputed) || 0,
+      rejectedViolations: Number(counts.rejected) || 0
     };
   }
-
+  
   async getViolationsByMonth(year: number): Promise<{ month: number, count: number }[]> {
     // Calculate date range for the year
     const startDate = new Date(year, 0, 1); // January 1st of the year
