@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { SystemSetting } from "@shared/schema";
 import {
@@ -105,7 +105,7 @@ export default function SettingsPage() {
       const formValues = mapSettingsToForm(settings);
       emailForm.reset(formValues);
     }
-  });
+  }, [settings, emailForm]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: EmailSettingsFormValues) => {
@@ -411,16 +411,12 @@ export default function SettingsPage() {
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Sending...
                             </>
-                          ) : (
-                            <>
-                              <MailIcon className="mr-2 h-4 w-4" />
-                              Send Test Email
-                            </>
-                          )}
+                          ) : "Test Email"}
                         </Button>
                       </div>
+                      
                       <Button 
-                        type="submit"
+                        type="submit" 
                         disabled={updateSettingsMutation.isPending}
                       >
                         {updateSettingsMutation.isPending ? (
@@ -440,15 +436,13 @@ export default function SettingsPage() {
           <TabsContent value="system" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>System Configuration</CardTitle>
+                <CardTitle>General Settings</CardTitle>
                 <CardDescription>
-                  Manage general system settings and configurations
+                  Configure system-wide settings and preferences
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground py-12 text-center">
-                  Additional system settings will be available in a future update.
-                </p>
+                <p className="text-muted-foreground">General system settings will be added in a future update.</p>
               </CardContent>
             </Card>
           </TabsContent>
