@@ -32,7 +32,10 @@ let transporter = nodemailer.createTransport({
   host: emailConfig.host,
   port: emailConfig.port,
   secure: emailConfig.secure,
-  auth: emailConfig.auth.user ? emailConfig.auth : undefined
+  auth: emailConfig.auth.user ? emailConfig.auth : undefined,
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 // Load email settings from database
@@ -63,7 +66,10 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
             host: emailConfig.host,
             port: emailConfig.port,
             secure: emailConfig.secure,
-            auth: emailConfig.auth.user ? emailConfig.auth : undefined
+            auth: emailConfig.auth.user ? emailConfig.auth : undefined,
+            tls: {
+              rejectUnauthorized: false
+            }
           });
           
           return emailConfig;
