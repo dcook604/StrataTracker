@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { SystemSetting } from "@shared/schema";
 import {
@@ -47,13 +47,13 @@ type EmailSettingsFormValues = z.infer<typeof emailSettingsSchema>;
 
 const mapSettingsToForm = (settings: SystemSetting[]): EmailSettingsFormValues => {
   const getValue = (key: string, defaultValue: string = "") => {
-    const setting = settings.find(s => s.key === key);
-    return setting ? setting.value : defaultValue;
+    const setting = settings.find(s => s.settingKey === key);
+    return setting ? setting.settingValue || defaultValue : defaultValue;
   };
 
   const getBoolValue = (key: string, defaultValue: boolean = false) => {
-    const setting = settings.find(s => s.key === key);
-    return setting ? setting.value === 'true' : defaultValue;
+    const setting = settings.find(s => s.settingKey === key);
+    return setting ? setting.settingValue === 'true' : defaultValue;
   };
 
   return {
@@ -100,7 +100,7 @@ export default function SettingsPage() {
   });
 
   // Update form values when settings are loaded
-  useState(() => {
+  useEffect(() => {
     if (settings) {
       const formValues = mapSettingsToForm(settings);
       emailForm.reset(formValues);
@@ -110,19 +110,19 @@ export default function SettingsPage() {
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: EmailSettingsFormValues) => {
       const updates = [
-        { key: 'email_sender_name', value: data.emailSenderName },
-        { key: 'email_sender_address', value: data.emailSenderAddress },
-        { key: 'email_notifications_enabled', value: data.emailNotificationsEnabled.toString() },
-        { key: 'email_logo_enabled', value: data.emailLogoEnabled.toString() },
-        { key: 'email_footer_text', value: data.emailFooterText || "" },
-        { key: 'violation_submitted_subject', value: data.violationSubmittedSubject },
-        { key: 'violation_approved_subject', value: data.violationApprovedSubject },
-        { key: 'violation_disputed_subject', value: data.violationDisputedSubject },
-        { key: 'violation_rejected_subject', value: data.violationRejectedSubject },
+        { settingKey: 'email_sender_name', settingValue: data.emailSenderName },
+        { settingKey: 'email_sender_address', settingValue: data.emailSenderAddress },
+        { settingKey: 'email_notifications_enabled', settingValue: data.emailNotificationsEnabled.toString() },
+        { settingKey: 'email_logo_enabled', settingValue: data.emailLogoEnabled.toString() },
+        { settingKey: 'email_footer_text', settingValue: data.emailFooterText || "" },
+        { settingKey: 'violation_submitted_subject', settingValue: data.violationSubmittedSubject },
+        { settingKey: 'violation_approved_subject', settingValue: data.violationApprovedSubject },
+        { settingKey: 'violation_disputed_subject', settingValue: data.violationDisputedSubject },
+        { settingKey: 'violation_rejected_subject', settingValue: data.violationRejectedSubject },
       ];
 
       for (const update of updates) {
-        await apiRequest("PUT", `/api/settings/${update.key}`, { value: update.value });
+        await apiRequest("PUT", `/api/settings/${update.settingKey}`, { settingValue: update.settingValue });
       }
 
       return true;
