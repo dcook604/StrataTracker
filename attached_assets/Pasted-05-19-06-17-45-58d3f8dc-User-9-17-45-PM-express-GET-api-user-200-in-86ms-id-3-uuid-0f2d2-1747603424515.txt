@@ -1,0 +1,71 @@
+05-19 06:17:45
+58d3f8dc
+User
+9:17:45 PM [express] GET /api/user 200 in 86ms :: {"id":3,"uuid":"0f2d24d0-cbc3-4d62-a45e-bfa32b7b1b…
+05-19 06:17:45
+58d3f8dc
+User
+9:17:45 PM [express] GET /api/reports/repeat-violations 500 in 91ms :: {"message":"Failed to fetch r…
+05-19 06:17:45
+58d3f8dc
+User
+9:17:45 PM [express] GET /api/violations/recent 500 in 177ms :: {"message":"Failed to fetch recent v…
+05-19 06:17:45
+58d3f8dc
+User
+9:17:45 PM [express] GET /api/reports/stats 500 in 182ms :: {"message":"Failed to fetch violation st…
+05-19 06:17:45
+58d3f8dc
+User
+9:17:45 PM [express] GET /api/property-units 500 in 176ms :: {"message":"Failed to fetch property un…
+05-19 06:17:54
+58d3f8dc
+User
+9:17:54 PM [express] GET /api/violations 500 in 116ms :: {"message":"Failed to fetch violations"}
+05-19 06:18:01
+58d3f8dc
+User
+9:18:01 PM [express] GET /api/settings 500 in 79ms :: {"message":"Failed to fetch system settings"}
+05-19 06:18:04
+58d3f8dc
+User
+9:18:04 PM [express] GET /api/user 304 in 76ms :: {"id":3,"uuid":"0f2d24d0-cbc3-4d62-a45e-bfa32b7b1b…
+05-19 06:18:04
+58d3f8dc
+User
+9:18:04 PM [express] GET /api/email-config 403 in 1ms :: {"message":"Access denied. Admin privileges…
+05-19 06:18:06
+58d3f8dc
+User
+9:18:06 PM [express] GET /api/email-config 403 in 1ms :: {"message":"Access denied. Admin privileges…
+05-19 06:18:11
+58d3f8dc
+User
+9:18:11 PM [express] GET /api/user 304 in 74ms :: {"id":3,"uuid":"0f2d24d0-cbc3-4d62-a45e-bfa32b7b1b…
+05-19 06:18:11
+58d3f8dc
+User
+9:18:11 PM [express] GET /api/users 403 in 1ms :: {"message":"Access denied. Admin privileges requir…
+05-19 06:18:25
+58d3f8dc
+User
+9:18:25 PM [express] GET /api/reports/stats 500 in 158ms :: {"message":"Failed to fetch violation st…
+05-19 06:18:25
+58d3f8dc
+User
+9:18:25 PM [express] GET /api/property-units 500 in 162ms :: {"message":"Failed to fetch property un…
+05-19 06:18:25
+58d3f8dc
+User
+9:18:25 PM [express] GET /api/violations/recent 500 in 171ms :: {"message":"Failed to fetch recent v…
+05-19 06:18:25
+58d3f8dc
+User
+9:18:25 PM [express] GET /api/reports/repeat-violations 500 in 181ms :: {"message":"Failed to fetch …
+05-19 06:18:37
+58d3f8dc
+User
+9:18:37 PM [express] GET /api/violation-categories 500 in 151ms :: {"message":"Failed to fetch viola…
+05-19 06:18:50
+58d3f8dc
+User

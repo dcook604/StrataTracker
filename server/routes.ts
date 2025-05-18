@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage as dbStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { sendViolationNotification, sendViolationApprovedNotification } from "./email";
 import { z } from "zod";
@@ -82,7 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Property Units API
   app.get("/api/property-units", ensureAuthenticated, async (req, res) => {
     try {
-      const units = await global.storage.getAllPropertyUnits();
+      const units = await dbStorage.getAllPropertyUnits();
       res.json(units);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch property units" });
@@ -92,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/property-units", ensureAuthenticated, async (req, res) => {
     try {
       const unitData = insertPropertyUnitSchema.parse(req.body);
-      const unit = await global.storage.createPropertyUnit(unitData);
+      const unit = await dbStorage.createPropertyUnit(unitData);
       res.status(201).json(unit);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -109,9 +109,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let violations;
       if (status && typeof status === 'string') {
-        violations = await global.storage.getViolationsByStatus(status as any);
+        violations = await dbStorage.getViolationsByStatus(status as any);
       } else {
-        violations = await global.storage.getAllViolations();
+        violations = await dbStorage.getAllViolations();
       }
       
       res.json(violations);
@@ -123,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/violations/recent", ensureAuthenticated, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 5;
-      const violations = await global.storage.getRecentViolations(limit);
+      const violations = await dbStorage.getRecentViolations(limit);
       res.json(violations);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch recent violations" });
@@ -133,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/violations/:id", ensureAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const violation = await global.storage.getViolationWithUnit(id);
+      const violation = await dbStorage.getViolationWithUnit(id);
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
@@ -166,10 +166,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Create the violation
-      const violation = await global.storage.createViolation(validatedData);
+      const violation = await dbStorage.createViolation(validatedData);
       
       // Add to history
-      await global.storage.addViolationHistory({
+      await dbStorage.addViolationHistory({
         violationId: violation.id,
         userId: req.user.id,
         action: "created",
@@ -177,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Fetch the unit details for email
-      const unit = await global.storage.getPropertyUnit(violation.unitId);
+      const unit = await dbStorage.getPropertyUnit(violation.unitId);
       
       if (unit) {
         // Send email notification
@@ -214,14 +214,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update the violation status
-      const violation = await global.storage.updateViolationStatus(id, status);
+      const violation = await dbStorage.updateViolationStatus(id, status);
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
       }
       
       // Add to history
-      await global.storage.addViolationHistory({
+      await dbStorage.addViolationHistory({
         violationId: violation.id,
         userId: req.user.id,
         action: `status_changed_to_${status}`,
@@ -230,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If approved and has fine amount, send approval notification
       if (status === "approved" && violation.fineAmount) {
-        const unit = await global.storage.getPropertyUnit(violation.unitId);
+        const unit = await dbStorage.getPropertyUnit(violation.unitId);
         if (unit) {
           await sendViolationApprovedNotification({
             violationId: violation.id,
@@ -258,14 +258,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid fine amount" });
       }
       
-      const violation = await global.storage.setViolationFine(id, amount);
+      const violation = await dbStorage.setViolationFine(id, amount);
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
       }
       
       // Add to history
-      await global.storage.addViolationHistory({
+      await dbStorage.addViolationHistory({
         violationId: violation.id,
         userId: req.user.id,
         action: "fine_set",
@@ -274,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If violation is already approved, send approval notification with fine
       if (violation.status === "approved") {
-        const unit = await global.storage.getPropertyUnit(violation.unitId);
+        const unit = await dbStorage.getPropertyUnit(violation.unitId);
         if (unit) {
           await sendViolationApprovedNotification({
             violationId: violation.id,
@@ -306,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const validatedData = insertViolationHistorySchema.parse(historyData);
-      const history = await global.storage.addViolationHistory(validatedData);
+      const history = await dbStorage.addViolationHistory(validatedData);
       
       res.status(201).json(history);
     } catch (error) {
@@ -320,7 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/violations/:id/history", ensureAuthenticated, async (req, res) => {
     try {
       const violationId = parseInt(req.params.id);
-      const history = await global.storage.getViolationHistory(violationId);
+      const history = await dbStorage.getViolationHistory(violationId);
       
       res.json(history);
     } catch (error) {
@@ -331,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports API
   app.get("/api/reports/stats", ensureAuthenticated, async (req, res) => {
     try {
-      const stats = await global.storage.getViolationStats();
+      const stats = await dbStorage.getViolationStats();
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch violation statistics" });
@@ -341,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reports/repeat-violations", ensureAuthenticated, async (req, res) => {
     try {
       const minCount = parseInt(req.query.minCount as string) || 3;
-      const repeatViolations = await global.storage.getRepeatViolations(minCount);
+      const repeatViolations = await dbStorage.getRepeatViolations(minCount);
       res.json(repeatViolations);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch repeat violations" });
@@ -352,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/violation-categories", ensureAuthenticated, async (req, res) => {
     try {
       const activeOnly = req.query.activeOnly === 'true';
-      const categories = await global.storage.getAllViolationCategories(activeOnly);
+      const categories = await dbStorage.getAllViolationCategories(activeOnly);
       res.json(categories);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch violation categories" });
@@ -362,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/violation-categories/:id", ensureAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const category = await global.storage.getViolationCategory(id);
+      const category = await dbStorage.getViolationCategory(id);
       
       if (!category) {
         return res.status(404).json({ message: "Violation category not found" });
@@ -377,7 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/violation-categories", ensureCouncilMember, async (req, res) => {
     try {
       const categoryData = insertViolationCategorySchema.parse(req.body);
-      const newCategory = await global.storage.createViolationCategory(categoryData);
+      const newCategory = await dbStorage.createViolationCategory(categoryData);
       res.status(201).json(newCategory);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -391,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const categoryData = insertViolationCategorySchema.partial().parse(req.body);
-      const updatedCategory = await global.storage.updateViolationCategory(id, categoryData);
+      const updatedCategory = await dbStorage.updateViolationCategory(id, categoryData);
       
       if (!updatedCategory) {
         return res.status(404).json({ message: "Violation category not found" });
@@ -411,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
-      const result = await global.storage.getAllCustomers(page, limit);
+      const result = await dbStorage.getAllCustomers(page, limit);
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch customers" });
@@ -425,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Search query must be at least 2 characters" });
       }
       
-      const customers = await global.storage.searchCustomers(query);
+      const customers = await dbStorage.searchCustomers(query);
       res.json(customers);
     } catch (error) {
       res.status(500).json({ message: "Failed to search customers" });
@@ -435,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/customers/:id", ensureCouncilMember, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const customer = await global.storage.getCustomer(id);
+      const customer = await dbStorage.getCustomer(id);
       
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
@@ -450,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers", ensureCouncilMember, async (req, res) => {
     try {
       const customerData = insertCustomerSchema.parse(req.body);
-      const newCustomer = await global.storage.createCustomer(customerData);
+      const newCustomer = await dbStorage.createCustomer(customerData);
       res.status(201).json(newCustomer);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -464,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const customerData = insertCustomerSchema.partial().parse(req.body);
-      const updatedCustomer = await global.storage.updateCustomer(id, customerData);
+      const updatedCustomer = await dbStorage.updateCustomer(id, customerData);
       
       if (!updatedCustomer) {
         return res.status(404).json({ message: "Customer not found" });
@@ -482,7 +482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // System Settings API endpoints
   app.get("/api/settings", ensureCouncilMember, async (req, res) => {
     try {
-      const settings = await global.storage.getAllSystemSettings();
+      const settings = await dbStorage.getAllSystemSettings();
       res.json(settings);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch system settings" });
@@ -492,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/settings/:key", ensureCouncilMember, async (req, res) => {
     try {
       const key = req.params.key;
-      const setting = await global.storage.getSystemSetting(key);
+      const setting = await dbStorage.getSystemSetting(key);
       
       if (!setting) {
         return res.status(404).json({ message: "Setting not found" });
@@ -513,7 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Setting value is required" });
       }
       
-      const setting = await global.storage.updateSystemSetting(key, value, req.user.id);
+      const setting = await dbStorage.updateSystemSetting(key, value, req.user.id);
       res.json(setting);
     } catch (error) {
       res.status(500).json({ message: "Failed to update setting" });
@@ -523,7 +523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reports/violations-by-month", ensureAuthenticated, async (req, res) => {
     try {
       const year = parseInt(req.query.year as string) || new Date().getFullYear();
-      const violationsByMonth = await global.storage.getViolationsByMonth(year);
+      const violationsByMonth = await dbStorage.getViolationsByMonth(year);
       res.json(violationsByMonth);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch violations by month" });
@@ -532,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/reports/violations-by-type", ensureAuthenticated, async (req, res) => {
     try {
-      const violationsByType = await global.storage.getViolationsByType();
+      const violationsByType = await dbStorage.getViolationsByType();
       res.json(violationsByType);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch violations by type" });

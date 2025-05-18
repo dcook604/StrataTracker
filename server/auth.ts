@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { storage } from "./storage";
+import { storage as dbStorage } from "./storage";
 import { User as SelectUser, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { randomBytes } from "crypto";
@@ -47,7 +47,7 @@ export function setupAuth(app: Express) {
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
+    store: dbStorage.sessionStore,
     cookie: {
       maxAge: 1000 * 60 * 60 * 8, // 8 hours
       httpOnly: true,
@@ -68,7 +68,7 @@ export function setupAuth(app: Express) {
       async (email, password, done) => {
         try {
           // Get user by email. For backward compatibility, also check username field
-          let user = await storage.getUserByEmail(email);
+          let user = await dbStorage.getUserByEmail(email);
           
           // Check if account is locked (if that feature is available)
           if (user?.accountLocked) {
@@ -91,13 +91,13 @@ export function setupAuth(app: Express) {
             
             // If not a simple match, try the normal comparison
             console.log("Trying normal password comparison");
-            const isMatch = await storage.comparePasswords(password, user.password);
+            const isMatch = await dbStorage.comparePasswords(password, user.password);
             console.log("Normal password comparison result:", isMatch);
             
             if (!isMatch) {
               // Increment failed login attempts if that feature is available
-              if (typeof storage.incrementFailedLoginAttempts === 'function') {
-                await storage.incrementFailedLoginAttempts(user.id);
+              if (typeof dbStorage.incrementFailedLoginAttempts === 'function') {
+                await dbStorage.incrementFailedLoginAttempts(user.id);
               }
               return done(null, false, { message: "Invalid email or password" });
             }
@@ -110,11 +110,11 @@ export function setupAuth(app: Express) {
           }
           
           // Successful login - reset failed attempts and update last login if those features are available
-          if (typeof storage.resetFailedLoginAttempts === 'function') {
-            await storage.resetFailedLoginAttempts(user.id);
+          if (typeof dbStorage.resetFailedLoginAttempts === 'function') {
+            await dbStorage.resetFailedLoginAttempts(user.id);
           }
-          if (typeof storage.updateLastLogin === 'function') {
-            await storage.updateLastLogin(user.id);
+          if (typeof dbStorage.updateLastLogin === 'function') {
+            await dbStorage.updateLastLogin(user.id);
           }
           
           return done(null, user);
@@ -128,7 +128,7 @@ export function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
-      const user = await storage.getUser(id);
+      const user = await dbStorage.getUser(id);
       done(null, user);
     } catch (error) {
       done(error);
@@ -174,12 +174,12 @@ export function setupAuth(app: Express) {
       // Validate request body
       const validatedData = registerSchema.parse(req.body);
       
-      const existingUser = await storage.getUserByEmail(validatedData.email);
+      const existingUser = await dbStorage.getUserByEmail(validatedData.email);
       if (existingUser) {
         return res.status(400).json({ message: "Email already exists" });
       }
 
-      const user = await storage.createUser(validatedData);
+      const user = await dbStorage.createUser(validatedData);
 
       // Remove sensitive fields before sending the user object
       const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
@@ -200,7 +200,7 @@ export function setupAuth(app: Express) {
         return res.status(403).json({ message: "Only administrators can view user list" });
       }
 
-      const users = await storage.getAllUsers();
+      const users = await dbStorage.getAllUsers();
       
       // Remove sensitive information before sending
       const safeUsers = users.map(user => {
@@ -225,13 +225,13 @@ export function setupAuth(app: Express) {
       
       // Don't allow changing email to one that already exists
       if (req.body.email) {
-        const existingUser = await storage.getUserByEmail(req.body.email);
+        const existingUser = await dbStorage.getUserByEmail(req.body.email);
         if (existingUser && existingUser.id !== userId) {
           return res.status(400).json({ message: "Email already in use" });
         }
       }
       
-      const updatedUser = await storage.updateUser(userId, req.body);
+      const updatedUser = await dbStorage.updateUser(userId, req.body);
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -258,7 +258,7 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Cannot delete your own account" });
       }
       
-      const deleted = await storage.deleteUser(userId);
+      const deleted = await dbStorage.deleteUser(userId);
       if (!deleted) {
         return res.status(404).json({ message: "User not found" });
       }

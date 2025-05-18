@@ -150,7 +150,10 @@ export async function verifyEmailConfig(config: EmailConfig, testEmail: string):
       host: config.host,
       port: config.port,
       secure: config.secure,
-      auth: config.auth.user ? config.auth : undefined
+      auth: config.auth.user ? config.auth : undefined,
+      tls: {
+        rejectUnauthorized: false
+      }
     });
     
     // Send a test email

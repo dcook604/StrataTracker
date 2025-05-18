@@ -1,5 +1,5 @@
 import express from 'express';
-import { storage } from '../storage';
+import { storage as dbStorage } from '../storage';
 import { verifyEmailConfig, EmailConfig } from '../email-service';
 
 const router = express.Router();
@@ -15,7 +15,7 @@ const isAdmin = (req: express.Request, res: express.Response, next: express.Next
 // Get email configuration
 router.get('/', isAdmin, async (req, res) => {
   try {
-    const setting = await storage.getSystemSetting('email_config');
+    const setting = await dbStorage.getSystemSetting('email_config');
     if (!setting) {
       return res.json({
         host: 'localhost',
@@ -66,7 +66,7 @@ router.post('/', isAdmin, async (req, res) => {
     
     // If password is masked, get the current password from database
     if (auth?.pass === '********') {
-      const currentSetting = await storage.getSystemSetting('email_config');
+      const currentSetting = await dbStorage.getSystemSetting('email_config');
       if (currentSetting && currentSetting.settingValue) {
         const currentConfig = JSON.parse(currentSetting.settingValue || '{}');
         if (currentConfig.auth && currentConfig.auth.pass) {
@@ -76,7 +76,7 @@ router.post('/', isAdmin, async (req, res) => {
     }
     
     // Save configuration
-    await storage.updateSystemSetting(
+    await dbStorage.updateSystemSetting(
       'email_config',
       JSON.stringify(config),
       (req.user as any).id
@@ -113,7 +113,7 @@ router.post('/test', isAdmin, async (req, res) => {
     
     // If password is masked, get the current password from database
     if (auth?.pass === '********') {
-      const currentSetting = await storage.getSystemSetting('email_config');
+      const currentSetting = await dbStorage.getSystemSetting('email_config');
       if (currentSetting && currentSetting.settingValue) {
         const currentConfig = JSON.parse(currentSetting.settingValue || '{}');
         if (currentConfig.auth && currentConfig.auth.pass) {

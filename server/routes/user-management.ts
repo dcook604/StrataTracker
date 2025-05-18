@@ -1,7 +1,7 @@
 import express from 'express';
 import { randomBytes, scrypt } from 'crypto';
 import { promisify } from 'util';
-import { storage } from '../storage';
+import { storage as dbStorage } from '../storage';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
@@ -35,7 +35,7 @@ const isAdmin = (req: express.Request, res: express.Response, next: express.Next
 // Get all users (admin only)
 router.get('/', isAdmin, async (req, res) => {
   try {
-    const users = await storage.getAllUsers();
+    const users = await dbStorage.getAllUsers();
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -49,7 +49,7 @@ router.post('/', isAdmin, async (req, res) => {
     const { email, fullName, isCouncilMember, isAdmin, isUser } = req.body;
     
     // Check if user already exists
-    const existingUser = await storage.getUserByEmail(email);
+    const existingUser = await dbStorage.getUserByEmail(email);
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -58,7 +58,7 @@ router.post('/', isAdmin, async (req, res) => {
     const password = generatePassword();
     
     // Create the user
-    const user = await storage.createUser({
+    const user = await dbStorage.createUser({
       email,
       username: email, // Use email as username by default
       password,
@@ -88,13 +88,13 @@ router.put('/:id', isAdmin, async (req, res) => {
     const { fullName, isCouncilMember, isAdmin, isUser, email } = req.body;
     
     // Check if user exists
-    const existingUser = await storage.getUser(userId);
+    const existingUser = await dbStorage.getUser(userId);
     if (!existingUser) {
       return res.status(404).json({ message: 'User not found' });
     }
     
     // Update user
-    const updatedUser = await storage.updateUser(userId, {
+    const updatedUser = await dbStorage.updateUser(userId, {
       fullName: fullName || existingUser.fullName,
       isCouncilMember: isCouncilMember !== undefined ? !!isCouncilMember : existingUser.isCouncilMember,
       isAdmin: isAdmin !== undefined ? !!isAdmin : existingUser.isAdmin,
@@ -126,7 +126,7 @@ router.delete('/:id', isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete your own account' });
     }
     
-    const success = await storage.deleteUser(userId);
+    const success = await dbStorage.deleteUser(userId);
     if (!success) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -144,7 +144,7 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     
     // Check if user exists
-    const user = await storage.getUserByEmail(email);
+    const user = await dbStorage.getUserByEmail(email);
     if (!user) {
       // Don't reveal that the user doesn't exist for security
       return res.json({ message: 'If your email is registered, you will receive a password reset link' });
@@ -155,7 +155,7 @@ router.post('/forgot-password', async (req, res) => {
     const resetExpires = new Date(Date.now() + 3600000); // 1 hour
     
     // Save token to database
-    await storage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
+    await dbStorage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
     
     // Send reset email
     await sendPasswordResetEmail(user.email, resetToken);
@@ -191,9 +191,9 @@ router.post('/reset-password', async (req, res) => {
     }
     
     // Update password
-    await storage.updateUserPassword(user.id, password);
+    await dbStorage.updateUserPassword(user.id, password);
     // Clear reset token
-    await storage.updateUserPasswordResetToken(user.id, null, null);
+    await dbStorage.updateUserPasswordResetToken(user.id, null, null);
     
     res.json({ message: 'Password has been updated successfully' });
   } catch (error) {
@@ -213,22 +213,22 @@ router.post('/change-password', async (req, res) => {
     }
     
     // Get user
-    const user = await storage.getUser(userId);
+    const user = await dbStorage.getUser(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
     // Verify current password
-    const passwordMatch = await storage.comparePasswords(currentPassword, user.password);
+    const passwordMatch = await dbStorage.comparePasswords(currentPassword, user.password);
     if (!passwordMatch) {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
     
     // Update password
-    await storage.updateUserPassword(userId, newPassword);
+    await dbStorage.updateUserPassword(userId, newPassword);
     
     // Make sure forcePasswordChange is set to false
-    await storage.updateUser(userId, {
+    await dbStorage.updateUser(userId, {
       forcePasswordChange: false
     });
     
