@@ -26,16 +26,18 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
 });
 
+// Registration is now admin-only and handled in the users page
+// This schema is kept for reference but not actively used on the auth page
 const registerSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   fullName: z.string().min(2, "Full name is required"),
-  email: z.string().email("Invalid email format"),
-  isCouncil: z.boolean().default(false),
+  isCouncilMember: z.boolean().default(false),
+  isAdmin: z.boolean().default(false),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -52,20 +54,20 @@ export default function AuthPage() {
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   });
 
-  // Register form
+  // Register form not actively used on auth page
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
       fullName: "",
-      email: "",
-      isCouncil: false,
+      isCouncilMember: false,
+      isAdmin: false,
     },
   });
 
@@ -112,12 +114,12 @@ export default function AuthPage() {
                   <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                     <FormField
                       control={loginForm.control}
-                      name="username"
+                      name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Username</FormLabel>
+                          <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter your username" {...field} />
+                            <Input type="email" placeholder="Enter your email" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
