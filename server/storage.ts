@@ -36,8 +36,14 @@ const PostgresSessionStore = connectPg(session);
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
+  getAllUsers(): Promise<User[]>;
+  incrementFailedLoginAttempts(id: number): Promise<void>;
+  resetFailedLoginAttempts(id: number): Promise<void>;
+  updateLastLogin(id: number): Promise<void>;
   
   // Customer operations
   getCustomer(id: number): Promise<Customer | undefined>;
