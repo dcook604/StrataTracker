@@ -204,9 +204,9 @@ export function UsersManagementPage() {
   };
 
   const getRoleBadge = (user: User) => {
-    if (user.isAdmin) {
+    if (user.is_admin) {
       return <Badge className="bg-red-500">Admin</Badge>;
-    } else if (user.isCouncilMember) {
+    } else if (user.is_council_member) {
       return <Badge className="bg-blue-500">Council</Badge>;
     } else {
       return <Badge className="bg-green-500">User</Badge>;

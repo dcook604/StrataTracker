@@ -1,25 +1,15 @@
 import nodemailer from 'nodemailer';
+import { loadEmailSettings } from './email-service';
 
-// Set up a testing transport if not in production
-const transporter = process.env.NODE_ENV === "production" && process.env.SMTP_HOST
-  ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    })
-  : nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: 'ethereal.user@ethereal.email',
-        pass: 'ethereal.password',
-      },
-    });
+// Initialize with default local configuration
+let transporter = nodemailer.createTransport({
+  host: 'localhost',
+  port: 25,
+  secure: false,
+  tls: {
+    rejectUnauthorized: false
+  }
+});
 
 // Interface for violation notification
 interface ViolationNotificationParams {
@@ -43,22 +33,43 @@ interface ViolationApprovedParams {
   fineAmount: number;
 }
 
-// For development, log emails instead of sending when using ethereal
-const sendOrLog = async (mailOptions: nodemailer.SendMailOptions) => {
+// Always try to send email with current SMTP settings
+const sendEmail = async (mailOptions: nodemailer.SendMailOptions) => {
   try {
-    if (process.env.NODE_ENV === "production" && process.env.SMTP_HOST) {
-      const info = await transporter.sendMail(mailOptions);
-      console.log(`Email sent: ${info.messageId}`);
-      return info;
-    } else {
-      console.log("Email would be sent in production:");
+    // Get the latest email configuration
+    const emailConfig = await loadEmailSettings();
+    
+    if (emailConfig) {
+      // Update transporter with the latest settings
+      transporter = nodemailer.createTransport({
+        host: emailConfig.host,
+        port: emailConfig.port,
+        secure: emailConfig.secure,
+        auth: emailConfig.auth.user ? emailConfig.auth : undefined,
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+      
+      // Set from address if not provided
+      if (!mailOptions.from) {
+        mailOptions.from = emailConfig.from;
+      }
+    }
+    
+    // Send the email
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Email sent: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error("Error sending email:", error);
+    // Log email details in dev mode for debugging
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Email details (not sent due to error):");
       console.log("To:", mailOptions.to);
       console.log("Subject:", mailOptions.subject);
       console.log("Text:", mailOptions.text);
-      return { messageId: "dev-mode" };
     }
-  } catch (error) {
-    console.error("Error sending email:", error);
     throw error;
   }
 };
@@ -99,7 +110,7 @@ export const sendViolationNotification = async (params: ViolationNotificationPar
   `;
 
   // Send to owner
-  await sendOrLog({
+  await sendEmail({
     from: '"StrataGuard System" <notifications@strataguard.com>',
     to: ownerEmail,
     subject,
@@ -108,7 +119,7 @@ export const sendViolationNotification = async (params: ViolationNotificationPar
 
   // Send to tenant if provided
   if (tenantEmail && tenantName) {
-    await sendOrLog({
+    await sendEmail({
       from: '"StrataGuard System" <notifications@strataguard.com>',
       to: tenantEmail,
       subject,
@@ -148,7 +159,7 @@ export const sendViolationApprovedNotification = async (params: ViolationApprove
     StrataGuard System
   `;
 
-  await sendOrLog({
+  await sendEmail({
     from: '"StrataGuard System" <notifications@strataguard.com>',
     to: ownerEmail,
     subject,

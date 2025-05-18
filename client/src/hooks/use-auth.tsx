@@ -100,7 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ?? null,
+        user: user ? {
+          ...user,
+          // Add compatibility properties for client components that expect camelCase
+          isAdmin: user.is_admin,
+          isCouncilMember: user.is_council_member,
+          isUser: user.is_user
+        } : null,
         isLoading,
         error,
         loginMutation,
