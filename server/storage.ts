@@ -285,8 +285,8 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
@@ -297,6 +297,61 @@ export class DatabaseStorage implements IStorage {
       .values({ ...insertUser, password: hashedPassword })
       .returning();
     return user;
+  }
+  
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    // If password is being updated, hash it
+    let dataToUpdate = { ...userData };
+    if (userData.password) {
+      dataToUpdate.password = await this.hashPassword(userData.password);
+    }
+    
+    const [updatedUser] = await db.update(users)
+      .set({
+        ...dataToUpdate,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, id))
+      .returning();
+      
+    return updatedUser;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users)
+      .where(eq(users.id, id));
+    
+    return result.rowCount > 0;
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(users.fullName);
+  }
+  
+  async incrementFailedLoginAttempts(id: number): Promise<void> {
+    await db.update(users)
+      .set({
+        failedLoginAttempts: sql`COALESCE(${users.failedLoginAttempts}, 0) + 1`,
+        accountLocked: sql`CASE WHEN COALESCE(${users.failedLoginAttempts}, 0) + 1 >= 5 THEN true ELSE ${users.accountLocked} END`
+      })
+      .where(eq(users.id, id));
+  }
+  
+  async resetFailedLoginAttempts(id: number): Promise<void> {
+    await db.update(users)
+      .set({
+        failedLoginAttempts: 0,
+        accountLocked: false
+      })
+      .where(eq(users.id, id));
+  }
+  
+  async updateLastLogin(id: number): Promise<void> {
+    await db.update(users)
+      .set({
+        lastLogin: new Date()
+      })
+      .where(eq(users.id, id));
   }
 
   // Property units operations

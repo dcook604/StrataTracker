@@ -15,7 +15,7 @@ async function createAdminUser() {
   try {
     // Check if admin already exists
     const existingAdmin = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.username, "admin")
+      where: (users, { eq }) => eq(users.email, "admin@spectrum4.com")
     });
 
     if (existingAdmin) {
@@ -24,13 +24,12 @@ async function createAdminUser() {
     }
 
     // Create admin user
-    const hashedPassword = await hashPassword("admin123");
+    const hashedPassword = await hashPassword("Admin123!");
     
     await db.insert(users).values({
-      username: "admin",
+      email: "admin@spectrum4.com",
       password: hashedPassword,
       fullName: "Administrator",
-      email: "admin@spectrum4.com",
       isAdmin: true,
       isCouncilMember: true,
       createdAt: new Date(),
@@ -38,8 +37,8 @@ async function createAdminUser() {
     });
 
     console.log("Admin user created successfully");
-    console.log("Username: admin");
-    console.log("Password: admin123");
+    console.log("Email: admin@spectrum4.com");
+    console.log("Password: Admin123!");
   } catch (error) {
     console.error("Error creating admin user:", error);
   } finally {
