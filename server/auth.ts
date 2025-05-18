@@ -49,7 +49,7 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     store: dbStorage.sessionStore,
     cookie: {
-      maxAge: 1000 * 60 * 60 * 8, // 8 hours
+      maxAge: 1000 * 60 * 30, // 30 minutes
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax"
@@ -151,18 +151,68 @@ export function setupAuth(app: Express) {
   });
 
   // Apply rate limiting to login route
-  app.post("/api/login", loginLimiter, (req, res, next) => {
-    passport.authenticate("local", (err: Error, user: SelectUser | false, info: { message: string }) => {
+  app.post("/api/login", loginLimiter, async (req, res, next) => {
+    const rememberMe = req.body.rememberMe === true;
+    
+    passport.authenticate("local", async (err: Error, user: SelectUser | false, info: { message: string }) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Invalid email or password" });
       
-      req.login(user, (err) => {
-        if (err) return next(err);
+      try {
+        // Check for existing sessions for this user and implement single-user login restriction
+        await new Promise<void>((resolve, reject) => {
+          dbStorage.sessionStore.all((error: Error, sessions: Record<string, any>) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            
+            if (sessions) {
+              // Find and destroy any existing sessions for this user
+              Object.keys(sessions).forEach(sid => {
+                const session = sessions[sid];
+                if (session?.passport?.user === user.id && sid !== req.sessionID) {
+                  dbStorage.sessionStore.destroy(sid, (destroyErr: Error | null) => {
+                    if (destroyErr) console.error(`Failed to destroy session ${sid}:`, destroyErr);
+                    else console.log(`Destroyed previous session for user ${user.id}`);
+                  });
+                }
+              });
+            }
+            resolve();
+          });
+        });
         
-        // Remove sensitive fields before sending the user object
-        const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
-        res.status(200).json(safeUser);
-      });
+        // Set session expiration based on remember me option
+        if (req.session && req.session.cookie) {
+          if (rememberMe) {
+            // If remember me is checked, use longer session (1 day)
+            req.session.cookie.maxAge = 1000 * 60 * 60 * 24;
+          } else {
+            // Otherwise use standard 30 minute timeout
+            req.session.cookie.maxAge = 1000 * 60 * 30;
+          }
+        }
+        
+        req.login(user, async (err) => {
+          if (err) return next(err);
+          
+          // Reset failed login attempts and update last login
+          if (typeof dbStorage.resetFailedLoginAttempts === 'function') {
+            await dbStorage.resetFailedLoginAttempts(user.id);
+          }
+          if (typeof dbStorage.updateLastLogin === 'function') {
+            await dbStorage.updateLastLogin(user.id);
+          }
+          
+          // Remove sensitive fields before sending the user object
+          const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+          res.status(200).json(safeUser);
+        });
+      } catch (error) {
+        console.error('Session management error:', error);
+        return next(error);
+      }
     })(req, res, next);
   });
 

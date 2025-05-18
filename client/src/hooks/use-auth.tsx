@@ -9,7 +9,15 @@ import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 // Omit the password from the user type for client-side usage
-type SafeUser = Omit<SelectUser, "password">;
+type SafeUser = Omit<SelectUser, "password"> & {
+  // Add compatibility optional fields that may come from either format
+  isAdmin?: boolean;
+  is_admin?: boolean;
+  isCouncilMember?: boolean;
+  is_council_member?: boolean;
+  isUser?: boolean;
+  is_user?: boolean;
+};
 
 type AuthContextType = {
   user: SafeUser | null;
@@ -20,7 +28,7 @@ type AuthContextType = {
   registerMutation: UseMutationResult<SafeUser, Error, InsertUser>;
 };
 
-type LoginData = Pick<InsertUser, "email" | "password">;
+type LoginData = Pick<InsertUser, "email" | "password"> & { rememberMe?: boolean };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -103,9 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: user ? {
           ...user,
           // Add compatibility properties for client components that expect camelCase
-          isAdmin: user.is_admin,
-          isCouncilMember: user.is_council_member,
-          isUser: user.is_user
+          isAdmin: user.isAdmin || user.is_admin,
+          isCouncilMember: user.isCouncilMember || user.is_council_member,
+          isUser: user.isUser || user.is_user
         } : null,
         isLoading,
         error,

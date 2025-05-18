@@ -13,6 +13,7 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
+  rememberMe: z.boolean().default(false),
 });
 
 // Registration is now admin-only and handled in the users page
@@ -56,6 +58,7 @@ export default function AuthPage() {
     defaultValues: {
       email: "",
       password: "",
+      rememberMe: false,
     },
   });
 
@@ -73,7 +76,12 @@ export default function AuthPage() {
 
   // Handle login submission
   const onLoginSubmit = (values: LoginFormValues) => {
-    loginMutation.mutate(values);
+    // Pass the remember me value to the login endpoint
+    loginMutation.mutate({
+      email: values.email,
+      password: values.password,
+      rememberMe: values.rememberMe
+    });
   };
 
   // Handle register submission
@@ -139,6 +147,30 @@ export default function AuthPage() {
                         </FormItem>
                       )}
                     />
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <FormField
+                        control={loginForm.control}
+                        name="rememberMe"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                            <FormControl>
+                              <Checkbox 
+                                checked={field.value} 
+                                onCheckedChange={field.onChange}
+                                id="rememberMe"
+                              />
+                            </FormControl>
+                            <FormLabel htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
+                              Remember me
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                      <Button variant="link" className="p-0 h-auto text-sm" onClick={() => navigate("/forgot-password")}>
+                        Forgot password?
+                      </Button>
+                    </div>
                     
                     <Button 
                       type="submit" 
