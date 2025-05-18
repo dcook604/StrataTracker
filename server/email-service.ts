@@ -111,10 +111,16 @@ export interface EmailOptions {
 // Send email function
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
-    await loadEmailSettings();
+    // Load email settings
+    const config = await loadEmailSettings();
+    
+    if (!config) {
+      console.error('Email configuration not found');
+      return false;
+    }
     
     const mailOptions = {
-      from: emailConfig.from,
+      from: config.from,
       to: options.to,
       subject: options.subject,
       text: options.text || '',

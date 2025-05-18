@@ -724,7 +724,7 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(users.id, id));
       
-      return result.rowCount > 0;
+      return result.rowCount !== null && result.rowCount > 0;
     } catch (error) {
       console.error('Error updating user password:', error);
       return false;
@@ -741,7 +741,7 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(users.id, id));
       
-      return result.rowCount > 0;
+      return result.rowCount !== null && result.rowCount > 0;
     } catch (error) {
       console.error('Error updating password reset token:', error);
       return false;
