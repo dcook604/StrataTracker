@@ -328,6 +328,16 @@ export class DatabaseStorage implements IStorage {
       .returning();
       
     return updatedUser;
+    
+    const [updatedUser] = await db.update(users)
+      .set({
+        ...dataToUpdate,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, id))
+      .returning();
+      
+    return updatedUser;
   }
   
   async deleteUser(id: number): Promise<boolean> {
@@ -378,16 +388,6 @@ export class DatabaseStorage implements IStorage {
       console.error('Failed to update last login:', error);
     }
   }
-    if (userData.password) {
-      dataToUpdate.password = await this.hashPassword(userData.password);
-    }
-    
-    const [updatedUser] = await db.update(users)
-      .set({
-        ...dataToUpdate,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, id))
       .returning();
       
     return updatedUser;
