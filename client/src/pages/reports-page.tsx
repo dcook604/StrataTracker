@@ -259,7 +259,7 @@ export default function ReportsPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+          </div>
             <Button 
               onClick={handleGenerateReport}
               className="w-full md:w-auto h-12 md:h-10"
@@ -283,23 +283,23 @@ export default function ReportsPage() {
                   <div className="flex flex-col">
                     <h3 className="text-sm font-medium text-muted-foreground">Total Violations</h3>
                     <div className="text-2xl md:text-3xl font-bold mt-2">{stats?.totalViolations || 0}</div>
-                  </div>
+                      </div>
                 </Card>
                 <Card className="p-6">
                   <div className="flex flex-col">
                     <h3 className="text-sm font-medium text-muted-foreground">Resolution Rate</h3>
                     <div className="text-2xl md:text-3xl font-bold mt-2">{stats?.resolutionRate || 0}%</div>
-                  </div>
-                </Card>
+                    </div>
+              </Card>
                 <Card className="p-6">
                   <div className="flex flex-col">
                     <h3 className="text-sm font-medium text-muted-foreground">Average Response Time</h3>
                     <div className="text-2xl md:text-3xl font-bold mt-2">{stats?.avgResponseTime || 0} days</div>
-                  </div>
-                </Card>
+                    </div>
+              </Card>
               </>
             )}
-          </div>
+            </div>
             
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -312,30 +312,30 @@ export default function ReportsPage() {
                   <div className="text-destructive">Error loading violation types: {typesError.message}</div>
                 ) : (
                   <div className="h-[300px] md:h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
                           data={categoryData}
                           dataKey="value"
                           nameKey="name"
-                          cx="50%"
-                          cy="50%"
+                            cx="50%"
+                            cy="50%"
                           outerRadius="80%"
-                          fill="#8884d8"
+                            fill="#8884d8"
                           label
-                        >
+                          >
                           {categoryData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
                         <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
+                        </PieChart>
+                      </ResponsiveContainer>
                   </div>
                 )}
               </div>
-            </Card>
+              </Card>
             <Card className="overflow-hidden">
               <div className="p-6 border-b">
                 <h3 className="text-lg font-semibold">Violations Over Time</h3>
@@ -345,23 +345,23 @@ export default function ReportsPage() {
                   <div className="text-destructive">Error loading monthly data: {monthsError.message}</div>
                 ) : (
                   <div className="h-[300px] md:h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={timeData}>
                         <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip />
+                          <YAxis />
+                          <Tooltip />
                         <Legend />
-                        <Line 
-                          type="monotone" 
+                          <Line 
+                            type="monotone" 
                           dataKey="violations" 
                           stroke="#8884d8"
-                          strokeWidth={2}
+                            strokeWidth={2}
                           dot={{ r: 4 }}
                           activeDot={{ r: 8 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
                 )}
               </div>
             </Card>

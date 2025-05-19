@@ -13,12 +13,12 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
-    const res = await fetch(url, {
-      method,
-      headers: data ? { "Content-Type": "application/json" } : {},
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: "include",
-    });
+  const res = await fetch(url, {
+    method,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
 
     // Handle non-JSON responses
     const contentType = res.headers.get("content-type");
@@ -33,7 +33,7 @@ export async function apiRequest(
       }
     }
 
-    return res;
+  return res;
   } catch (error) {
     console.error("API request error:", error);
     throw error;

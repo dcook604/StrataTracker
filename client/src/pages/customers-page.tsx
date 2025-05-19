@@ -188,36 +188,36 @@ export default function CustomersPage() {
     <Layout title="Customer Management">
       <div className="space-y-6">
         <div className="flex justify-end">
-          <Button onClick={() => {
-            form.reset();
-            setIsAddDialogOpen(true);
-          }}>
-            Add Customer
-          </Button>
+        <Button onClick={() => {
+          form.reset();
+          setIsAddDialogOpen(true);
+        }}>
+          Add Customer
+        </Button>
+      </div>
+      
+      {isLoading ? (
+        <div className="flex justify-center p-8">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
         </div>
-        
-        {isLoading ? (
-          <div className="flex justify-center p-8">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-          </div>
-        ) : data?.customers && data.customers.length > 0 ? (
-          <DataTable 
-            columns={columns} 
-            data={data.customers}
-            searchColumn="unitNumber"
-            searchPlaceholder="Search by unit number..."
-          />
-        ) : (
-          <EmptyState
-            icon={<BuildingIcon className="h-10 w-10" />}
-            title="No customers found"
-            description="Add your first customer to get started"
-            action={{
-              label: "Add Customer",
-              href: "#",
-            }}
-          />
-        )}
+      ) : data?.customers && data.customers.length > 0 ? (
+        <DataTable 
+          columns={columns} 
+          data={data.customers}
+          searchColumn="unitNumber"
+          searchPlaceholder="Search by unit number..."
+        />
+      ) : (
+        <EmptyState
+          icon={<BuildingIcon className="h-10 w-10" />}
+          title="No customers found"
+          description="Add your first customer to get started"
+          action={{
+            label: "Add Customer",
+            href: "#",
+          }}
+        />
+      )}
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

@@ -104,14 +104,14 @@ export function setupAuth(app: Express) {
             }
             
             // Reset failed attempts and update last login
-            if (typeof dbStorage.resetFailedLoginAttempts === 'function') {
-              await dbStorage.resetFailedLoginAttempts(user.id);
-            }
-            if (typeof dbStorage.updateLastLogin === 'function') {
-              await dbStorage.updateLastLogin(user.id);
-            }
-            
-            return done(null, user);
+          if (typeof dbStorage.resetFailedLoginAttempts === 'function') {
+            await dbStorage.resetFailedLoginAttempts(user.id);
+          }
+          if (typeof dbStorage.updateLastLogin === 'function') {
+            await dbStorage.updateLastLogin(user.id);
+          }
+          
+          return done(null, user);
           } catch (error) {
             console.error("Error comparing passwords:", error);
             return done(error);

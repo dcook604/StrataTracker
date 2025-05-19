@@ -259,40 +259,40 @@ export default function UsersPage() {
           <Button 
             onClick={() => {
               form.reset();
-              setIsAddDialogOpen(true);
+          setIsAddDialogOpen(true);
             }}
             className="h-12 px-6 md:h-10"
           >
             <UserPlusIcon className="h-5 w-5 mr-2" />
-            Add User
-          </Button>
-        </div>
-        
-        {isLoading ? (
+          Add User
+        </Button>
+      </div>
+      
+      {isLoading ? (
           <div className="flex justify-center items-center min-h-[200px]">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-          </div>
-        ) : data && data.length > 0 ? (
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+        </div>
+      ) : data && data.length > 0 ? (
           <div className="overflow-x-auto -mx-4 md:mx-0">
-            <DataTable 
-              columns={columns} 
-              data={data}
+        <DataTable 
+          columns={columns} 
+          data={data}
               searchColumn="email"
               searchPlaceholder="Search by email..."
-            />
+        />
           </div>
-        ) : (
-          <EmptyState
+      ) : (
+        <EmptyState
             icon={<Users className="h-12 w-12 md:h-10 md:w-10" />}
-            title="No users found"
-            description="Add your first user to get started"
+          title="No users found"
+          description="Add your first user to get started"
             actionLabel="Add User"
             onAction={() => {
               form.reset();
               setIsAddDialogOpen(true);
-            }}
-          />
-        )}
+          }}
+        />
+      )}
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

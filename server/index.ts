@@ -3,7 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { requestLogger, errorLogger } from "./middleware/logging-middleware";
 import logger from "./utils/logger";
-import { setupGlobalErrorHandlers } from "./utils/error-handler";
+import { setupGlobalErrorHandlers, errorHandlerMiddleware } from "./utils/error-handler";
 import { startPerformanceMonitoring, logSystemResources } from "./utils/performance-monitor";
 import { pool } from "./db";
 import { createServer } from "http";
@@ -54,6 +54,9 @@ async function startServer() {
     // Create HTTP server
     server = createServer(app);
 
+    // Register API routes BEFORE Vite/static serving setup
+    await registerRoutes(app);
+
     // Setup routes and vite
     if (process.env.NODE_ENV === "production") {
       serveStatic(app);
@@ -61,14 +64,15 @@ async function startServer() {
       await setupVite(app, server);
     }
 
-    await registerRoutes(app);
+    // Error handling middleware - should be last after all routes and regular middleware
+    app.use(errorHandlerMiddleware);
 
     // Start listening
     server.listen(port, "0.0.0.0", () => {
       logger.info(`Server started successfully and listening on port ${port}`);
       log(`serving on port ${port}`);
     });
-
+    
     // Add error listener to the server
     server.on('error', (error: any) => {
       if (error.code === 'EADDRINUSE') {

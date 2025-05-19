@@ -11,10 +11,10 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export function EmptyState({
+export function EmptyState({ 
   icon,
-  title,
-  description,
+  title, 
+  description, 
   actionLabel,
   onAction
 }: EmptyStateProps) {
@@ -22,8 +22,8 @@ export function EmptyState({
     <div className="flex flex-col items-center justify-center p-8 text-center">
       {icon && (
         <div className="mb-4 text-muted-foreground">
-          {icon}
-        </div>
+        {icon}
+      </div>
       )}
       <h3 className="text-lg font-semibold">{title}</h3>
       <p className="text-sm text-muted-foreground mt-2">{description}</p>
@@ -33,7 +33,7 @@ export function EmptyState({
           className="mt-4"
         >
           {actionLabel}
-        </Button>
+          </Button>
       )}
     </div>
   );
