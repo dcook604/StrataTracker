@@ -27,11 +27,11 @@ import { eq, and, desc, sql, like, or, not, gte, lt } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import memorystore from "memorystore";
 
 const scryptAsync = promisify(scrypt);
 
-const PostgresSessionStore = connectPg(session);
+const MemoryStore = memorystore(session);
 
 export interface IStorage {
   // User operations
@@ -111,17 +111,17 @@ export interface IStorage {
   comparePasswords(supplied: string, stored: string): Promise<boolean>;
   
   // Session store
-  sessionStore: any; // Using 'any' to avoid SessionStore type issues
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: any;
+  sessionStore: session.Store;
 
   constructor() {
-    // Use a simple in-memory store for now
-    // This won't persist sessions between server restarts
-    const store = new session.MemoryStore();
-    this.sessionStore = store;
+    // Create a proper MemoryStore instance with session cleanup
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // Prune expired entries every 24h
+    });
   }
 
   // Password management
@@ -301,22 +301,12 @@ export class DatabaseStorage implements IStorage {
 
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select()
-      .from(users)
-      .where(and(
-        eq(users.id, id),
-        sql`${users.deletedAt} IS NULL`
-      ));
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select()
-      .from(users)
-      .where(and(
-        eq(users.email, email),
-        sql`${users.deletedAt} IS NULL`
-      ));
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
@@ -362,26 +352,37 @@ export class DatabaseStorage implements IStorage {
   
   async deleteUser(id: number): Promise<boolean> {
     try {
-      // Soft delete the user by setting deletedAt
-      const result = await db.update(users)
-        .set({
-          deletedAt: new Date(),
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, id));
-      
-      return result.rowCount ? result.rowCount > 0 : false;
+      // Use a transaction to ensure all operations succeed or fail together
+      return await db.transaction(async (tx) => {
+        // 1. Update system settings to remove references to this user
+        await tx.update(systemSettings)
+          .set({ updatedById: null })
+          .where(eq(systemSettings.updatedById, id));
+        
+        // 2. Update violation histories to use a system account
+        await tx.update(violationHistories)
+          .set({ userId: 1 }) // Use system account instead of null
+          .where(eq(violationHistories.userId, id));
+        
+        // 3. Update violations to use a system account for reported_by
+        await tx.update(violations)
+          .set({ reportedById: 1 }) // Use system account
+          .where(eq(violations.reportedById, id));
+        
+        // 4. Finally delete the user
+        const result = await tx.delete(users)
+          .where(eq(users.id, id));
+        
+        return result.rowCount ? result.rowCount > 0 : false;
+      });
     } catch (error) {
-      console.error('Error soft deleting user:', error);
-      return false;
+      console.error('Error deleting user:', error);
+      throw error;
     }
   }
   
   async getAllUsers(): Promise<User[]> {
-    return db.select()
-      .from(users)
-      .where(sql`${users.deletedAt} IS NULL`)
-      .orderBy(users.fullName);
+    return db.select().from(users).orderBy(users.fullName);
   }
   
   async incrementFailedLoginAttempts(id: number): Promise<void> {
@@ -698,12 +699,11 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getViolationsByMonth(year: number): Promise<{ month: number, count: number }[]> {
-    // Calculate date range for the year
-    const startDate = new Date(year, 0, 1); // January 1st of the year
-    const endDate = new Date(year + 1, 0, 1); // January 1st of next year
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year + 1, 0, 1);
     
     const violationsInYear = await db.select({
-      month: sql<number>`EXTRACT(MONTH FROM ${violations.createdAt})::integer`,
+      month: sql<number>`EXTRACT(MONTH FROM ${violations.createdAt})`,
       count: sql<number>`count(*)`
     })
     .from(violations)

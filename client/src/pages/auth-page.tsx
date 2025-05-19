@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { 
   Card, 
   CardContent, 
@@ -24,7 +24,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
@@ -46,11 +45,11 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
-  // Only login is available as registration is restricted to administrators
-  const [activeTab] = useState<"login">("login");
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user, loginMutation } = useAuth();
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -75,18 +74,25 @@ export default function AuthPage() {
   });
 
   // Handle login submission
-  const onLoginSubmit = (values: LoginFormValues) => {
-    // Pass the remember me value to the login endpoint
-    loginMutation.mutate({
+  const onLoginSubmit = async (values: LoginFormValues) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await loginMutation.mutateAsync({
       email: values.email,
       password: values.password,
       rememberMe: values.rememberMe
     });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle register submission
   const onRegisterSubmit = (values: RegisterFormValues) => {
-    registerMutation.mutate(values);
+    // Implementation of register submission
   };
 
   // Redirect if the user is logged in
@@ -97,29 +103,22 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
-      <div className="grid w-full max-w-6xl grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Auth Form */}
-        <div className="flex items-center justify-center">
           <Card className="w-full max-w-md">
             <CardHeader className="space-y-1 text-center">
-              <div className="flex justify-center mb-4">
-                <img 
-                  src="/logo.jpeg" 
-                  alt="Spectrum 4 Logo" 
-                  className="h-20" 
-                />
-              </div>
+          <CardTitle>Sign In</CardTitle>
               <CardDescription>
-                Spectrum 4 Violation System
+            Enter your credentials to access the system
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="w-full">
-                <h3 className="text-xl font-medium text-center mb-4">Sign In</h3>
-                
-                {/* Login Form */}
                 <Form {...loginForm}>
                   <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+              {error && (
+                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+                  {error}
+                </div>
+              )}
+              
                     <FormField
                       control={loginForm.control}
                       name="email"
@@ -127,7 +126,12 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input type="email" placeholder="Enter your email" {...field} />
+                      <Input 
+                        type="email" 
+                        placeholder="Enter your email" 
+                        disabled={isLoading}
+                        {...field} 
+                      />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -141,43 +145,41 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel>Password</FormLabel>
                           <FormControl>
-                            <Input type="password" placeholder="Enter your password" {...field} />
+                      <Input 
+                        type="password" 
+                        placeholder="Enter your password" 
+                        disabled={isLoading}
+                        {...field} 
+                      />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     
-                    <div className="flex items-center justify-between mb-4">
                       <FormField
                         control={loginForm.control}
                         name="rememberMe"
                         render={({ field }) => (
-                          <FormItem className="flex items-center space-x-2 space-y-0">
+                  <FormItem className="flex flex-row items-center space-x-2">
                             <FormControl>
                               <Checkbox 
                                 checked={field.value} 
                                 onCheckedChange={field.onChange}
-                                id="rememberMe"
+                        disabled={isLoading}
                               />
                             </FormControl>
-                            <FormLabel htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
-                              Remember me
-                            </FormLabel>
+                    <FormLabel className="text-sm font-normal">Remember me</FormLabel>
                           </FormItem>
                         )}
                       />
-                      <Button variant="link" className="p-0 h-auto text-sm" onClick={() => navigate("/forgot-password")}>
-                        Forgot password?
-                      </Button>
-                    </div>
                     
                     <Button 
                       type="submit" 
                       className="w-full" 
-                      disabled={loginMutation.isPending}
+                disabled={isLoading}
                     >
-                      {loginMutation.isPending ? (
+                {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Signing in...
@@ -192,25 +194,9 @@ export default function AuthPage() {
                 <div className="mt-4 text-center text-sm text-muted-foreground">
                   <p>Only administrators can add new users to the system.</p>
                   <p>Contact your administrator if you need access.</p>
-                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-        
-        {/* Hero Section */}
-        <div className="hidden md:flex items-center justify-center">
-          <div className="max-w-md mx-auto">
-            <div className="flex justify-center mb-8">
-              <img 
-                src="/images/spectrum4-logo.png" 
-                alt="Spectrum 4 Logo" 
-                className="h-40" 
-              />
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

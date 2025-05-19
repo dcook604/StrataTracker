@@ -11,7 +11,11 @@ import rateLimit from "express-rate-limit";
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends SelectUser {
+      is_admin?: boolean;  // Add support for snake_case format
+      is_council_member?: boolean;
+      is_user?: boolean;
+    }
   }
 }
 
@@ -44,17 +48,19 @@ export function setupAuth(app: Express) {
   const sessionSecret = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
   
   const sessionSettings: session.SessionOptions = {
+    store: dbStorage.sessionStore,
     secret: sessionSecret,
+    name: 'sessionId', // Don't use the default 'connect.sid'
     resave: false,
     saveUninitialized: false,
-    // Use a basic memory store instead of database store for now
-    // This will help us fix the SMTP, Categories, and User Management pages
-    store: new session.MemoryStore(),
+    rolling: true, // Refresh session with each request
     cookie: {
       maxAge: 1000 * 60 * 30, // 30 minutes by default
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax"
+      sameSite: "lax",
+      path: "/",
+      domain: process.env.COOKIE_DOMAIN || undefined
     }
   };
 
@@ -69,51 +75,35 @@ export function setupAuth(app: Express) {
       { usernameField: 'email' },
       async (email, password, done) => {
         try {
-          // Get user by email. For backward compatibility, also check username field
+          // Get user by email
           let user = await dbStorage.getUserByEmail(email);
           
-          // Check if account is locked (if that feature is available)
-          if (user?.accountLocked) {
-            return done(null, false, { message: "Account locked due to too many failed attempts" });
-          }
-          
-          // Check credentials
           if (!user) {
+            console.log("User not found:", email);
             return done(null, false, { message: "Invalid email or password" });
           }
           
-          // Temporary simple authentication to get past the issue
+          // Check if account is locked
+          if (user.accountLocked) {
+            console.log("Account locked:", email);
+            return done(null, false, { message: "Account locked due to too many failed attempts" });
+          }
+          
           try {
-            // First check if the password is the simple non-hashed version
-            if (password === user.password) {
-              console.log("Simple password match success");
-              // Password matches directly - simple case
-              return done(null, user);
-            }
-            
-            // If not a simple match, try the normal comparison
-            console.log("Trying normal password comparison");
+            // Check password
             const isMatch = await dbStorage.comparePasswords(password, user.password);
-            console.log("Normal password comparison result:", isMatch);
+            console.log("Password comparison result:", isMatch);
             
             if (!isMatch) {
-              // Increment failed login attempts if that feature is available
+              console.log("Invalid password for user:", email);
+              // Increment failed attempts if available
               if (typeof dbStorage.incrementFailedLoginAttempts === 'function') {
                 await dbStorage.incrementFailedLoginAttempts(user.id);
               }
               return done(null, false, { message: "Invalid email or password" });
             }
             
-            // If we got here, normal comparison succeeded
-            return done(null, user);
-          } catch (error) {
-            console.error("Error comparing passwords:", error);
-            return done(null, false, { message: "Authentication error" });
-          }
-          
-          // This code is unreachable due to the return statements above
-          // Keeping it commented out for reference
-          /*
+            // Reset failed attempts and update last login
           if (typeof dbStorage.resetFailedLoginAttempts === 'function') {
             await dbStorage.resetFailedLoginAttempts(user.id);
           }
@@ -122,12 +112,16 @@ export function setupAuth(app: Express) {
           }
           
           return done(null, user);
-          */
+          } catch (error) {
+            console.error("Error comparing passwords:", error);
+            return done(error);
+          }
         } catch (error) {
+          console.error("Error in authentication:", error);
           return done(error);
         }
       }
-    ),
+    )
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
@@ -276,7 +270,7 @@ export function setupAuth(app: Express) {
   app.delete("/api/users/:id", async (req, res, next) => {
     try {
       // Check if the request is from an admin
-      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
+      if (!req.isAuthenticated() || !(req.user.isAdmin || (req.user as any).is_admin)) {
         return res.status(403).json({ message: "Only administrators can delete users" });
       }
 

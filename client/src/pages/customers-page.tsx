@@ -29,6 +29,7 @@ import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, TrashIcon, BuildingIcon } from "lucide-react";
+import { Layout } from "@/components/layout";
 
 const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
@@ -184,9 +185,9 @@ export default function CustomersPage() {
   ];
   
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Customer Management</h1>
+    <Layout title="Customer Management">
+      <div className="space-y-6">
+        <div className="flex justify-end">
         <Button onClick={() => {
           form.reset();
           setIsAddDialogOpen(true);
@@ -217,6 +218,7 @@ export default function CustomersPage() {
           }}
         />
       )}
+      </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -471,6 +473,6 @@ export default function CustomersPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </Layout>
   );
 }

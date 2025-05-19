@@ -12,6 +12,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  try {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -19,8 +20,24 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+    // Handle non-JSON responses
+    const contentType = res.headers.get("content-type");
+    if (!res.ok) {
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "An error occurred");
+      } else {
+        const errorText = await res.text();
+        console.error("Non-JSON error response:", errorText);
+        throw new Error("An unexpected error occurred. Please try again.");
+      }
+    }
+
   return res;
+  } catch (error) {
+    console.error("API request error:", error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

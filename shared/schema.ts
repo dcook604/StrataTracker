@@ -20,10 +20,16 @@ export const users = pgTable("users", {
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
   forcePasswordChange: boolean("force_password_change").default(false),
-  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Add type augmentation for snake_case compatibility
+export type User = typeof users.$inferSelect & {
+  is_admin?: boolean;
+  is_council_member?: boolean;
+  is_user?: boolean;
+};
 
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -220,7 +226,6 @@ export const systemSettingsRelations = relations(systemSettings, ({ one }) => ({
   }),
 }));
 
-export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;

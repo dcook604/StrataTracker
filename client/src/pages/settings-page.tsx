@@ -30,6 +30,7 @@ import { Loader2, Settings, MailIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
+import { Layout } from "@/components/layout";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -198,10 +199,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">System Settings</h1>
-        <div className="flex space-x-2">
+    <Layout title="System Settings">
+      <div className="space-y-6">
+        <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={() => window.location.href = "/email-settings"}>
             <MailIcon className="mr-2 h-4 w-4" />
             SMTP Settings
@@ -210,7 +210,6 @@ export default function SettingsPage() {
             <Settings className="mr-2 h-4 w-4" />
             User Management
           </Button>
-        </div>
       </div>
       
       {isLoading ? (
@@ -449,5 +448,6 @@ export default function SettingsPage() {
         </Tabs>
       )}
     </div>
+    </Layout>
   );
 }
