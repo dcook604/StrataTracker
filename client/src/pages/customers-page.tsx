@@ -29,6 +29,7 @@ import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, TrashIcon, BuildingIcon } from "lucide-react";
+import { Layout } from "@/components/layout";
 
 const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
@@ -184,39 +185,40 @@ export default function CustomersPage() {
   ];
   
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Customer Management</h1>
-        <Button onClick={() => {
-          form.reset();
-          setIsAddDialogOpen(true);
-        }}>
-          Add Customer
-        </Button>
-      </div>
-      
-      {isLoading ? (
-        <div className="flex justify-center p-8">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+    <Layout title="Customer Management">
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <Button onClick={() => {
+            form.reset();
+            setIsAddDialogOpen(true);
+          }}>
+            Add Customer
+          </Button>
         </div>
-      ) : data?.customers && data.customers.length > 0 ? (
-        <DataTable 
-          columns={columns} 
-          data={data.customers}
-          searchColumn="unitNumber"
-          searchPlaceholder="Search by unit number..."
-        />
-      ) : (
-        <EmptyState
-          icon={<BuildingIcon className="h-10 w-10" />}
-          title="No customers found"
-          description="Add your first customer to get started"
-          action={{
-            label: "Add Customer",
-            href: "#",
-          }}
-        />
-      )}
+        
+        {isLoading ? (
+          <div className="flex justify-center p-8">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          </div>
+        ) : data?.customers && data.customers.length > 0 ? (
+          <DataTable 
+            columns={columns} 
+            data={data.customers}
+            searchColumn="unitNumber"
+            searchPlaceholder="Search by unit number..."
+          />
+        ) : (
+          <EmptyState
+            icon={<BuildingIcon className="h-10 w-10" />}
+            title="No customers found"
+            description="Add your first customer to get started"
+            action={{
+              label: "Add Customer",
+              href: "#",
+            }}
+          />
+        )}
+      </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -471,6 +473,6 @@ export default function CustomersPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </Layout>
   );
 }

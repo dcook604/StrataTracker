@@ -31,6 +31,8 @@ import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { Layout } from "@/components/layout";
+import { Users } from "lucide-react";
 
 const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -63,7 +65,7 @@ export default function UsersPage() {
   }
   
   const { data, isLoading } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+    queryKey: ['users', 'list'],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/users");
       return res.json();
@@ -250,47 +252,40 @@ export default function UsersPage() {
   ];
   
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">User Management</h1>
-        <Button onClick={() => {
-          form.reset({
-            username: "",
-            password: "",
-            fullName: "",
-            email: "",
-            isAdmin: false,
-            isCouncilMember: false,
-          });
-          setIsAddDialogOpen(true);
-        }}>
-          <UserPlusIcon className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
-      </div>
-      
-      {isLoading ? (
-        <div className="flex justify-center p-8">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+    <Layout title="User Management">
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <Button onClick={() => {
+            form.reset();
+            setIsAddDialogOpen(true);
+          }}>
+            Add User
+          </Button>
         </div>
-      ) : data && data.length > 0 ? (
-        <DataTable 
-          columns={columns} 
-          data={data}
-          searchColumn="username"
-          searchPlaceholder="Search by username..."
-        />
-      ) : (
-        <EmptyState
-          icon={<UserIcon className="h-10 w-10" />}
-          title="No users found"
-          description="Add your first user to get started"
-          action={{
-            label: "Add User",
-            href: "#",
-          }}
-        />
-      )}
+        
+        {isLoading ? (
+          <div className="flex justify-center p-8">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          </div>
+        ) : data && data.length > 0 ? (
+          <DataTable 
+            columns={columns} 
+            data={data}
+            searchColumn="email"
+            searchPlaceholder="Search by email..."
+          />
+        ) : (
+          <EmptyState
+            icon={<Users className="h-10 w-10" />}
+            title="No users found"
+            description="Add your first user to get started"
+            action={{
+              label: "Add User",
+              href: "#",
+            }}
+          />
+        )}
+      </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -529,6 +524,6 @@ export default function UsersPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </Layout>
   );
 }

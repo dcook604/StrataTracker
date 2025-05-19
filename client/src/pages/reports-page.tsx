@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -34,6 +34,34 @@ import {
   Cell
 } from "recharts";
 import { EmptyState } from "@/components/empty-state";
+import { Layout } from "@/components/layout";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiRequest } from "@/lib/queryClient";
+
+// Custom DateRangePicker component
+const DateRangePicker = ({ from, to, onFromChange, onToChange }: {
+  from: Date;
+  to: Date;
+  onFromChange: (date: Date | undefined) => void;
+  onToChange: (date: Date | undefined) => void;
+}) => {
+  return (
+    <div className="flex gap-2">
+      <input
+        type="date"
+        value={format(from, "yyyy-MM-dd")}
+        onChange={(e) => onFromChange(new Date(e.target.value))}
+        className="border rounded p-2"
+      />
+      <input
+        type="date"
+        value={format(to, "yyyy-MM-dd")}
+        onChange={(e) => onToChange(new Date(e.target.value))}
+        className="border rounded p-2"
+      />
+    </div>
+  );
+};
 
 // For the type chart
 type ViolationType = {
@@ -59,25 +87,52 @@ export default function ReportsPage() {
   const { user } = useAuth();
   const [timeFrame, setTimeFrame] = useState<'month' | 'quarter' | 'year' | 'custom'>('year');
   const currentYear = new Date().getFullYear();
+  const [dateRange, setDateRange] = useState({ from: new Date(), to: new Date() });
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [categories] = useState([
+    { id: "1", name: "Noise" },
+    { id: "2", name: "Maintenance" },
+    { id: "3", name: "Parking" },
+  ]);
   
   // Fetch stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['/api/reports/stats'],
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['reports', 'stats'],
+    queryFn: async () => {
+      const res = await apiRequest("GET", '/api/reports/stats');
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
   });
   
   // Fetch violations by type
-  const { data: violationsByType, isLoading: typesLoading } = useQuery<ViolationType[]>({
-    queryKey: ['/api/reports/violations-by-type'],
+  const { data: violationsByType, isLoading: typesLoading, error: typesError } = useQuery<ViolationType[]>({
+    queryKey: ['reports', 'violations', 'by-type'],
+    queryFn: async () => {
+      const res = await apiRequest("GET", '/api/reports/violations-by-type');
+      if (!res.ok) throw new Error('Failed to fetch violation types');
+      return res.json();
+    },
   });
   
   // Fetch violations by month
-  const { data: violationsByMonth, isLoading: monthsLoading } = useQuery<MonthlyViolation[]>({
-    queryKey: ['/api/reports/violations-by-month', { year: currentYear }],
+  const { data: violationsByMonth, isLoading: monthsLoading, error: monthsError } = useQuery<MonthlyViolation[]>({
+    queryKey: ['reports', 'violations', 'by-month', { year: currentYear }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", '/api/reports/violations-by-month', { year: currentYear });
+      if (!res.ok) throw new Error('Failed to fetch monthly violations');
+      return res.json();
+    },
   });
   
   // Fetch repeat violations
-  const { data: repeatViolations, isLoading: repeatLoading } = useQuery<RepeatViolation[]>({
-    queryKey: ['/api/reports/repeat-violations', { minCount: 3 }],
+  const { data: repeatViolations, isLoading: repeatLoading, error: repeatError } = useQuery<RepeatViolation[]>({
+    queryKey: ['reports', 'violations', 'repeat', { minCount: 3 }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", '/api/reports/repeat-violations', { minCount: 3 });
+      if (!res.ok) throw new Error('Failed to fetch repeat violations');
+      return res.json();
+    },
   });
   
   // Prepare chart data
@@ -94,7 +149,7 @@ export default function ReportsPage() {
   })) || [];
   
   // Colors for the pie chart
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6'];
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
   
   function getViolationTypeName(type: string) {
     const typeMap: Record<string, string> = {
@@ -138,314 +193,172 @@ export default function ReportsPage() {
     },
   ];
 
+  // Mock data - replace with actual data
+  const totalViolations = 150;
+  const resolutionRate = 85;
+  const avgResponseTime = 2.5;
+  
+  const categoryData = [
+    { name: "Noise", value: 30 },
+    { name: "Maintenance", value: 45 },
+    { name: "Parking", value: 25 },
+  ];
+
+  const timeData = [
+    { date: "Jan", violations: 20 },
+    { date: "Feb", violations: 35 },
+    { date: "Mar", violations: 25 },
+    { date: "Apr", violations: 40 },
+  ];
+
+  const handleFromChange = (date: Date | undefined) => {
+    if (date) {
+      setDateRange(prev => ({ ...prev, from: date }));
+    }
+  };
+
+  const handleToChange = (date: Date | undefined) => {
+    if (date) {
+      setDateRange(prev => ({ ...prev, to: date }));
+    }
+  };
+
+  const handleGenerateReport = () => {
+    // Implement report generation logic
+    console.log("Generating report with:", { dateRange, selectedCategory });
+  };
+
   return (
-    <div className="flex h-screen bg-neutral-50">
-      {/* Sidebar */}
-      <Sidebar />
-      
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Header */}
-        <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-neutral-200 md:py-4 md:px-6">
-          <div className="flex items-center">
-            <h2 className="text-lg font-semibold text-neutral-800">Reports & Analytics</h2>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" className="text-neutral-600 hover:text-primary-600">
-              <Bell className="h-5 w-5" />
+    <Layout title="Reports & Analytics">
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4">
+          {/* Report filters */}
+          <div className="flex flex-wrap gap-4 items-center">
+            <DateRangePicker
+              from={dateRange.from}
+              to={dateRange.to}
+              onFromChange={handleFromChange}
+              onToChange={handleToChange}
+            />
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleGenerateReport}>
+              Generate Report
             </Button>
-            <div className="flex items-center">
-              <UserAvatar user={user} className="h-8 w-8" />
-              <span className="ml-2 text-sm font-medium text-neutral-700 hidden md:inline-block">
-                {user?.fullName}
-              </span>
-            </div>
           </div>
-        </header>
-        
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-neutral-50">
-          <div className="max-w-6xl mx-auto">
-            {/* Date Range Selector */}
-            <Card className="shadow p-4 mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <div className="font-medium text-neutral-700 mb-3 sm:mb-0">Select time period:</div>
-                <div className="flex space-x-2">
-                  <Button 
-                    variant={timeFrame === 'month' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setTimeFrame('month')}
-                  >
-                    Month
-                  </Button>
-                  <Button 
-                    variant={timeFrame === 'quarter' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setTimeFrame('quarter')}
-                  >
-                    Quarter
-                  </Button>
-                  <Button 
-                    variant={timeFrame === 'year' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setTimeFrame('year')}
-                  >
-                    Year
-                  </Button>
-                  <Button 
-                    variant={timeFrame === 'custom' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setTimeFrame('custom')}
-                  >
-                    Custom
-                  </Button>
-                </div>
-              </div>
-            </Card>
-            
-            {/* Summary Stats */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-              <Card className="overflow-hidden shadow">
-                <CardContent className="p-5">
-                  {statsLoading ? (
-                    <Skeleton className="h-20 w-full" />
-                  ) : (
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 bg-primary-100 rounded-md p-3">
-                        <BarChart className="h-6 w-6 text-primary-600" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-neutral-500 truncate">Total Reports ({currentYear})</dt>
-                          <dd className="flex items-baseline">
-                            <div className="text-2xl font-semibold text-neutral-900">{stats?.totalViolations || 0}</div>
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  )}
+
+          {/* Report content */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {statsError ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-destructive">Error loading stats: {statsError.message}</div>
                 </CardContent>
               </Card>
-              
-              <Card className="overflow-hidden shadow">
-                <CardContent className="p-5">
-                  {statsLoading ? (
-                    <Skeleton className="h-20 w-full" />
-                  ) : (
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
-                        <BarChart className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-neutral-500 truncate">Approved</dt>
-                          <dd className="flex items-baseline">
-                            <div className="text-2xl font-semibold text-neutral-900">{stats?.approvedViolations || 0}</div>
-                            {stats && stats.totalViolations > 0 && (
-                              <span className="ml-2 text-sm font-medium text-green-600">
-                                {Math.round((stats.approvedViolations / stats.totalViolations) * 100)}%
-                              </span>
-                            )}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card className="overflow-hidden shadow">
-                <CardContent className="p-5">
-                  {statsLoading ? (
-                    <Skeleton className="h-20 w-full" />
-                  ) : (
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 bg-yellow-100 rounded-md p-3">
-                        <BarChart className="h-6 w-6 text-yellow-600" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-neutral-500 truncate">Disputed</dt>
-                          <dd className="flex items-baseline">
-                            <div className="text-2xl font-semibold text-neutral-900">{stats?.disputedViolations || 0}</div>
-                            {stats && stats.totalViolations > 0 && (
-                              <span className="ml-2 text-sm font-medium text-yellow-600">
-                                {Math.round((stats.disputedViolations / stats.totalViolations) * 100)}%
-                              </span>
-                            )}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card className="overflow-hidden shadow">
-                <CardContent className="p-5">
-                  {statsLoading ? (
-                    <Skeleton className="h-20 w-full" />
-                  ) : (
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 bg-red-100 rounded-md p-3">
-                        <BarChart className="h-6 w-6 text-red-600" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-neutral-500 truncate">Rejected</dt>
-                          <dd className="flex items-baseline">
-                            <div className="text-2xl font-semibold text-neutral-900">{stats?.rejectedViolations || 0}</div>
-                            {stats && stats.totalViolations > 0 && (
-                              <span className="ml-2 text-sm font-medium text-red-600">
-                                {Math.round((stats.rejectedViolations / stats.totalViolations) * 100)}%
-                              </span>
-                            )}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Charts & Detailed Reports */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
-              {/* Violation Types Chart */}
-              <Card className="shadow p-6">
-                <h3 className="text-lg font-medium text-neutral-900 mb-4">Violation Types</h3>
-                {typesLoading ? (
-                  <Skeleton className="h-64 w-full rounded-lg" />
+            ) : (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Total Violations</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{stats?.totalViolations || 0}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Resolution Rate</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{stats?.resolutionRate || 0}%</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Average Response Time</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{stats?.avgResponseTime || 0} days</div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Violations by Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {typesError ? (
+                  <div className="text-destructive">Error loading violation types: {typesError.message}</div>
                 ) : (
-                  typeChartData.length > 0 ? (
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={typeChartData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="count"
-                          >
-                            {typeChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="h-64 flex items-center justify-center bg-neutral-50 rounded-lg">
-                      <p className="text-neutral-500">No violation type data available</p>
-                    </div>
-                  )
-                )}
-                {typeChartData.length > 0 && (
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    {typeChartData.slice(0, 4).map((item, index) => (
-                      <div key={index} className="flex items-center">
-                        <span 
-                          className="h-3 w-3 rounded-full mr-2" 
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="text-sm text-neutral-600">
-                          {item.type} ({Math.round((item.count / typeChartData.reduce((sum, item) => sum + item.count, 0)) * 100)}%)
-                        </span>
-                      </div>
-                    ))}
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#8884d8"
+                          label
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
                 )}
-              </Card>
-              
-              {/* Monthly Trends Chart */}
-              <Card className="shadow p-6">
-                <h3 className="text-lg font-medium text-neutral-900 mb-4">Monthly Trends</h3>
-                {monthsLoading ? (
-                  <Skeleton className="h-64 w-full rounded-lg" />
-                ) : (
-                  monthlyChartData.length > 0 ? (
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={monthlyChartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line 
-                            type="monotone" 
-                            dataKey="count" 
-                            stroke="#3b82f6" 
-                            name="Violations" 
-                            strokeWidth={2}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="h-64 flex items-center justify-center bg-neutral-50 rounded-lg">
-                      <p className="text-neutral-500">No monthly trend data available</p>
-                    </div>
-                  )
-                )}
-              </Card>
-            </div>
-            
-            {/* Repeat Violations Report */}
-            <Card className="shadow p-6 mb-6">
-              <h3 className="text-lg font-medium text-neutral-900 mb-4">Repeat Violations (Units with 3+ violations)</h3>
-              {repeatLoading ? (
-                <Skeleton className="h-64 w-full" />
-              ) : (
-                repeatViolations && repeatViolations.length > 0 ? (
-                  <DataTable 
-                    columns={columns} 
-                    data={repeatViolations} 
-                  />
-                ) : (
-                  <EmptyState
-                    title="No repeat violations"
-                    description="There are no units with 3 or more violations"
-                    icon={<BarChart className="h-8 w-8 text-neutral-400" />}
-                  />
-                )
-              )}
+              </CardContent>
             </Card>
-            
-            {/* Export Options */}
-            <Card className="shadow p-6">
-              <h3 className="text-lg font-medium text-neutral-900 mb-4">Export Reports</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button 
-                  className="flex items-center justify-center" 
-                  variant="outline"
-                >
-                  <File className="mr-2 h-5 w-5 text-neutral-500" />
-                  Export to PDF
-                </Button>
-                <Button 
-                  className="flex items-center justify-center" 
-                  variant="outline"
-                >
-                  <FileSpreadsheet className="mr-2 h-5 w-5 text-neutral-500" />
-                  Export to Excel
-                </Button>
-                <Button 
-                  className="flex items-center justify-center" 
-                  variant="outline"
-                >
-                  <Mail className="mr-2 h-5 w-5 text-neutral-500" />
-                  Email Report
-                </Button>
-              </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Violations Over Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {monthsError ? (
+                  <div className="text-destructive">Error loading monthly data: {monthsError.message}</div>
+                ) : (
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={timeData}>
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="violations" stroke="#8884d8" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
             </Card>
           </div>
-        </main>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }

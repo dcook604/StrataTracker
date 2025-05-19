@@ -5,6 +5,8 @@ import { requestLogger, errorLogger } from "./middleware/logging-middleware";
 import logger from "./utils/logger";
 import { setupGlobalErrorHandlers } from "./utils/error-handler";
 import { startPerformanceMonitoring, logSystemResources } from "./utils/performance-monitor";
+import { pool } from "./db";
+import { createServer } from "http";
 
 // Initialize global error handlers
 setupGlobalErrorHandlers();
@@ -19,76 +21,118 @@ try {
   if (!fs.existsSync("./logs")) {
     fs.mkdirSync("./logs", { recursive: true });
   }
-} catch (err) {
-  console.error("Failed to create logs directory:", err);
+} catch (error) {
+  console.error("Failed to create logs directory:", error);
 }
 
 const app = express();
+
+// Apply middleware
+app.use(requestLogger);
+app.use(errorLogger);
 app.use(express.json());
 
-(async () => {
-  const server = await registerRoutes(app);
+// Use port 5000 consistently for both production and development
+const port = Number(process.env.PORT) || 5000;
 
-  // Use our enhanced error logger middleware
-  app.use(errorLogger);
-  
-  // Fallback error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+logger.info(`Attempting to start server on port ${port}`);
 
-    logger.error("Server error:", {
-      error: err,
-      stack: err.stack
-    });
-    
-    // Only send response if headers haven't been sent yet
-    if (!res.headersSent) {
-      res.status(status).json({ message });
-    }
-  });
+// Log environment details for debugging
+logger.info("Application environment details:", {
+  nodeEnv: process.env.NODE_ENV,
+  port: port,
+  databaseUrl: process.env.DATABASE_URL ? "Set (value hidden)" : "Not set",
+  platform: process.platform,
+  nodeVersion: process.version,
+  pid: process.pid
+});
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+let server: ReturnType<typeof createServer>;
 
-  // Use port 5000 consistently for both production and development
-  const port = Number(process.env.PORT) || 5000;
-  
-  logger.info(`Attempting to start server on port ${port}`);
-  
-  // Log environment details for debugging
-  logger.info("Application environment details:", {
-    nodeEnv: process.env.NODE_ENV,
-    port: port,
-    databaseUrl: process.env.DATABASE_URL ? "Set (value hidden)" : "Not set",
-    platform: process.platform,
-    nodeVersion: process.version,
-    pid: process.pid
-  });
-  
+async function startServer() {
   try {
+    // Create HTTP server
+    server = createServer(app);
+
+    // Setup routes and vite
+    if (process.env.NODE_ENV === "production") {
+      serveStatic(app);
+    } else {
+      await setupVite(app, server);
+    }
+
+    await registerRoutes(app);
+
+    // Start listening
     server.listen(port, "0.0.0.0", () => {
       logger.info(`Server started successfully and listening on port ${port}`);
       log(`serving on port ${port}`);
     });
-    
+
     // Add error listener to the server
     server.on('error', (error: any) => {
       if (error.code === 'EADDRINUSE') {
-        logger.error(`Port ${port} is still in use, could not start server.`);
+        logger.error(`Port ${port} is still in use, could not start server`);
         process.exit(1);
-      } else {
-        logger.error('Server error occurred:', error);
       }
+      logger.error('Server error:', error);
     });
+
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
   }
-})();
+}
+
+// Graceful shutdown handler
+async function shutdown(signal: string) {
+  logger.info(`Received ${signal}, starting graceful shutdown...`);
+
+  // Stop the performance monitoring
+  if (resourceMonitor) {
+    clearInterval(resourceMonitor);
+  }
+
+  // Close the server first
+  if (server) {
+    logger.info('Closing HTTP server...');
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        logger.info('HTTP server closed');
+        resolve();
+      });
+    });
+  }
+
+  // Close database connections
+  try {
+    logger.info('Closing database connections...');
+    await pool.end();
+    logger.info('Database connections closed');
+  } catch (err) {
+    logger.error('Error closing database connections:', err);
+  }
+
+  // Exit the process
+  logger.info('Shutdown complete');
+  process.exit(0);
+}
+
+// Handle various signals
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGHUP', () => shutdown('SIGHUP'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (error: Error) => {
+  logger.error('Uncaught exception:', error);
+  shutdown('uncaught exception');
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  logger.error('Unhandled Rejection, reason:', reason);
+  shutdown('unhandled rejection');
+});
+
+// Start the server
+startServer();
