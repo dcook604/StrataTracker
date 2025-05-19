@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Link } from 'wouter';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -88,9 +89,11 @@ export function ForgotPasswordPage() {
                 If your email is registered in our system, you'll receive a link to reset your password shortly.
                 Please check your email inbox and spam folder.
               </p>
-              <Button onClick={() => navigate('/login')}>
-                Back to Login
-              </Button>
+              <Link href="/login">
+                <Button className="w-full">
+                  Back to Login
+                </Button>
+              </Link>
             </div>
           ) : (
             <Form {...form}>
@@ -117,9 +120,14 @@ export function ForgotPasswordPage() {
           )}
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button variant="link" onClick={() => navigate('/login')}>
-            Back to Login
-          </Button>
+          <Link href="/login">
+            <Button 
+              variant="link" 
+              className="text-primary hover:text-primary/80 font-medium underline"
+            >
+              Back to Login
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     </div>

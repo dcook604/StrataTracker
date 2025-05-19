@@ -1,5 +1,5 @@
 import { db } from "../server/db";
-import { users } from "@shared/schema";
+import { users } from "../shared/schema";
 import { storage } from "../server/storage";
 import { eq } from "drizzle-orm";
 
