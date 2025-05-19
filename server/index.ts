@@ -73,18 +73,18 @@ logger.info("Application starting up...");
     serveStatic(app);
   }
 
-  // Use port 5000 for Replit compatibility
-  const port = 5000;
+  // Get port from environment or use fallback
+  const port = process.env.PORT || process.env.REPLIT_PORT || 3000;
   
   // Log important server information
   logger.info(`Attempting to start server on port ${port}`);
   
-  // Try to kill any process that might be on port 5000
-  exec('fuser -k 5000/tcp 2>/dev/null || true', (error, stdout, stderr) => {
+  // Try to kill any process that might be on the port
+  exec(`fuser -k ${port}/tcp 2>/dev/null || true`, (error, stdout, stderr) => {
     if (error) {
-      logger.info(`Note: Could not kill port 5000: ${error.message}`);
+      logger.info(`Note: Could not kill port ${port}: ${error.message}`);
     } else {
-      logger.info(`Attempted to free port 5000`);
+      logger.info(`Attempted to free port ${port}`);
     }
   });
   
