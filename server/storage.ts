@@ -301,22 +301,12 @@ export class DatabaseStorage implements IStorage {
 
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select()
-      .from(users)
-      .where(and(
-        eq(users.id, id),
-        sql`${users.deletedAt} IS NULL`
-      ));
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select()
-      .from(users)
-      .where(and(
-        eq(users.email, email),
-        sql`${users.deletedAt} IS NULL`
-      ));
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
@@ -361,27 +351,14 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteUser(id: number): Promise<boolean> {
-    try {
-      // Soft delete the user by setting deletedAt
-      const result = await db.update(users)
-        .set({
-          deletedAt: new Date(),
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, id));
-      
-      return result.rowCount ? result.rowCount > 0 : false;
-    } catch (error) {
-      console.error('Error soft deleting user:', error);
-      return false;
-    }
+    const result = await db.delete(users)
+      .where(eq(users.id, id));
+    
+    return result.rowCount ? result.rowCount > 0 : false;
   }
   
   async getAllUsers(): Promise<User[]> {
-    return db.select()
-      .from(users)
-      .where(sql`${users.deletedAt} IS NULL`)
-      .orderBy(users.fullName);
+    return db.select().from(users).orderBy(users.fullName);
   }
   
   async incrementFailedLoginAttempts(id: number): Promise<void> {

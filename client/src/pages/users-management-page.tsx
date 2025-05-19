@@ -137,12 +137,14 @@ export function UsersManagementPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to delete user');
       }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       toast({
-        title: 'User Deactivated',
-        description: 'The user has been deactivated successfully. Their account is no longer accessible, but their history is preserved.',
+        title: 'User Deleted',
+        description: 'The user has been deleted successfully.',
       });
       setIsDeleteDialogOpen(false);
       setUserToDelete(null);
@@ -150,7 +152,7 @@ export function UsersManagementPage() {
     onError: (error) => {
       toast({
         title: 'Error',
-        description: `Failed to deactivate user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: `Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: 'destructive',
       });
     },
@@ -202,9 +204,9 @@ export function UsersManagementPage() {
   };
 
   const getRoleBadge = (user: User) => {
-    if (user.isAdmin) {
+    if (user.is_admin) {
       return <Badge className="bg-red-500">Admin</Badge>;
-    } else if (user.isCouncilMember) {
+    } else if (user.is_council_member) {
       return <Badge className="bg-blue-500">Council</Badge>;
     } else {
       return <Badge className="bg-green-500">User</Badge>;
@@ -390,9 +392,9 @@ export function UsersManagementPage() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Confirm Deactivation</DialogTitle>
+            <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to deactivate the user {userToDelete?.fullName}? Their account will be disabled, but their history will be preserved. This action can only be reversed by a system administrator.
+              Are you sure you want to delete the user {userToDelete?.fullName}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -404,7 +406,7 @@ export function UsersManagementPage() {
               onClick={confirmDeleteUser}
               disabled={deleteUserMutation.isPending}
             >
-              {deleteUserMutation.isPending ? 'Deactivating...' : 'Deactivate User'}
+              {deleteUserMutation.isPending ? 'Deleting...' : 'Delete User'}
             </Button>
           </DialogFooter>
         </DialogContent>
