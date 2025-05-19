@@ -40,8 +40,7 @@ export function DashboardTabs() {
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/violations?status=pending_approval");
       return res.json();
-    },
-    enabled: activeTab === 'pending',
+    }
   });
   
   const { data: disputedViolations, isLoading: disputedLoading } = useQuery<Violation[]>({
