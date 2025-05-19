@@ -39,8 +39,11 @@ const userFormSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   fullName: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email format"),
-  isAdmin: z.boolean().default(false),
-  isCouncilMember: z.boolean().default(false),
+  roles: z.object({
+    isAdmin: z.boolean().default(false),
+    isCouncilMember: z.boolean().default(false),
+    isUser: z.boolean().default(true),
+  }),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -79,14 +82,26 @@ export default function UsersPage() {
       password: "",
       fullName: "",
       email: "",
-      isAdmin: false,
-      isCouncilMember: false,
+      roles: {
+        isAdmin: false,
+        isCouncilMember: false,
+        isUser: true,
+      }
     }
   });
   
   const createMutation = useMutation({
     mutationFn: async (data: UserFormValues) => {
-      const res = await apiRequest("POST", "/api/register", data);
+      // Flatten roles object for API
+      const apiData = {
+        ...data,
+        isAdmin: data.roles.isAdmin,
+        isCouncilMember: data.roles.isCouncilMember,
+        isUser: data.roles.isUser,
+      };
+      delete (apiData as any).roles;
+      
+      const res = await apiRequest("POST", "/api/register", apiData);
       return res.json();
     },
     onSuccess: () => {
@@ -110,7 +125,16 @@ export default function UsersPage() {
   const updateMutation = useMutation({
     mutationFn: async (data: UserFormValues & { id: number }) => {
       const { id, ...userData } = data;
-      const res = await apiRequest("PATCH", `/api/users/${id}`, userData);
+      // Flatten roles object for API
+      const apiData = {
+        ...userData,
+        isAdmin: userData.roles.isAdmin,
+        isCouncilMember: userData.roles.isCouncilMember,
+        isUser: userData.roles.isUser,
+      };
+      delete (apiData as any).roles;
+      
+      const res = await apiRequest("PATCH", `/api/users/${id}`, apiData);
       return res.json();
     },
     onSuccess: () => {
@@ -167,8 +191,11 @@ export default function UsersPage() {
       password: "",
       fullName: user.fullName || "",
       email: user.email || "",
-      isAdmin: user.isAdmin || false,
-      isCouncilMember: user.isCouncilMember || false,
+      roles: {
+        isAdmin: user.isAdmin || false,
+        isCouncilMember: user.isCouncilMember || false,
+        isUser: user.isUser || true,
+      }
     });
   };
   
@@ -259,40 +286,40 @@ export default function UsersPage() {
           <Button 
             onClick={() => {
               form.reset();
-          setIsAddDialogOpen(true);
+              setIsAddDialogOpen(true);
             }}
             className="h-12 px-6 md:h-10"
           >
             <UserPlusIcon className="h-5 w-5 mr-2" />
-          Add User
-        </Button>
-      </div>
-      
-      {isLoading ? (
-          <div className="flex justify-center items-center min-h-[200px]">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            Add User
+          </Button>
         </div>
-      ) : data && data.length > 0 ? (
+        
+        {isLoading ? (
+          <div className="flex justify-center items-center min-h-[200px]">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          </div>
+        ) : data && data.length > 0 ? (
           <div className="overflow-x-auto -mx-4 md:mx-0">
-        <DataTable 
-          columns={columns} 
-          data={data}
+            <DataTable 
+              columns={columns} 
+              data={data}
               searchColumn="email"
               searchPlaceholder="Search by email..."
-        />
+            />
           </div>
-      ) : (
-        <EmptyState
+        ) : (
+          <EmptyState
             icon={<Users className="h-12 w-12 md:h-10 md:w-10" />}
-          title="No users found"
-          description="Add your first user to get started"
+            title="No users found"
+            description="Add your first user to get started"
             actionLabel="Add User"
             onAction={() => {
               form.reset();
               setIsAddDialogOpen(true);
-          }}
-        />
-      )}
+            }}
+          />
+        )}
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -349,7 +376,7 @@ export default function UsersPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password*</FormLabel>
+                    <FormLabel>{editingUser ? "New Password (leave blank to keep current)" : "Password*"}</FormLabel>
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
@@ -358,47 +385,70 @@ export default function UsersPage() {
                 )}
               />
               
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="isAdmin"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Administrator</FormLabel>
-                        <FormDescription>
-                          Can manage all aspects of the system
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="isCouncilMember"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Council Member</FormLabel>
-                        <FormDescription>
-                          Can approve violations
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">User Roles</h3>
+                <div className="grid gap-4">
+                  <FormField
+                    control={form.control}
+                    name="roles.isAdmin"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Administrator</FormLabel>
+                          <FormDescription>
+                            Can manage all aspects of the system
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="roles.isCouncilMember"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Council Member</FormLabel>
+                          <FormDescription>
+                            Can approve violations
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="roles.isUser"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Regular User</FormLabel>
+                          <FormDescription>
+                            Basic access to report violations
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
               
               <DialogFooter>
@@ -477,47 +527,70 @@ export default function UsersPage() {
                 )}
               />
               
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="isAdmin"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Administrator</FormLabel>
-                        <FormDescription>
-                          Can manage all aspects of the system
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="isCouncilMember"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Council Member</FormLabel>
-                        <FormDescription>
-                          Can approve violations
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">User Roles</h3>
+                <div className="grid gap-4">
+                  <FormField
+                    control={form.control}
+                    name="roles.isAdmin"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Administrator</FormLabel>
+                          <FormDescription>
+                            Can manage all aspects of the system
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="roles.isCouncilMember"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Council Member</FormLabel>
+                          <FormDescription>
+                            Can approve violations
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="roles.isUser"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Regular User</FormLabel>
+                          <FormDescription>
+                            Basic access to report violations
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
               
               <DialogFooter>
