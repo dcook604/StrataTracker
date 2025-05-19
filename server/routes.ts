@@ -47,9 +47,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes first
   setupAuth(app);
   
-  // Wait for auth setup to complete
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
   // Register user management routes
   app.use("/api/users", userManagementRoutes);
   

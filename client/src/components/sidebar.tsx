@@ -81,7 +81,7 @@ export function Sidebar({ className }: SidebarProps) {
   const NavContent = () => (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-center h-16 px-4 border-b border-neutral-200 dark:border-neutral-800">
-        <Logo size="md" />
+        <Logo />
       </div>
       <ScrollArea className="flex-1 px-4 py-4">
         <nav className="flex flex-col gap-1">
