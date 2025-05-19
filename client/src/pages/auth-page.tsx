@@ -104,13 +104,13 @@ export default function AuthPage() {
             <CardHeader className="space-y-1 text-center">
               <div className="flex justify-center mb-4">
                 <img 
-                  src="/images/spectrum4-logo.png" 
+                  src="/logo.jpeg" 
                   alt="Spectrum 4 Logo" 
                   className="h-20" 
                 />
               </div>
               <CardDescription>
-                Violation Management System
+                Spectrum 4 Violation System
               </CardDescription>
             </CardHeader>
             <CardContent>

@@ -1,0 +1,60 @@
+05-19 07:18:29
+at verified (/home/runner/workspace/node_modules/passport-local/lib/strategy.js:83:10)
+05-19 07:18:29
+at Strategy._verify (file:///home/runner/workspace/dist/index.js:726:22)
+05-19 07:18:29
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+05-19 07:18:29
+10:18:29 PM [express] POST /api/login 500 in 33ms :: {"message":"storage.sessionStore.all is not a fu…
+05-19 07:18:29
+TypeError: storage.sessionStore.all is not a function
+05-19 07:18:29
+at req.session.cookie.maxAge (file:///home/runner/workspace/dist/index.js:769:32)
+05-19 07:18:29
+at new Promise ()
+05-19 07:18:29
+at file:///home/runner/workspace/dist/index.js:768:15
+05-19 07:18:29
+at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+05-19 07:18:29
+at verified (/home/runner/workspace/node_modules/passport-local/lib/strategy.js:83:10)
+05-19 07:18:29
+at Strategy._verify (file:///home/runner/workspace/dist/index.js:726:22)
+05-19 07:18:29
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+05-19 07:18:32
+Session management error: TypeError: storage.sessionStore.all is not a function
+05-19 07:18:32
+at req.session.cookie.maxAge (file:///home/runner/workspace/dist/index.js:769:32)
+05-19 07:18:32
+at new Promise ()
+05-19 07:18:32
+at file:///home/runner/workspace/dist/index.js:768:15
+05-19 07:18:32
+at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+05-19 07:18:32
+at verified (/home/runner/workspace/node_modules/passport-local/lib/strategy.js:83:10)
+05-19 07:18:32
+at Strategy._verify (file:///home/runner/workspace/dist/index.js:726:22)
+05-19 07:18:32
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+05-19 07:18:32
+Simple password match success
+05-19 07:18:32
+TypeError: storage.sessionStore.all is not a function
+05-19 07:18:32
+at req.session.cookie.maxAge (file:///home/runner/workspace/dist/index.js:769:32)
+05-19 07:18:32
+at new Promise ()
+05-19 07:18:32
+at file:///home/runner/workspace/dist/index.js:768:15
+05-19 07:18:32
+at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+05-19 07:18:32
+at verified (/home/runner/workspace/node_modules/passport-local/lib/strategy.js:83:10)
+05-19 07:18:32
+at Strategy._verify (file:///home/runner/workspace/dist/index.js:726:22)
+05-19 07:18:32
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+05-19 07:18:32
+10:18:32 PM [express] POST /api/login 500 in 26ms :: {"message":"storage.sessionStore.all is not a fu…
