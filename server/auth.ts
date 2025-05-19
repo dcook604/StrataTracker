@@ -48,14 +48,19 @@ export function setupAuth(app: Express) {
   const sessionSecret = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
   
   const sessionSettings: session.SessionOptions = {
+    store: dbStorage.sessionStore,
     secret: sessionSecret,
+    name: 'sessionId', // Don't use the default 'connect.sid'
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Refresh session with each request
     cookie: {
       maxAge: 1000 * 60 * 30, // 30 minutes by default
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax"
+      sameSite: "lax",
+      path: "/",
+      domain: process.env.COOKIE_DOMAIN || undefined
     }
   };
 

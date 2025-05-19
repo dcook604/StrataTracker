@@ -27,11 +27,11 @@ import { eq, and, desc, sql, like, or, not, gte, lt } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import memorystore from "memorystore";
 
 const scryptAsync = promisify(scrypt);
 
-const PostgresSessionStore = connectPg(session);
+const MemoryStore = memorystore(session);
 
 export interface IStorage {
   // User operations
@@ -111,17 +111,17 @@ export interface IStorage {
   comparePasswords(supplied: string, stored: string): Promise<boolean>;
   
   // Session store
-  sessionStore: any; // Using 'any' to avoid SessionStore type issues
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: any;
+  sessionStore: session.Store;
 
   constructor() {
-    // Use a simple in-memory store for now
-    // This won't persist sessions between server restarts
-    const store = new session.MemoryStore();
-    this.sessionStore = store;
+    // Create a proper MemoryStore instance with session cleanup
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // Prune expired entries every 24h
+    });
   }
 
   // Password management
