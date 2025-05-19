@@ -26,7 +26,11 @@ function generatePassword(length = 12) {
 
 // Middleware to check if user is admin
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (!req.user || !(req.user as any).is_admin) {
+  console.log('User in user-management isAdmin middleware:', req.user);
+  if (!req.user) {
+    return res.status(401).json({ message: 'Authentication required.' });
+  }
+  if (!(req.user as any).is_admin) {
     return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
   }
   next();

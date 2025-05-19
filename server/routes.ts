@@ -29,7 +29,7 @@ const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
 
 // Ensure user is council member middleware
 const ensureCouncilMember = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated() && req.user && (req.user as any).is_council_member) {
+  if (req.isAuthenticated() && req.user && ((req.user as any).is_council_member || (req.user as any).is_admin)) {
     return next();
   }
   res.status(403).json({ message: "Forbidden - Council access required" });
@@ -229,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // If approved and has fine amount, send approval notification
-      if (status === "approved" && violation.fineAmount) {
+      if (status === "approved" && violation.defaultFineAmount) {
         const unit = await dbStorage.getPropertyUnit(violation.unitId);
         if (unit) {
           await sendViolationApprovedNotification({

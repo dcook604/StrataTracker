@@ -110,10 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user: user ? {
           ...user,
-          // Add compatibility properties for client components that expect camelCase
+          // Add compatibility properties for client components that expect camelCase or snake_case
           isAdmin: user.isAdmin || user.is_admin,
           isCouncilMember: user.isCouncilMember || user.is_council_member,
-          isUser: user.isUser || user.is_user
+          isUser: user.isUser || user.is_user,
+          is_admin: user.is_admin || user.isAdmin,
+          is_council_member: user.is_council_member || user.isCouncilMember,
+          is_user: user.is_user || user.isUser
         } : null,
         isLoading,
         error,

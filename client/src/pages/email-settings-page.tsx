@@ -40,7 +40,7 @@ export function EmailSettingsPage() {
   const [testMessage, setTestMessage] = useState('');
 
   // Check if user is admin
-  if (!user?.isAdmin) {
+  if (user && !user.is_admin) {
     return (
       <div className="container mx-auto p-6">
         <Alert variant="destructive">

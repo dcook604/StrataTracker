@@ -35,9 +35,9 @@ import { PencilIcon, FileTextIcon, BadgeAlertIcon } from "lucide-react";
 const formSchema = z.object({
   name: z.string().min(1, "Category name is required"),
   description: z.string().min(1, "Description is required"),
-  fineAmount: z.coerce.number().min(0, "Fine amount must be a positive number"),
+  defaultFineAmount: z.coerce.number().min(0, "Fine amount must be a positive number"),
   bylawReference: z.string().optional(),
-  isActive: z.boolean().default(true),
+  active: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -60,9 +60,9 @@ export default function CategoriesPage() {
     defaultValues: {
       name: "",
       description: "",
-      fineAmount: 0,
+      defaultFineAmount: 0,
       bylawReference: "",
-      isActive: true,
+      active: true,
     }
   });
   
@@ -125,10 +125,10 @@ export default function CategoriesPage() {
     setEditingCategory(category);
     form.reset({
       name: category.name,
-      description: category.description,
-      fineAmount: category.fineAmount,
+      description: category.description || "",
+      defaultFineAmount: category.defaultFineAmount || 0,
       bylawReference: category.bylawReference || "",
-      isActive: category.isActive,
+      active: category.active,
     });
   };
   
@@ -141,15 +141,15 @@ export default function CategoriesPage() {
       accessorKey: "description",
       header: "Description",
       cell: ({ row }) => {
-        const description = row.original.description;
+        const description = row.original.description || "";
         return description.length > 50 ? `${description.substring(0, 50)}...` : description;
       },
     },
     {
-      accessorKey: "fineAmount",
+      accessorKey: "defaultFineAmount",
       header: "Fine Amount",
       cell: ({ row }) => {
-        return `$${row.original.fineAmount.toFixed(2)}`;
+        return `$${row.original.defaultFineAmount?.toFixed(2) || '0.00'}`;
       },
     },
     {
@@ -157,10 +157,10 @@ export default function CategoriesPage() {
       header: "Bylaw Reference",
     },
     {
-      accessorKey: "isActive",
+      accessorKey: "active",
       header: "Status",
       cell: ({ row }) => {
-        return row.original.isActive ? (
+        return row.original.active ? (
           <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>
         ) : (
           <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">Inactive</span>
@@ -194,9 +194,9 @@ export default function CategoriesPage() {
           form.reset({
             name: "",
             description: "",
-            fineAmount: 0,
+            defaultFineAmount: 0,
             bylawReference: "",
-            isActive: true,
+            active: true,
           });
           setIsAddDialogOpen(true);
         }}>
@@ -265,7 +265,7 @@ export default function CategoriesPage() {
               />
               <FormField
                 control={form.control}
-                name="fineAmount"
+                name="defaultFineAmount"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Fine Amount*</FormLabel>
@@ -292,7 +292,7 @@ export default function CategoriesPage() {
               />
               <FormField
                 control={form.control}
-                name="isActive"
+                name="active"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                     <div className="space-y-0.5">
@@ -361,7 +361,7 @@ export default function CategoriesPage() {
               />
               <FormField
                 control={form.control}
-                name="fineAmount"
+                name="defaultFineAmount"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Fine Amount*</FormLabel>
@@ -388,7 +388,7 @@ export default function CategoriesPage() {
               />
               <FormField
                 control={form.control}
-                name="isActive"
+                name="active"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                     <div className="space-y-0.5">

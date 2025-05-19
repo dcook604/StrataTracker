@@ -95,9 +95,9 @@ export function UsersManagementPage() {
         body: JSON.stringify({
           email: data.email,
           fullName: data.fullName,
-          isCouncilMember: data.role === 'council',
-          isAdmin: data.role === 'admin',
-          isUser: data.role === 'user',
+          is_council_member: data.role === 'council',
+          is_admin: data.role === 'admin',
+          is_user: data.role === 'user',
         }),
       });
       
