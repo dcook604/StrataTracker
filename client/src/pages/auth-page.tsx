@@ -95,13 +95,6 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <img 
-              src="/logo.jpeg" 
-              alt="Spectrum 4 Logo" 
-              className="h-20" 
-            />
-          </div>
           <CardTitle>Sign In</CardTitle>
           <CardDescription>
             Enter your credentials to access the system

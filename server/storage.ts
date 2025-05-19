@@ -351,10 +351,34 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteUser(id: number): Promise<boolean> {
-    const result = await db.delete(users)
-      .where(eq(users.id, id));
-    
-    return result.rowCount ? result.rowCount > 0 : false;
+    try {
+      // Use a transaction to ensure all operations succeed or fail together
+      return await db.transaction(async (tx) => {
+        // 1. Update system settings to remove references to this user
+        await tx.update(systemSettings)
+          .set({ updatedById: null })
+          .where(eq(systemSettings.updatedById, id));
+        
+        // 2. Update violation histories to use a system account
+        await tx.update(violationHistories)
+          .set({ userId: 1 }) // Use system account instead of null
+          .where(eq(violationHistories.userId, id));
+        
+        // 3. Update violations to use a system account for reported_by
+        await tx.update(violations)
+          .set({ reportedById: 1 }) // Use system account
+          .where(eq(violations.reportedById, id));
+        
+        // 4. Finally delete the user
+        const result = await tx.delete(users)
+          .where(eq(users.id, id));
+        
+        return result.rowCount ? result.rowCount > 0 : false;
+      });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
   }
   
   async getAllUsers(): Promise<User[]> {
@@ -675,12 +699,11 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getViolationsByMonth(year: number): Promise<{ month: number, count: number }[]> {
-    // Calculate date range for the year
-    const startDate = new Date(year, 0, 1); // January 1st of the year
-    const endDate = new Date(year + 1, 0, 1); // January 1st of next year
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year + 1, 0, 1);
     
     const violationsInYear = await db.select({
-      month: sql<number>`EXTRACT(MONTH FROM ${violations.createdAt})::integer`,
+      month: sql<number>`EXTRACT(MONTH FROM ${violations.createdAt})`,
       count: sql<number>`count(*)`
     })
     .from(violations)
