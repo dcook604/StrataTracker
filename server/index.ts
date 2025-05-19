@@ -73,8 +73,8 @@ logger.info("Application starting up...");
     serveStatic(app);
   }
 
-  // Use port 5000 for Replit compatibility
-  const port = 5000;
+  // Use port 3000 for Replit compatibility with deployments
+  const port = 3000;
   
   // Log important server information
   logger.info(`Attempting to start server on port ${port}`);
