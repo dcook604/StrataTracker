@@ -10,8 +10,7 @@ import {
   Card, 
   CardContent, 
   CardDescription, 
-  CardHeader, 
-  CardTitle 
+  CardHeader
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
