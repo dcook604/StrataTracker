@@ -5,21 +5,12 @@ import { requestLogger, errorLogger } from "./middleware/logging-middleware";
 import logger from "./utils/logger";
 import { setupGlobalErrorHandlers } from "./utils/error-handler";
 import { startPerformanceMonitoring, logSystemResources } from "./utils/performance-monitor";
-import { killProcessOnPort, findAvailablePort } from "./utils/port-manager";
-import { exec } from 'child_process';
 
 // Initialize global error handlers
 setupGlobalErrorHandlers();
 
-// Log system resources at startup
-logSystemResources();
-
 // Start resource monitoring (check every 30 seconds)
 const resourceMonitor = startPerformanceMonitoring(30000);
-
-// Simplify port handling - don't try to automatically kill processes
-// just log an informational message
-logger.info("Starting application - will use port defined by Replit or fallback to 3000");
 
 // Create logs directory if it doesn't exist
 import fs from "fs";
@@ -34,13 +25,6 @@ try {
 
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Add comprehensive request logging
-app.use(requestLogger);
-
-// Log application startup
-logger.info("Application starting up...");
 
 (async () => {
   const server = await registerRoutes(app);
@@ -73,19 +57,15 @@ logger.info("Application starting up...");
     serveStatic(app);
   }
 
-  // Use port from environment or default to 3000 for Replit compatibility
-  const port = process.env.PORT || 3000;
+  // Use port 5000 consistently for both production and development
+  const port = Number(process.env.PORT) || 5000;
   
-  // Log important server information
   logger.info(`Attempting to start server on port ${port}`);
-  
-  // Use port 3000 in production, otherwise use environment port or 3000
-  const finalPort = process.env.NODE_ENV === 'production' ? 3000 : (process.env.PORT || 3000);
   
   // Log environment details for debugging
   logger.info("Application environment details:", {
     nodeEnv: process.env.NODE_ENV,
-    port: finalPort,
+    port: port,
     databaseUrl: process.env.DATABASE_URL ? "Set (value hidden)" : "Not set",
     platform: process.platform,
     nodeVersion: process.version,
@@ -93,33 +73,22 @@ logger.info("Application starting up...");
   });
   
   try {
-    server.listen(finalPort, "0.0.0.0", () => {
-      logger.info(`Server started successfully and listening on port ${finalPort}`);
-      log(`serving on port ${finalPort}`);
+    server.listen(port, "0.0.0.0", () => {
+      logger.info(`Server started successfully and listening on port ${port}`);
+      log(`serving on port ${port}`);
     });
     
     // Add error listener to the server
     server.on('error', (error: any) => {
       if (error.code === 'EADDRINUSE') {
-        logger.error(`Port ${port} is still in use, could not start server. Trying a random port...`);
-        
-        // Try a completely random port as last resort
-        const randomPort = Math.floor(Math.random() * 10000) + 20000;
-        logger.info(`Attempting to start server on random port ${randomPort}`);
-        
-        server.listen({
-          port: randomPort,
-          host: "0.0.0.0",
-          reusePort: true,
-        }, () => {
-          logger.info(`Server started successfully on random port ${randomPort}`);
-          log(`serving on random port ${randomPort}`);
-        });
+        logger.error(`Port ${port} is still in use, could not start server.`);
+        process.exit(1);
       } else {
         logger.error('Server error occurred:', error);
       }
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
+    process.exit(1);
   }
 })();
