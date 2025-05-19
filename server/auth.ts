@@ -119,6 +119,12 @@ export function setupAuth(app: Express) {
             }
             return done(null, false, { message: "Invalid email or password" });
           }
+
+          // Update last login time
+          await dbStorage.updateLastLogin(user.id);
+          
+          // Get the updated user with new last login time
+          user = await dbStorage.getUser(user.id);
           
           return done(null, toExpressUser(user));
         } catch (error) {
@@ -145,12 +151,15 @@ export function setupAuth(app: Express) {
   app.post("/api/login", loginLimiter, (req, res, next) => {
     const rememberMe = req.body.rememberMe === true;
     
-    passport.authenticate("local", (err: Error, user: Express.User | false, info: { message: string }) => {
+    passport.authenticate("local", async (err: Error, user: Express.User | false, info: { message: string }) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Invalid email or password" });
       
-      // Set session expiration based on remember me option
       try {
+        // Update last login timestamp directly in database
+        await dbStorage.updateLastLogin(user.id);
+
+        // Set session expiration based on remember me option
         if (req.session && req.session.cookie) {
           if (rememberMe) {
             // If remember me is checked, use longer session (1 day)
@@ -160,15 +169,24 @@ export function setupAuth(app: Express) {
             req.session.cookie.maxAge = 1000 * 60 * 30;
           }
         }
+
+        req.login(user, (err) => {
+          if (err) return next(err);
+          // Update the user object with new last login time
+          const updatedUser = {
+            ...user,
+            lastLogin: new Date()
+          };
+          res.status(200).json(updatedUser);
+        });
       } catch (error) {
-        console.error("Error setting session cookie:", error);
-        // Continue despite error
+        console.error("Error updating last login:", error);
+        // Continue with login despite error updating timestamp
+        req.login(user, (err) => {
+          if (err) return next(err);
+          res.status(200).json(user);
+        });
       }
-      
-      req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(200).json(user);
-      });
     })(req, res, next);
   });
 
