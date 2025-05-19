@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
+import { Layout } from "@/components/layout";
 
 // Form schema
 const emailConfigSchema = z.object({
@@ -219,203 +220,250 @@ export function EmailSettingsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Email Settings</h1>
+    <Layout title="Email Settings">
+      <div className="container mx-auto p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Email Settings</h1>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>SMTP Configuration</CardTitle>
+              <CardDescription>
+                Configure your SMTP server settings for sending system emails.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmitConfig)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="host"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Host</FormLabel>
+                        <FormControl>
+                          <Input placeholder="smtp.example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="port"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Port</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="secure"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Use SSL/TLS
+                          </FormLabel>
+                          <p className="text-sm text-muted-foreground">
+                            Enable for secure SMTP connection (usually port 465)
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="authUser"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Optional if no auth required" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="authPass"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Password</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="password" 
+                            placeholder="Optional if no auth required" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="from"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>From Email Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="noreply@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button type="submit" disabled={saveConfigMutation.isPending}>
+                      {saveConfigMutation.isPending ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Test Email Configuration</CardTitle>
+              <CardDescription>
+                Send a test email to verify your SMTP settings are working correctly.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...testForm}>
+                <form onSubmit={testForm.handleSubmit(onSubmitTest)} className="space-y-4">
+                  <FormField
+                    control={testForm.control}
+                    name="testEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Test Email Address</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="Enter recipient email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {testStatus === 'success' && (
+                    <Alert className="bg-green-50 text-green-800 border-green-200">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <AlertTitle>Success</AlertTitle>
+                      <AlertDescription>{testMessage}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {testStatus === 'error' && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{testMessage}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button 
+                      type="submit" 
+                      disabled={testEmailMutation.isPending || saveConfigMutation.isPending}
+                    >
+                      {testEmailMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : 'Send Test Email'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-6">
+          <Alert className="bg-blue-50 text-blue-800 border-blue-200">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertTitle>Email Configuration Tips</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc list-inside space-y-1 mt-2">
+                <li>For local development with postfix, use host: "localhost" and port: 25</li>
+                <li>Gmail SMTP requires "Less secure app access" to be enabled</li>
+                <li>Office 365: smtp.office365.com (port 587, TLS enabled)</li>
+                <li>Make sure your SMTP server allows connections from this server's IP address</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+        </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>SMTP Configuration</CardTitle>
-            <CardDescription>
-              Configure your SMTP server settings for sending system emails.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmitConfig)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="host"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SMTP Host</FormLabel>
-                      <FormControl>
-                        <Input placeholder="smtp.example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="port"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SMTP Port</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="secure"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">
-                          Use SSL/TLS
-                        </FormLabel>
-                        <p className="text-sm text-muted-foreground">
-                          Enable for secure SMTP connection (usually port 465)
-                        </p>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="authUser"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SMTP Username</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Optional if no auth required" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="authPass"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SMTP Password</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="Optional if no auth required" 
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="from"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>From Email Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="noreply@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="submit" disabled={saveConfigMutation.isPending}>
-                    {saveConfigMutation.isPending ? 'Saving...' : 'Save Settings'}
+      {isTestDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Test Email Configuration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...testForm}>
+                <form onSubmit={testForm.handleSubmit(onSubmitTest)} className="space-y-4">
+                  <FormField
+                    control={testForm.control}
+                    name="testEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Recipient Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="test@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={testEmailMutation.isPending || testStatus === 'loading'}>
+                    {testStatus === 'loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Send Test Email
                   </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Test Email Configuration</CardTitle>
-            <CardDescription>
-              Send a test email to verify your SMTP settings are working correctly.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...testForm}>
-              <form onSubmit={testForm.handleSubmit(onSubmitTest)} className="space-y-4">
-                <FormField
-                  control={testForm.control}
-                  name="testEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Test Email Address</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="Enter recipient email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {testStatus === 'success' && (
-                  <Alert className="bg-green-50 text-green-800 border-green-200">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <AlertTitle>Success</AlertTitle>
-                    <AlertDescription>{testMessage}</AlertDescription>
-                  </Alert>
-                )}
-
-                {testStatus === 'error' && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{testMessage}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button 
-                    type="submit" 
-                    disabled={testEmailMutation.isPending || saveConfigMutation.isPending}
-                  >
-                    {testEmailMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending...
-                      </>
-                    ) : 'Send Test Email'}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-6">
-        <Alert className="bg-blue-50 text-blue-800 border-blue-200">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertTitle>Email Configuration Tips</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc list-inside space-y-1 mt-2">
-              <li>For local development with postfix, use host: "localhost" and port: 25</li>
-              <li>Gmail SMTP requires "Less secure app access" to be enabled</li>
-              <li>Office 365: smtp.office365.com (port 587, TLS enabled)</li>
-              <li>Make sure your SMTP server allows connections from this server's IP address</li>
-            </ul>
-          </AlertDescription>
-        </Alert>
-      </div>
-    </div>
+                </form>
+              </Form>
+              {testStatus !== 'idle' && (
+                <Alert className={`mt-4 ${testStatus === 'success' ? 'border-green-500 text-green-700' : testStatus === 'error' ? 'border-red-500 text-red-700' : ''}`}>
+                  {testStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
+                  {testStatus === 'error' && <AlertCircle className="h-4 w-4" />}
+                  <AlertTitle>{testStatus === 'success' ? 'Success' : testStatus === 'error' ? 'Error' : 'Status'}</AlertTitle>
+                  <AlertDescription>{testMessage}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" className="w-full" onClick={() => setIsTestDialogOpen(false)} disabled={testStatus === 'loading'}>
+                Close
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
+    </Layout>
   );
 }
 

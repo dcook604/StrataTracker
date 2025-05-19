@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Card,
   CardContent,
@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ViolationStatus } from "@shared/schema";
 import { format } from "date-fns";
 import { ClipboardList, AlertCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 type Violation = {
   id: number;
@@ -28,6 +29,7 @@ type Violation = {
 
 export function DashboardTabs() {
   const [activeTab, setActiveTab] = useState<'recent' | 'pending' | 'disputed'>('recent');
+  const [, navigate] = useLocation();
   
   const { data: recentViolations, isLoading: recentLoading } = useQuery<Violation[]>({
     queryKey: ['/api/violations/recent'],
@@ -35,11 +37,19 @@ export function DashboardTabs() {
   
   const { data: pendingViolations, isLoading: pendingLoading } = useQuery<Violation[]>({
     queryKey: ['/api/violations', { status: 'pending_approval' }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/violations?status=pending_approval");
+      return res.json();
+    },
     enabled: activeTab === 'pending',
   });
   
   const { data: disputedViolations, isLoading: disputedLoading } = useQuery<Violation[]>({
     queryKey: ['/api/violations', { status: 'disputed' }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/violations?status=disputed");
+      return res.json();
+    },
     enabled: activeTab === 'disputed',
   });
 
@@ -101,7 +111,8 @@ export function DashboardTabs() {
             title="No recent violations"
             description="There are no recent violations to display."
             icon={<ClipboardList className="h-8 w-8 text-neutral-400" />}
-            action={{ label: "Create Violation", href: "/violations/new" }}
+            actionLabel="Create Violation"
+            onAction={() => navigate("/violations/new")}
           />
         );
       }
