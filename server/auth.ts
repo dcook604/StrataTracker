@@ -9,16 +9,9 @@ import { randomBytes } from "crypto";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
-// Extend the User type to support both camelCase and snake_case formats
-type ExtendedUser = SelectUser & {
-  is_admin?: boolean;
-  is_council_member?: boolean;
-  is_user?: boolean;
-};
-
 declare global {
   namespace Express {
-    interface User extends ExtendedUser {}
+    interface User extends SelectUser {}
   }
 }
 
@@ -282,16 +275,15 @@ export function setupAuth(app: Express) {
 
   app.delete("/api/users/:id", async (req, res, next) => {
     try {
-      // Check if the request is from an admin (supporting both camelCase and snake_case)
-      const user = req.user as ExtendedUser;
-      if (!req.isAuthenticated() || !(user.isAdmin || user.is_admin)) {
+      // Check if the request is from an admin
+      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
         return res.status(403).json({ message: "Only administrators can delete users" });
       }
 
       const userId = parseInt(req.params.id, 10);
       
       // Don't allow admins to delete themselves
-      if (user.id === userId) {
+      if (req.user.id === userId) {
         return res.status(400).json({ message: "Cannot delete your own account" });
       }
       
