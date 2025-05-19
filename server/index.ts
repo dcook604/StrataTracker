@@ -73,8 +73,8 @@ logger.info("Application starting up...");
     serveStatic(app);
   }
 
-  // Keep this simple - just use the Replit port or fallback to 3000
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  // Use port 5000 for Replit compatibility
+  const port = 5000;
   
   // Log important server information
   logger.info(`Attempting to start server on port ${port}`);

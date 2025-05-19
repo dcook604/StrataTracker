@@ -44,6 +44,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Failed to create uploads directory:", error);
   }
   
+  // Set up authentication routes first
+  setupAuth(app);
+  
   // Register user management routes
   app.use("/api/users", userManagementRoutes);
   
@@ -76,8 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Set up authentication routes
-  setupAuth(app);
+  // Authentication routes are already set up
 
   // Property Units API
   app.get("/api/property-units", ensureAuthenticated, async (req, res) => {
