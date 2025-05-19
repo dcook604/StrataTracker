@@ -202,10 +202,10 @@ export default function AuthPage() {
         <div className="hidden md:flex items-center">
           <div className="max-w-md mx-auto">
             <h1 className="text-4xl font-bold text-neutral-900 mb-4">
-              Violation Management Made Simple
+              Property Management System
             </h1>
             <p className="text-lg text-neutral-600 mb-6">
-              Spectrum 4 helps property managers efficiently track, manage, and resolve bylaw infractions.
+              A comprehensive solution for property managers to effectively manage community regulations.
             </p>
             <div className="space-y-4">
               <div className="flex items-start">
@@ -215,8 +215,8 @@ export default function AuthPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-md font-medium text-neutral-900">Streamlined Violation Reporting</h3>
-                  <p className="text-sm text-neutral-600">Easily document and track all bylaw infractions in one place.</p>
+                  <h3 className="text-md font-medium text-neutral-900">Efficient Record Management</h3>
+                  <p className="text-sm text-neutral-600">Document and organize all community records securely.</p>
                 </div>
               </div>
               <div className="flex items-start">
@@ -226,8 +226,8 @@ export default function AuthPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-md font-medium text-neutral-900">Automatic Notifications</h3>
-                  <p className="text-sm text-neutral-600">Keep owners and tenants informed about violations and resolutions.</p>
+                  <h3 className="text-md font-medium text-neutral-900">Communication Center</h3>
+                  <p className="text-sm text-neutral-600">Keep owners and residents informed about important updates.</p>
                 </div>
               </div>
               <div className="flex items-start">
@@ -237,8 +237,8 @@ export default function AuthPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-md font-medium text-neutral-900">Comprehensive Reporting</h3>
-                  <p className="text-sm text-neutral-600">Generate insights and track patterns with detailed violation reports.</p>
+                  <h3 className="text-md font-medium text-neutral-900">Analytics Dashboard</h3>
+                  <p className="text-sm text-neutral-600">Generate insights with detailed reports and visualizations.</p>
                 </div>
               </div>
             </div>
