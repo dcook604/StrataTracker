@@ -73,8 +73,8 @@ logger.info("Application starting up...");
     serveStatic(app);
   }
 
-  // Use port 5000 for Replit compatibility
-  const port = 5000;
+  // Use port from environment or default to 3000 for Replit compatibility
+  const port = process.env.PORT || 3000;
   
   // Log important server information
   logger.info(`Attempting to start server on port ${port}`);
@@ -99,11 +99,7 @@ logger.info("Application starting up...");
   });
   
   try {
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
+    server.listen(port, "0.0.0.0", () => {
       logger.info(`Server started successfully and listening on port ${port}`);
       log(`serving on port ${port}`);
     });
