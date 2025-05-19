@@ -73,20 +73,11 @@ logger.info("Application starting up...");
     serveStatic(app);
   }
 
-  // Use port 3000 for Replit compatibility with deployments
-  const port = 3000;
+  // Use environment port or fallback to 3000
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   
   // Log important server information
   logger.info(`Attempting to start server on port ${port}`);
-  
-  // Try to kill any process that might be on port 5000
-  exec('fuser -k 5000/tcp 2>/dev/null || true', (error, stdout, stderr) => {
-    if (error) {
-      logger.info(`Note: Could not kill port 5000: ${error.message}`);
-    } else {
-      logger.info(`Attempted to free port 5000`);
-    }
-  });
   
   // Log environment details for debugging
   logger.info("Application environment details:", {
@@ -102,34 +93,36 @@ logger.info("Application starting up...");
     server.listen({
       port,
       host: "0.0.0.0",
-      reusePort: true,
     }, () => {
       logger.info(`Server started successfully and listening on port ${port}`);
       log(`serving on port ${port}`);
     });
     
     // Add error listener to the server
-    server.on('error', (error: any) => {
+    server.on('error', async (error: any) => {
       if (error.code === 'EADDRINUSE') {
-        logger.error(`Port ${port} is still in use, could not start server. Trying a random port...`);
-        
-        // Try a completely random port as last resort
-        const randomPort = Math.floor(Math.random() * 10000) + 20000;
-        logger.info(`Attempting to start server on random port ${randomPort}`);
-        
-        server.listen({
-          port: randomPort,
-          host: "0.0.0.0",
-          reusePort: true,
-        }, () => {
-          logger.info(`Server started successfully on random port ${randomPort}`);
-          log(`serving on random port ${randomPort}`);
-        });
+        logger.error(`Port ${port} is in use, attempting to find an available port...`);
+        try {
+          const availablePort = await findAvailablePort(port + 1);
+          logger.info(`Found available port ${availablePort}`);
+          
+          server.listen({
+            port: availablePort,
+            host: "0.0.0.0",
+          }, () => {
+            logger.info(`Server started successfully on port ${availablePort}`);
+            log(`serving on port ${availablePort}`);
+          });
+        } catch (err) {
+          logger.error('Failed to find available port:', err);
+          process.exit(1);
+        }
       } else {
         logger.error('Server error occurred:', error);
       }
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
+    process.exit(1);
   }
 })();

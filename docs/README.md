@@ -203,4 +203,35 @@ The system supports configurable SMTP settings through the admin interface:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Asset Management
+
+### Logo and Branding
+
+The system uses a consistent branding approach through the `Logo` component. Assets are stored in the `/public/images/` directory:
+
+- Primary Logo: `spectrum4-logo.png`
+- Fallback Logo: `logo.jpeg`
+
+For detailed implementation and usage guidelines, see:
+- [Logo Component Documentation](technical.md#logo-component)
+- [UI Components Guide](technical.md#ui-components)
+
+### Directory Structure
+
+```
+public/
+  ├── images/
+  │   ├── spectrum4-logo.png  # Primary logo
+  │   └── logo.jpeg          # Fallback logo
+  └── favicon.ico            # Site favicon
+```
+
+### Usage Guidelines
+
+1. Always use the `Logo` component instead of direct image references
+2. Follow the size guidelines for different contexts
+3. Ensure both PNG and JPEG versions are maintained for compatibility
+
+For more details on UI components and styling, refer to the [Technical Documentation](technical.md). 

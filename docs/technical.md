@@ -293,4 +293,92 @@ interface SMTPConfig {
 - Code quality checks
 - Security scanning
 - Automated deployment
-- Rollback capability 
+- Rollback capability
+
+## UI Components
+
+### Logo Component
+
+The Logo component is a reusable element that displays the Spectrum 4 logo consistently across the application.
+
+#### Usage
+
+```tsx
+import { Logo } from "@/components/logo";
+
+// Basic usage with default size (md) and text
+<Logo />
+
+// Large logo without text (e.g., for auth page)
+<Logo size="lg" showText={false} />
+
+// Small logo with text (e.g., for compact spaces)
+<Logo size="sm" />
+```
+
+#### Props
+
+- `size`: Controls the logo size
+  - `'sm'`: 32x32px (h-8 w-8)
+  - `'md'`: 40x40px (h-10 w-10)
+  - `'lg'`: 80x80px (h-20 w-20)
+- `showText`: Boolean to toggle the "Spectrum 4 Violation System" text (default: true)
+
+#### Asset Management
+
+The logo assets are stored in the `/public/images/` directory:
+- `spectrum4-logo.png`: Primary high-quality PNG logo
+- `logo.jpeg`: Fallback JPEG version
+
+The component automatically handles:
+- Responsive sizing
+- Error fallback to JPEG if PNG fails to load
+- Consistent styling with white background and rounded corners
+- Dark mode support for accompanying text
+
+#### Implementation Details
+
+- Uses Tailwind CSS for styling
+- Maintains aspect ratio using `object-contain`
+- Implements error handling for image loading
+- Supports dark mode for text elements
+- Provides consistent spacing and alignment
+
+#### Best Practices
+
+1. Use the appropriate size prop based on context:
+   - `lg`: Authentication and splash screens
+   - `md`: Navigation and headers
+   - `sm`: Compact spaces or mobile views
+
+2. Consider text visibility:
+   - Enable text in navigation/header contexts
+   - Disable text when logo is used as a visual element
+
+3. Container Considerations:
+   - Logo has a white background for consistency
+   - Rounded corners (rounded-md) for better visual integration
+   - Overflow is handled automatically
+
+#### Example Implementations
+
+1. In Navigation:
+```tsx
+<div className="flex items-center h-16 px-4 border-b">
+  <Logo size="md" />
+</div>
+```
+
+2. In Auth Page:
+```tsx
+<div className="flex justify-center mb-4">
+  <Logo size="lg" showText={false} />
+</div>
+```
+
+3. In Mobile Header:
+```tsx
+<div className="flex items-center">
+  <Logo size="sm" showText={false} />
+</div>
+``` 
