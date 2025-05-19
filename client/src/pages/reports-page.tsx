@@ -230,86 +230,88 @@ export default function ReportsPage() {
 
   return (
     <Layout title="Reports & Analytics">
-      <div className="space-y-6">
+      <div className="space-y-6 px-4 md:px-6">
         <div className="flex flex-col gap-4">
           {/* Report filters */}
-          <div className="flex flex-wrap gap-4 items-center">
-            <DateRangePicker
-              from={dateRange.from}
-              to={dateRange.to}
-              onFromChange={handleFromChange}
-              onToChange={handleToChange}
-            />
-            <Select
-              value={selectedCategory}
-              onValueChange={setSelectedCategory}
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center bg-card p-4 rounded-lg">
+            <div className="w-full md:w-auto">
+              <DateRangePicker
+                from={dateRange.from}
+                to={dateRange.to}
+                onFromChange={handleFromChange}
+                onToChange={handleToChange}
+              />
+            </div>
+            <div className="w-full md:w-[200px]">
+              <Select
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+              >
+                <SelectTrigger className="h-12 md:h-10">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={handleGenerateReport}
+              className="w-full md:w-auto h-12 md:h-10"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleGenerateReport}>
+              <DownloadCloud className="h-5 w-5 mr-2" />
               Generate Report
             </Button>
           </div>
-
-          {/* Report content */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {statsError ? (
-              <Card>
+              <Card className="col-span-full">
                 <CardContent className="p-6">
                   <div className="text-destructive">Error loading stats: {statsError.message}</div>
                 </CardContent>
               </Card>
             ) : (
               <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Violations</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalViolations || 0}</div>
-                  </CardContent>
+                <Card className="p-6">
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-medium text-muted-foreground">Total Violations</h3>
+                    <div className="text-2xl md:text-3xl font-bold mt-2">{stats?.totalViolations || 0}</div>
+                  </div>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resolution Rate</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.resolutionRate || 0}%</div>
-                  </CardContent>
+                <Card className="p-6">
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-medium text-muted-foreground">Resolution Rate</h3>
+                    <div className="text-2xl md:text-3xl font-bold mt-2">{stats?.resolutionRate || 0}%</div>
+                  </div>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Average Response Time</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stats?.avgResponseTime || 0} days</div>
-                  </CardContent>
+                <Card className="p-6">
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-medium text-muted-foreground">Average Response Time</h3>
+                    <div className="text-2xl md:text-3xl font-bold mt-2">{stats?.avgResponseTime || 0} days</div>
+                  </div>
                 </Card>
               </>
             )}
           </div>
-
+            
           {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Violations by Category</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="overflow-hidden">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-semibold">Violations by Category</h3>
+              </div>
+              <div className="p-6">
                 {typesError ? (
                   <div className="text-destructive">Error loading violation types: {typesError.message}</div>
                 ) : (
-                  <div className="h-[300px]">
+                  <div className="h-[300px] md:h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -318,7 +320,7 @@ export default function ReportsPage() {
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          outerRadius={80}
+                          outerRadius="80%"
                           fill="#8884d8"
                           label
                         >
@@ -332,29 +334,36 @@ export default function ReportsPage() {
                     </ResponsiveContainer>
                   </div>
                 )}
-              </CardContent>
+              </div>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Violations Over Time</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card className="overflow-hidden">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-semibold">Violations Over Time</h3>
+              </div>
+              <div className="p-6">
                 {monthsError ? (
                   <div className="text-destructive">Error loading monthly data: {monthsError.message}</div>
                 ) : (
-                  <div className="h-[300px]">
+                  <div className="h-[300px] md:h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={timeData}>
                         <XAxis dataKey="date" />
                         <YAxis />
                         <Tooltip />
                         <Legend />
-                        <Line type="monotone" dataKey="violations" stroke="#8884d8" />
+                        <Line 
+                          type="monotone" 
+                          dataKey="violations" 
+                          stroke="#8884d8"
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 8 }}
+                        />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                 )}
-              </CardContent>
+              </div>
             </Card>
           </div>
         </div>

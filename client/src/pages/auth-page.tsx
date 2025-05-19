@@ -48,6 +48,8 @@ export default function AuthPage() {
   const { user, loginMutation } = useAuth();
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -72,12 +74,20 @@ export default function AuthPage() {
   });
 
   // Handle login submission
-  const onLoginSubmit = (values: LoginFormValues) => {
-    loginMutation.mutate({
-      email: values.email,
-      password: values.password,
-      rememberMe: values.rememberMe
-    });
+  const onLoginSubmit = async (values: LoginFormValues) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await loginMutation.mutateAsync({
+        email: values.email,
+        password: values.password,
+        rememberMe: values.rememberMe
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle register submission
@@ -103,6 +113,12 @@ export default function AuthPage() {
         <CardContent>
           <Form {...loginForm}>
             <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+              {error && (
+                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+                  {error}
+                </div>
+              )}
+              
               <FormField
                 control={loginForm.control}
                 name="email"
@@ -110,7 +126,12 @@ export default function AuthPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="Enter your email" {...field} />
+                      <Input 
+                        type="email" 
+                        placeholder="Enter your email" 
+                        disabled={isLoading}
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -124,43 +145,41 @@ export default function AuthPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Enter your password" {...field} />
+                      <Input 
+                        type="password" 
+                        placeholder="Enter your password" 
+                        disabled={isLoading}
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <div className="flex items-center justify-between mb-4">
-                <FormField
-                  control={loginForm.control}
-                  name="rememberMe"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center space-x-2 space-y-0">
-                      <FormControl>
-                        <Checkbox 
-                          checked={field.value} 
-                          onCheckedChange={field.onChange}
-                          id="rememberMe"
-                        />
-                      </FormControl>
-                      <FormLabel htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
-                        Remember me
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <Button variant="link" className="p-0 h-auto text-sm" onClick={() => navigate("/forgot-password")}>
-                  Forgot password?
-                </Button>
-              </div>
+              <FormField
+                control={loginForm.control}
+                name="rememberMe"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={isLoading}
+                      />
+                    </FormControl>
+                    <FormLabel className="text-sm font-normal">Remember me</FormLabel>
+                  </FormItem>
+                )}
+              />
               
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={loginMutation.isPending}
+                disabled={isLoading}
               >
-                {loginMutation.isPending ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing in...

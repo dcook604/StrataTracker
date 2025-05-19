@@ -94,7 +94,7 @@ export default function UsersPage() {
         title: "Success",
         description: "User added successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
       setIsAddDialogOpen(false);
       form.reset();
     },
@@ -118,7 +118,7 @@ export default function UsersPage() {
         title: "Success",
         description: "User updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
       setEditingUser(null);
       form.reset();
     },
@@ -140,7 +140,7 @@ export default function UsersPage() {
         title: "Success",
         description: "User deleted successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
     },
     onError: (error: Error) => {
       toast({
@@ -222,17 +222,17 @@ export default function UsersPage() {
     {
       id: "actions",
       cell: ({ row }) => {
-        const user = row.original;
+        const rowUser = row.original;
         
         // Prevent administrators from deleting themselves
-        const isSelf = user.id === (user as User).id;
+        const isSelf = user && rowUser.id === user.id;
         
         return (
           <div className="flex items-center gap-2">
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => handleEdit(user)}
+              onClick={() => handleEdit(rowUser)}
             >
               <PencilIcon className="h-4 w-4" />
             </Button>
@@ -240,7 +240,7 @@ export default function UsersPage() {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => handleDelete(user.id)}
+                onClick={() => handleDelete(rowUser.id)}
               >
                 <Trash2Icon className="h-4 w-4 text-destructive" />
               </Button>
@@ -253,50 +253,58 @@ export default function UsersPage() {
   
   return (
     <Layout title="User Management">
-      <div className="space-y-6">
-        <div className="flex justify-end">
-          <Button onClick={() => {
-            form.reset();
-            setIsAddDialogOpen(true);
-          }}>
+      <div className="space-y-4 px-4 md:px-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-xl font-semibold md:hidden">User Management</h1>
+          <Button 
+            onClick={() => {
+              form.reset();
+              setIsAddDialogOpen(true);
+            }}
+            className="h-12 px-6 md:h-10"
+          >
+            <UserPlusIcon className="h-5 w-5 mr-2" />
             Add User
           </Button>
         </div>
         
         {isLoading ? (
-          <div className="flex justify-center p-8">
+          <div className="flex justify-center items-center min-h-[200px]">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : data && data.length > 0 ? (
-          <DataTable 
-            columns={columns} 
-            data={data}
-            searchColumn="email"
-            searchPlaceholder="Search by email..."
-          />
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <DataTable 
+              columns={columns} 
+              data={data}
+              searchColumn="email"
+              searchPlaceholder="Search by email..."
+            />
+          </div>
         ) : (
           <EmptyState
-            icon={<Users className="h-10 w-10" />}
+            icon={<Users className="h-12 w-12 md:h-10 md:w-10" />}
             title="No users found"
             description="Add your first user to get started"
-            action={{
-              label: "Add User",
-              href: "#",
+            actionLabel="Add User"
+            onAction={() => {
+              form.reset();
+              setIsAddDialogOpen(true);
             }}
           />
         )}
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add User</DialogTitle>
+        <DialogContent className="sm:max-w-[425px] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="text-xl">Add User</DialogTitle>
             <DialogDescription>
               Create a new user for the Spectrum 4 Violation System.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-6">
               <FormField
                 control={form.control}
                 name="fullName"

@@ -27,13 +27,15 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   searchColumn?: string
   searchPlaceholder?: string
+  className?: string
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   searchColumn,
-  searchPlaceholder = "Search..."
+  searchPlaceholder = "Search...",
+  className
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
