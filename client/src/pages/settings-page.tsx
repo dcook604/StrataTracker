@@ -198,6 +198,28 @@ export default function SettingsPage() {
   }
 
   return (
+    <>
+      {/* Page Title */}
+      <div className="flex items-center">
+        <h2 className="text-lg font-semibold text-neutral-800">Settings</h2>
+      </div>
+
+      {/* Content */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-neutral-50">
+        <div className="container mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">System Settings</h1>
+            <div className="flex space-x-2">
+              <Button variant="outline" onClick={() => window.location.href = "/email-settings"}>
+                <MailIcon className="mr-2 h-4 w-4" />
+                SMTP Settings
+              </Button>
+              <Button variant="outline" onClick={() => window.location.href = "/users"}>
+                <Settings className="mr-2 h-4 w-4" />
+                User Management
+              </Button>
+            </div>
+          </div>
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">System Settings</h1>
