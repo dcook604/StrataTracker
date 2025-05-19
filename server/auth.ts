@@ -47,8 +47,6 @@ export function setupAuth(app: Express) {
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
-    // Use a basic memory store instead of database store for now
-    // This will help us fix the SMTP, Categories, and User Management pages
     store: new session.MemoryStore(),
     cookie: {
       maxAge: 1000 * 60 * 30, // 30 minutes by default
@@ -110,27 +108,17 @@ export function setupAuth(app: Express) {
             console.error("Error comparing passwords:", error);
             return done(null, false, { message: "Authentication error" });
           }
-          
-          // This code is unreachable due to the return statements above
-          // Keeping it commented out for reference
-          /*
-          if (typeof dbStorage.resetFailedLoginAttempts === 'function') {
-            await dbStorage.resetFailedLoginAttempts(user.id);
-          }
-          if (typeof dbStorage.updateLastLogin === 'function') {
-            await dbStorage.updateLastLogin(user.id);
-          }
-          
-          return done(null, user);
-          */
         } catch (error) {
           return done(error);
         }
       }
-    ),
+    )
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await dbStorage.getUser(id);

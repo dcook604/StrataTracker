@@ -8,8 +8,8 @@ const router = express.Router();
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.log('User in email-config isAdmin middleware:', req.user);
   
-  // Check if user is authenticated - simplified check that doesn't rely on isAuthenticated()
-  if (!req.user) {
+  // Check if user is authenticated
+  if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Authentication required." });
   }
   
