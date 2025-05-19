@@ -16,6 +16,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/logo";
 import {
   Form,
   FormControl,
@@ -103,11 +104,7 @@ export default function AuthPage() {
           <Card className="w-full max-w-md">
             <CardHeader className="space-y-1 text-center">
               <div className="flex justify-center mb-4">
-                <img 
-                  src="/logo.jpeg" 
-                  alt="Spectrum 4 Logo" 
-                  className="h-20" 
-                />
+                <Logo size="lg" showText={false} />
               </div>
               <CardDescription>
                 Spectrum 4 Violation System
