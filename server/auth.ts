@@ -11,7 +11,11 @@ import rateLimit from "express-rate-limit";
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends SelectUser {
+      is_admin?: boolean;  // Add support for snake_case format
+      is_council_member?: boolean;
+      is_user?: boolean;
+    }
   }
 }
 
@@ -276,7 +280,7 @@ export function setupAuth(app: Express) {
   app.delete("/api/users/:id", async (req, res, next) => {
     try {
       // Check if the request is from an admin
-      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
+      if (!req.isAuthenticated() || !(req.user.isAdmin || (req.user as any).is_admin)) {
         return res.status(403).json({ message: "Only administrators can delete users" });
       }
 
