@@ -218,8 +218,16 @@ export function setupAuth(app: Express) {
   // User management APIs (admin only)
   app.get("/api/users", async (req, res, next) => {
     try {
-      // Temporarily bypass admin check to fix User Management page
-      // We'll restore proper security checks after fixing the pages
+      // Check if user is authenticated and is an admin
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Check both isAdmin and is_admin flags to support both formats
+      const isAdmin = req.user.isAdmin === true || (req.user as any).is_admin === true;
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const users = await dbStorage.getAllUsers();
       

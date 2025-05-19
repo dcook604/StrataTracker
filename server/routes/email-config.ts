@@ -4,10 +4,25 @@ import { verifyEmailConfig, EmailConfig } from '../email-service';
 
 const router = express.Router();
 
-// Simplified admin check for troubleshooting
+// Check if user is authenticated and has admin privileges
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  // Temporarily bypass authentication check to test page functionality
-  next();
+  console.log('User in email-config isAdmin middleware:', req.user);
+  
+  // Check if user is authenticated
+  if (!req.isAuthenticated() || !req.user) {
+    return res.status(401).json({ message: "Authentication required." });
+  }
+  
+  // Check admin status using both camelCase and snake_case formats
+  const isAdminUser = 
+    (req.user.isAdmin === true) || 
+    ((req.user as any).is_admin === true);
+  
+  if (isAdminUser) {
+    return next();
+  }
+  
+  res.status(403).json({ message: "Forbidden - Admin access required" });
 };
 
 // Get email configuration
