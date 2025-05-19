@@ -79,19 +79,13 @@ logger.info("Application starting up...");
   // Log important server information
   logger.info(`Attempting to start server on port ${port}`);
   
-  // Try to kill any process that might be on port 5000
-  exec('fuser -k 5000/tcp 2>/dev/null || true', (error, stdout, stderr) => {
-    if (error) {
-      logger.info(`Note: Could not kill port 5000: ${error.message}`);
-    } else {
-      logger.info(`Attempted to free port 5000`);
-    }
-  });
+  // Use port 3000 in production, otherwise use environment port or 3000
+  const finalPort = process.env.NODE_ENV === 'production' ? 3000 : (process.env.PORT || 3000);
   
   // Log environment details for debugging
   logger.info("Application environment details:", {
     nodeEnv: process.env.NODE_ENV,
-    port: port,
+    port: finalPort,
     databaseUrl: process.env.DATABASE_URL ? "Set (value hidden)" : "Not set",
     platform: process.platform,
     nodeVersion: process.version,
@@ -99,9 +93,9 @@ logger.info("Application starting up...");
   });
   
   try {
-    server.listen(port, "0.0.0.0", () => {
-      logger.info(`Server started successfully and listening on port ${port}`);
-      log(`serving on port ${port}`);
+    server.listen(finalPort, "0.0.0.0", () => {
+      logger.info(`Server started successfully and listening on port ${finalPort}`);
+      log(`serving on port ${finalPort}`);
     });
     
     // Add error listener to the server
