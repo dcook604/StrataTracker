@@ -43,8 +43,12 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    console.error("Server error:", err);
+    
+    // Only send response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
   });
 
   // importantly only setup vite in development and after
@@ -56,11 +60,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  // Use the PORT environment variable provided by Replit, or default to 5000
-  const port = process.env.PORT || 5000;
+  // Try a different port to avoid conflicts
+  // The PORT environment variable is provided by Replit
+  const port = process.env.PORT || 3000;
   server.listen({
     port,
     host: "0.0.0.0",

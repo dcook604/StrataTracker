@@ -118,10 +118,10 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({
-      pool: db.$client,
-      createTableIfMissing: true,
-    });
+    // Use a simple in-memory store for now
+    // This won't persist sessions between server restarts
+    const store = new session.MemoryStore();
+    this.sessionStore = store;
   }
 
   // Password management

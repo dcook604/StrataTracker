@@ -126,7 +126,7 @@ export default function CategoriesPage() {
     form.reset({
       name: category.name,
       description: category.description || "",
-      defaultFineAmount: category.defaultFineAmount || 0,
+      defaultFineAmount: category.defaultFineAmount || category.fine_amount || 0,
       bylawReference: category.bylawReference || "",
       active: category.active,
     });

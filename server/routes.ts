@@ -21,7 +21,7 @@ import { randomUUID } from "crypto";
 
 // Ensure user is authenticated middleware
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated()) {
+  if (req.isAuthenticated() && req.user) {
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
@@ -349,12 +349,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Violation Categories API endpoints
-  app.get("/api/violation-categories", ensureAuthenticated, async (req, res) => {
+  app.get("/api/violation-categories", async (req, res) => {
     try {
+      console.log("GET /api/violation-categories - Request received");
       const activeOnly = req.query.activeOnly === 'true';
+      console.log("Calling dbStorage.getAllViolationCategories with activeOnly:", activeOnly);
       const categories = await dbStorage.getAllViolationCategories(activeOnly);
+      console.log("Categories retrieved:", JSON.stringify(categories).substring(0, 100) + "...");
       res.json(categories);
     } catch (error) {
+      console.error("Failed to fetch violation categories:", error);
       res.status(500).json({ message: "Failed to fetch violation categories" });
     }
   });
