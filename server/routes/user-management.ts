@@ -28,8 +28,8 @@ function generatePassword(length = 12) {
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.log('User in user-management isAdmin middleware:', req.user);
   
-  // Check if user is authenticated
-  if (!req.isAuthenticated()) {
+  // Check if user is authenticated and exists
+  if (!req.user) {
     return res.status(401).json({ message: "Authentication required." });
   }
   
