@@ -69,6 +69,10 @@ router.post('/', isAdmin, async (req, res) => {
   try {
     const { host, port, secure, auth, from } = req.body;
     
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "User not authenticated or user ID missing." });
+    }
+
     if (!host || !port || !from) {
       return res.status(400).json({ message: 'Host, port and from address are required' });
     }
@@ -95,12 +99,11 @@ router.post('/', isAdmin, async (req, res) => {
       }
     }
     
-    // Save configuration using a default user ID (1) for testing
-    // This is temporary to get the SMTP settings page working
+    // Save configuration using the authenticated user's ID
     await dbStorage.updateSystemSetting(
       'email_config',
       JSON.stringify(config),
-      1
+      req.user.id
     );
     
     res.json({ message: 'Email configuration updated successfully' });
