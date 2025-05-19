@@ -276,7 +276,7 @@ export function setupAuth(app: Express) {
   app.delete("/api/users/:id", async (req, res, next) => {
     try {
       // Check if the request is from an admin
-      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
+      if (!req.isAuthenticated() || !(req.user.isAdmin === true || (req.user as any).is_admin === true)) {
         return res.status(403).json({ message: "Only administrators can delete users" });
       }
 
