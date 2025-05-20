@@ -36,7 +36,23 @@ import { Users } from "lucide-react";
 import zxcvbn from "zxcvbn";
 import { Progress } from "@/components/ui/progress";
 
-// Define two schemas: one for create, one for edit
+/**
+ * UsersPage - User Management
+ *
+ * This page allows administrators to view, add, edit, and delete users.
+ *
+ * - Uses two Zod schemas:
+ *   - createUserSchema: for creating users (password required)
+ *   - editUserSchema: for editing users (password optional, min 6 chars if present)
+ * - The form dynamically switches schema based on whether editingUser is set.
+ * - Handles password strength, role assignment, and user status.
+ * - Table displays all user roles with icons.
+ */
+
+// --- Zod Schemas ---
+/**
+ * createUserSchema: Used when creating a new user. Password is required.
+ */
 const createUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -48,6 +64,10 @@ const createUserSchema = z.object({
     isUser: z.boolean().default(true),
   }),
 });
+
+/**
+ * editUserSchema: Used when editing a user. Password is optional, but must be at least 6 characters if provided.
+ */
 const editUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().optional().refine(val => !val || val.length >= 6, {
@@ -62,7 +82,11 @@ const editUserSchema = z.object({
   }),
 });
 
-type UserFormValues = z.infer<typeof userFormSchema>;
+// Use a union type for form values
+/**
+ * UserFormValues: Used for both create and edit user forms.
+ */
+type UserFormValues = z.infer<typeof createUserSchema> | z.infer<typeof editUserSchema>;
 
 type InviteFormValues = {
   email: string;
