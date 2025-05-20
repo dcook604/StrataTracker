@@ -35,6 +35,15 @@ const ensureCouncilMember = (req: Request, res: Response, next: Function) => {
   res.status(403).json({ message: "Forbidden - Council access required" });
 };
 
+// Helper to ensure userId is present
+function getUserId(req: Request, res: Response): number | undefined {
+  if (typeof req.user?.id !== "number") {
+    res.status(401).json({ message: "User ID is required" });
+    return undefined;
+  }
+  return req.user.id;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create uploads directory if it doesn't exist
   const uploadsDir = path.join(process.cwd(), "uploads");
@@ -189,11 +198,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           violationId: violation.id,
           unitNumber: unit.unitNumber,
           violationType: violation.violationType,
-          ownerEmail: unit.ownerEmail,
-          ownerName: unit.ownerName,
-          tenantEmail: unit.tenantEmail,
-          tenantName: unit.tenantName,
-          reporterName: req.user.fullName
+          ownerEmail: unit.ownerEmail ?? undefined,
+          ownerName: unit.ownerName ?? undefined,
+          tenantEmail: unit.tenantEmail ?? undefined,
+          tenantName: unit.tenantName ?? undefined,
+          reporterName: req.user?.fullName ?? "Unknown Reporter"
         });
       }
       
@@ -233,16 +242,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // If approved and has fine amount, send approval notification
-      if (status === "approved" && violation.defaultFineAmount) {
+      if (status === "approved" && violation.fineAmount) {
         const unit = await dbStorage.getPropertyUnit(violation.unitId);
         if (unit) {
           await sendViolationApprovedNotification({
             violationId: violation.id,
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail,
-            ownerName: unit.ownerName,
-            fineAmount: violation.fineAmount
+            ownerEmail: unit.ownerEmail ?? undefined,
+            ownerName: unit.ownerName ?? undefined,
+            fineAmount: violation.fineAmount ?? 0
           });
         }
       }
@@ -284,9 +293,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             violationId: violation.id,
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail,
-            ownerName: unit.ownerName,
-            fineAmount: amount
+            ownerEmail: unit.ownerEmail ?? undefined,
+            ownerName: unit.ownerName ?? undefined,
+            fineAmount: amount ?? 0
           });
         }
       }
@@ -523,7 +532,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Setting value is required" });
       }
       
-      const setting = await dbStorage.updateSystemSetting(key, value, req.user.id);
+      const userId = getUserId(req, res);
+      if (userId === undefined) return;
+      const setting = await dbStorage.updateSystemSetting(key, value, userId);
       res.json(setting);
     } catch (error) {
       res.status(500).json({ message: "Failed to update setting" });
