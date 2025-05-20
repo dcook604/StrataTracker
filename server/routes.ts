@@ -159,6 +159,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/violations", ensureAuthenticated, upload.array("attachments", 5), async (req, res) => {
+    const userId = getUserId(req, res);
+    if (userId === undefined) return;
     try {
       // Handle file uploads
       const files = req.files as Express.Multer.File[];
@@ -167,14 +169,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Combine form data with file paths
       const violationData = {
         ...req.body,
-        reportedById: req.user.id,
+        reportedById: userId,
         attachments,
+        categoryId: req.body.categoryId ? parseInt(req.body.categoryId, 10) : undefined,
+        unitId: req.body.unitId ? parseInt(req.body.unitId, 10) : undefined,
       };
       
       // Validate and process the data
       const validatedData = insertViolationSchema.parse({
         ...violationData,
-        unitId: parseInt(violationData.unitId),
         violationDate: new Date(violationData.violationDate)
       });
       
@@ -184,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add to history
       await dbStorage.addViolationHistory({
         violationId: violation.id,
-        userId: req.user.id,
+        userId,
         action: "created",
         comment: "Violation reported"
       });
@@ -217,6 +220,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/violations/:id/status", ensureAuthenticated, async (req, res) => {
+    const userId = getUserId(req, res);
+    if (userId === undefined) return;
     try {
       const id = parseInt(req.params.id);
       const { status, comment } = req.body;
@@ -236,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add to history
       await dbStorage.addViolationHistory({
         violationId: violation.id,
-        userId: req.user.id,
+        userId,
         action: `status_changed_to_${status}`,
         comment
       });
@@ -263,6 +268,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/violations/:id/fine", ensureCouncilMember, async (req, res) => {
+    const userId = getUserId(req, res);
+    if (userId === undefined) return;
     try {
       const id = parseInt(req.params.id);
       const { amount } = req.body;
@@ -280,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add to history
       await dbStorage.addViolationHistory({
         violationId: violation.id,
-        userId: req.user.id,
+        userId,
         action: "fine_set",
         comment: `Fine amount set to $${amount}`
       });
@@ -307,13 +314,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/violations/:id/history", ensureAuthenticated, async (req, res) => {
+    const userId = getUserId(req, res);
+    if (userId === undefined) return;
     try {
       const violationId = parseInt(req.params.id);
       const { action, comment } = req.body;
       
       const historyData = {
         violationId,
-        userId: req.user.id,
+        userId,
         action,
         comment
       };
