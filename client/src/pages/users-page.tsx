@@ -29,7 +29,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIcon } from "lucide-react";
+import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIcon, LockIcon, UnlockIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { Users } from "lucide-react";
@@ -175,6 +175,26 @@ export default function UsersPage() {
     }
   });
   
+  const unlockMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/users/${id}/unlock`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User unlocked successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
   const onSubmit = (values: UserFormValues) => {
     if (editingUser) {
       updateMutation.mutate({ ...values, id: editingUser.id });
@@ -217,6 +237,18 @@ export default function UsersPage() {
     {
       accessorKey: "email",
       header: "Email",
+    },
+    {
+      accessorKey: "accountLocked",
+      header: "Status",
+      cell: ({ row }) => {
+        const user = row.original;
+        return user.accountLocked ? (
+          <span className="flex items-center text-red-600 font-semibold"><LockIcon className="h-4 w-4 mr-1" /> Locked</span>
+        ) : (
+          <span className="flex items-center text-green-600 font-semibold"><UnlockIcon className="h-4 w-4 mr-1" /> Active</span>
+        );
+      }
     },
     {
       header: "Role",
@@ -270,6 +302,16 @@ export default function UsersPage() {
                 onClick={() => handleDelete(rowUser.id)}
               >
                 <Trash2Icon className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+            {rowUser.accountLocked && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => unlockMutation.mutate(rowUser.id)}
+                className="ml-2 text-red-600 border-red-400"
+              >
+                <UnlockIcon className="h-4 w-4 mr-1" /> Unlock
               </Button>
             )}
           </div>

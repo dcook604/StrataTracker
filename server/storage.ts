@@ -77,7 +77,7 @@ export interface IStorage {
   getViolation(id: number): Promise<Violation | undefined>;
   getViolationByReference(referenceNumber: string): Promise<Violation | undefined>;
   getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit }) | undefined>;
-  getAllViolations(): Promise<Violation[]>;
+  getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
   getViolationsByReporter(userId: number): Promise<Violation[]>;
@@ -483,8 +483,20 @@ export class DatabaseStorage implements IStorage {
     };
   }
   
-  async getAllViolations(): Promise<Violation[]> {
-    return db.select().from(violations).orderBy(desc(violations.createdAt));
+  async getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]> {
+    const result = await db
+      .select({
+        violation: violations,
+        unit: propertyUnits
+      })
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .orderBy(desc(violations.createdAt));
+    
+    return result.map(r => ({
+      ...r.violation,
+      unit: r.unit
+    }));
   }
   
   async getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]> {

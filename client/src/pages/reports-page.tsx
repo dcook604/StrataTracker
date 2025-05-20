@@ -119,7 +119,7 @@ export default function ReportsPage() {
   const { data: violationsByMonth, isLoading: monthsLoading, error: monthsError } = useQuery<MonthlyViolation[]>({
     queryKey: ['reports', 'violations', 'by-month', { year: currentYear }],
     queryFn: async () => {
-      const res = await apiRequest("GET", '/api/reports/violations-by-month', { year: currentYear });
+      const res = await apiRequest("GET", `/api/reports/violations-by-month?year=${currentYear}`);
       if (!res.ok) throw new Error('Failed to fetch monthly violations');
       return res.json();
     },
@@ -129,7 +129,7 @@ export default function ReportsPage() {
   const { data: repeatViolations, isLoading: repeatLoading, error: repeatError } = useQuery<RepeatViolation[]>({
     queryKey: ['reports', 'violations', 'repeat', { minCount: 3 }],
     queryFn: async () => {
-      const res = await apiRequest("GET", '/api/reports/repeat-violations', { minCount: 3 });
+      const res = await apiRequest("GET", `/api/reports/repeat-violations?minCount=3`);
       if (!res.ok) throw new Error('Failed to fetch repeat violations');
       return res.json();
     },
