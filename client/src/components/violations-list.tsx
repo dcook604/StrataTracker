@@ -18,6 +18,7 @@ import { ViolationStatus } from "@shared/schema";
 import { format } from "date-fns";
 import { EmptyState } from "@/components/empty-state";
 import { useQueryParams } from "@/hooks/use-query-params";
+import { apiRequest } from "@/lib/queryClient";
 
 type Violation = {
   id: number;
@@ -41,6 +42,17 @@ export function ViolationsList() {
   // Fetch violations with filters
   const { data: violations, isLoading } = useQuery<Violation[]>({
     queryKey: ['/api/violations', { status: statusFilter !== 'all' ? statusFilter : undefined, unitId }],
+    queryFn: async () => {
+      const url = new URL("/api/violations", window.location.origin);
+      if (statusFilter !== 'all') {
+        url.searchParams.set('status', statusFilter);
+      }
+      if (unitId) {
+        url.searchParams.set('unitId', unitId);
+      }
+      const res = await apiRequest("GET", url.pathname + url.search);
+      return res.json();
+    }
   });
 
   const getViolationTypeName = (type: string) => {
@@ -149,8 +161,7 @@ export function ViolationsList() {
           <DataTable 
             columns={columns} 
             data={violations} 
-            isLoading={isLoading}
-            searchKey="unit.unitNumber"
+            searchColumn="unit.unitNumber"
           />
         ) : (
           <div className="p-6">
@@ -161,7 +172,8 @@ export function ViolationsList() {
                 : "There are no violations that match the current filters."
               }
               icon={<FilterX className="h-8 w-8 text-neutral-400" />}
-              action={{ label: "Create Violation", href: "/violations/new" }}
+              actionLabel="Create Violation"
+              onAction={() => navigate("/violations/new")}
             />
           </div>
         )}
