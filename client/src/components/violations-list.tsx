@@ -253,8 +253,6 @@ export function ViolationsList() {
                 : "There are no violations that match the current filters."
               }
               icon={<FilterX className="h-8 w-8 text-neutral-400" />}
-              actionLabel="Create Violation"
-              onAction={() => navigate("/violations/new")}
             />
           </div>
         )}
