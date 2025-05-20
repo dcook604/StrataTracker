@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { DataTable } from "@/components/ui/data-table";
@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { EmptyState } from "@/components/empty-state";
 import { useQueryParams } from "@/hooks/use-query-params";
 import { apiRequest } from "@/lib/queryClient";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext, PaginationEllipsis } from "@/components/ui/pagination";
 
 type Violation = {
   id: number;
@@ -33,27 +34,43 @@ type Violation = {
   };
 };
 
+const PAGE_SIZE_KEY = "violationsPageSize";
+const PAGE_KEY = "violationsPage";
+const SORT_KEY = "violationsSort";
+
 export function ViolationsList() {
   const [location, navigate] = useLocation();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { queryParams } = useQueryParams();
   const unitId = queryParams.get("unitId");
-  
-  // Fetch violations with filters
-  const { data: violations, isLoading } = useQuery<Violation[]>({
-    queryKey: ['/api/violations', { status: statusFilter !== 'all' ? statusFilter : undefined, unitId }],
+  const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
+  const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
+  const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"createdAt"'));
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_KEY + "Order") || '"desc"'));
+
+  useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
+  useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
+  useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_KEY + "Order", JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
+
+  // Fetch violations with filters and pagination
+  const { data, isLoading } = useQuery<{ violations: Violation[]; total: number }>({
+    queryKey: ['/api/violations', { status: statusFilter !== 'all' ? statusFilter : undefined, unitId, page, limit: pageSize, sortBy, sortOrder }],
     queryFn: async () => {
       const url = new URL("/api/violations", window.location.origin);
-      if (statusFilter !== 'all') {
-        url.searchParams.set('status', statusFilter);
-      }
-      if (unitId) {
-        url.searchParams.set('unitId', unitId);
-      }
+      if (statusFilter !== 'all') url.searchParams.set('status', statusFilter);
+      if (unitId) url.searchParams.set('unitId', unitId);
+      url.searchParams.set('page', String(page));
+      url.searchParams.set('limit', String(pageSize));
+      url.searchParams.set('sortBy', sortBy);
+      url.searchParams.set('sortOrder', sortOrder);
       const res = await apiRequest("GET", url.pathname + url.search);
       return res.json();
-    }
+    },
   });
+
+  const total = data && 'total' in data ? data.total : 0;
+  const totalPages = Math.ceil(total / pageSize);
+  const violations = data && 'violations' in data ? data.violations : [];
 
   const getViolationTypeName = (type: string) => {
     const typeMap: Record<string, string> = {
@@ -68,30 +85,56 @@ export function ViolationsList() {
     return typeMap[type] || type;
   };
 
+  const handleSort = (column: string) => {
+    if (sortBy === column) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(column); setSortOrder('asc'); }
+    setPage(1);
+  };
+
   const columns: ColumnDef<Violation>[] = [
     {
       accessorKey: "unit.unitNumber",
-      header: "Unit",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('unitNumber')}>
+          Unit {sortBy === 'unitNumber' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
       cell: ({ row }) => <div className="font-medium">#{row.original.unit.unitNumber}</div>,
     },
     {
       accessorKey: "violationType",
-      header: "Violation",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('violationType')}>
+          Violation {sortBy === 'violationType' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
       cell: ({ row }) => getViolationTypeName(row.original.violationType),
     },
     {
       accessorKey: "createdAt",
-      header: "Date",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('createdAt')}>
+          Date {sortBy === 'createdAt' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
       cell: ({ row }) => format(new Date(row.original.createdAt), "MMM dd, yyyy"),
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('status')}>
+          Status {sortBy === 'status' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       accessorKey: "fineAmount",
-      header: "Fine",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('fineAmount')}>
+          Fine {sortBy === 'fineAmount' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
       cell: ({ row }) => row.original.fineAmount ? `$${row.original.fineAmount.toFixed(2)}` : "-",
     },
     {
@@ -136,7 +179,17 @@ export function ViolationsList() {
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
-          
+          <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1); }}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Page size" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
           {(unitId || statusFilter !== "all") && (
             <Button 
               variant="outline" 
@@ -149,20 +202,48 @@ export function ViolationsList() {
             </Button>
           )}
         </div>
-        
-        <Button onClick={() => navigate("/violations/new")}>
-          <PlusCircle className="h-4 w-4 mr-2" />
-          New Violation
-        </Button>
+        <Button onClick={() => navigate("/violations/new")}> <PlusCircle className="h-4 w-4 mr-2" /> New Violation </Button>
       </div>
-      
       <Card>
         {violations && violations.length > 0 ? (
-          <DataTable 
-            columns={columns} 
-            data={violations} 
-            searchColumn="unit.unitNumber"
-          />
+          <>
+            <DataTable 
+              columns={columns} 
+              data={violations} 
+              searchColumn="unit.unitNumber"
+            />
+            <div className="py-4 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      aria-disabled={page === 1}
+                      tabIndex={page === 1 ? -1 : 0}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink
+                        isActive={p === page}
+                        onClick={() => setPage(p)}
+                        href="#"
+                      >
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      aria-disabled={page === totalPages}
+                      tabIndex={page === totalPages ? -1 : 0}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </>
         ) : (
           <div className="p-6">
             <EmptyState

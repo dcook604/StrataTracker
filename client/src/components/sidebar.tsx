@@ -16,7 +16,6 @@ import {
   Tags,
 } from "lucide-react";
 import { useState } from "react";
-import { Logo } from "@/components/logo";
 import { useToast } from "@/hooks/use-toast";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
@@ -80,8 +79,9 @@ export function Sidebar({ className }: SidebarProps) {
 
   const NavContent = () => (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-center h-16 px-4 border-b border-neutral-200 dark:border-neutral-800">
-        <Logo />
+      <div className="flex flex-col items-center justify-center h-20 px-4 border-b border-neutral-200 dark:border-neutral-800 select-none">
+        <span className="font-bold text-2xl leading-tight">Spectrum 4</span>
+        <span className="text-xl font-normal opacity-80" style={{ fontSize: '90%' }}>Violation System</span>
       </div>
       <ScrollArea className="flex-1 px-4 py-4">
         <nav className="flex flex-col gap-1">
@@ -90,11 +90,15 @@ export function Sidebar({ className }: SidebarProps) {
             .map((item) => (
               <Link key={item.href} href={item.href}>
                 <Button
-                  variant={isActive(item.href) ? "secondary" : "ghost"}
+                  variant="ghost"
+                  tabIndex={0}
                   className={cn(
-                    "w-full justify-start gap-2",
-                    isActive(item.href) && "bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-50"
+                    "w-full justify-start gap-2 transition-colors font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                    isActive(item.href)
+                      ? "bg-primary-700 text-white font-bold border-l-4 border-primary-500 shadow"
+                      : "text-neutral-700 hover:bg-neutral-200 dark:text-neutral-200 dark:hover:bg-neutral-800"
                   )}
+                  aria-current={isActive(item.href) ? "page" : undefined}
                   onClick={() => setOpen(false)}
                 >
                   {item.icon}
