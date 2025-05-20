@@ -95,7 +95,7 @@ export function Sidebar({ className }: SidebarProps) {
                   className={cn(
                     "w-full justify-start gap-2 transition-colors font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                     isActive(item.href)
-                      ? "bg-primary-700 text-white font-bold border-l-4 border-primary-500 shadow"
+                      ? "bg-primary-700 !text-white font-bold border-l-4 border-primary-500 shadow"
                       : "text-neutral-700 hover:bg-primary-600 hover:text-white dark:text-neutral-200 dark:hover:bg-neutral-700 dark:hover:text-white"
                   )}
                   aria-current={isActive(item.href) ? "page" : undefined}
