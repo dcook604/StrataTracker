@@ -48,11 +48,20 @@ const userFormSchema = z.object({
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
+type InviteFormValues = {
+  email: string;
+  fullName: string;
+  isAdmin: boolean;
+  isCouncilMember: boolean;
+  isUser: boolean;
+};
+
 export default function UsersPage() {
   const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { toast } = useToast();
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   
   // Redirect if not an admin
   if (user && !user.isAdmin) {
@@ -195,6 +204,39 @@ export default function UsersPage() {
     }
   });
   
+  const inviteForm = useForm<InviteFormValues>({
+    resolver: zodResolver(z.object({
+      email: z.string().email("Valid email is required"),
+      fullName: z.string().min(2, "Full name is required"),
+      isAdmin: z.boolean().default(false),
+      isCouncilMember: z.boolean().default(false),
+      isUser: z.boolean().default(true),
+    })),
+    defaultValues: {
+      email: '',
+      fullName: '',
+      isAdmin: false,
+      isCouncilMember: false,
+      isUser: true,
+    }
+  });
+  const inviteMutation = useMutation({
+    mutationFn: async (data: InviteFormValues) => {
+      const res = await apiRequest("POST", "/api/users/invite", data);
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to send invitation');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation Sent", description: "The user will receive an email to complete registration." });
+      setIsInviteDialogOpen(false);
+      inviteForm.reset();
+      queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+  
   const onSubmit = (values: UserFormValues) => {
     if (editingUser) {
       updateMutation.mutate({ ...values, id: editingUser.id });
@@ -334,6 +376,10 @@ export default function UsersPage() {
           >
             <UserPlusIcon className="h-5 w-5 mr-2" />
             Add User
+          </Button>
+          <Button onClick={() => setIsInviteDialogOpen(true)} className="h-12 px-6 md:h-10" variant="secondary">
+            <UserPlusIcon className="h-5 w-5 mr-2" />
+            Invite User
           </Button>
         </div>
         
@@ -642,6 +688,62 @@ export default function UsersPage() {
                 <Button type="submit" disabled={updateMutation.isPending}>
                   {updateMutation.isPending ? "Updating..." : "Update User"}
                 </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="text-xl">Invite User</DialogTitle>
+            <DialogDescription>
+              Send an invitation email so the user can set their own password.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...inviteForm}>
+            <form onSubmit={inviteForm.handleSubmit((values) => inviteMutation.mutate(values as any))} className="space-y-4 p-6">
+              <FormField control={inviteForm.control} name="fullName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name*</FormLabel>
+                  <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={inviteForm.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email*</FormLabel>
+                  <FormControl><Input placeholder="john.doe@example.com" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">User Roles</h3>
+                <div className="grid gap-4">
+                  <FormField control={inviteForm.control} name="isAdmin" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <div className="space-y-1 leading-none"><FormLabel>Administrator</FormLabel></div>
+                    </FormItem>
+                  )} />
+                  <FormField control={inviteForm.control} name="isCouncilMember" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <div className="space-y-1 leading-none"><FormLabel>Council Member</FormLabel></div>
+                    </FormItem>
+                  )} />
+                  <FormField control={inviteForm.control} name="isUser" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <div className="space-y-1 leading-none"><FormLabel>Regular User</FormLabel></div>
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsInviteDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={inviteMutation.isPending}>{inviteMutation.isPending ? "Sending..." : "Send Invitation"}</Button>
               </DialogFooter>
             </form>
           </Form>

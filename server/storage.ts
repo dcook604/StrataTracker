@@ -112,6 +112,8 @@ export interface IStorage {
   
   // Session store
   sessionStore: session.Store;
+
+  getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -790,6 +792,37 @@ export class DatabaseStorage implements IStorage {
       console.error('Error updating password reset token:', error);
       return false;
     }
+  }
+
+  async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }> {
+    const offset = (page - 1) * limit;
+    let query = db
+      .select({ violation: violations, unit: propertyUnits })
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
+    if (status) {
+      query = query.where(eq(violations.status, status));
+    }
+    if (unitId) {
+      query = query.where(eq(violations.unitId, unitId));
+    }
+    const result = await query
+      .orderBy(desc(violations.createdAt))
+      .limit(limit)
+      .offset(offset);
+    const [{ count }] = await db
+      .select({ count: sql`count(*)` })
+      .from(violations)
+      .where(
+        and(
+          status ? eq(violations.status, status) : sql`TRUE`,
+          unitId ? eq(violations.unitId, unitId) : sql`TRUE`
+        )
+      );
+    return {
+      violations: result.map(r => ({ ...r.violation, unit: r.unit })),
+      total: Number(count)
+    };
   }
 }
 
