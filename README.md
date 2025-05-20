@@ -1,45 +1,52 @@
 # Spectrum 4 Violation System
 
-## Features
-
-- **User Management**: Admins can add, edit, lock/unlock, and invite users. Roles include User, Council Member, and Administrator.
-- **User Profile Page**: All users can view and edit their own profile (except roles) and change their password. Accessible from the user menu in the header.
-- **Password Strength Meter**: All password forms (Add/Edit User, Reset Password, Change Password, User Profile) include a real-time password strength meter using zxcvbn.
-- **Account Locking**: Admins can manually lock/unlock accounts and specify a lock reason.
-- **Pagination & Sorting**: Large tables (users, violations, customers) support pagination, page size selection, and server-side sorting/filtering.
-- **Accessible Navigation**: Sidebar and user menu are accessible and clearly indicate the current section.
-
-## User Profile Page
-
-- Click your avatar or name in the top right header to open the user menu.
-- Select **Profile** to view and edit your profile information (name, email, username).
-- Change your password in the "Change Password" section. The password strength meter will guide you to choose a secure password.
-
-## Password Strength Meter
-
-- All password forms display a strength meter and suggestions as you type.
-- Passwords are rated from "Very Weak" to "Strong" using the zxcvbn library.
-- Users are encouraged to use strong passwords for better security.
-
-## User Menu
-
-- The user menu is accessible from the header (avatar/name).
-- Options:
-  - **Profile**: Go to your user profile page.
-  - **Logout**: Sign out of the application.
-
-## Security Enhancements
-
-- Passwords must meet minimum strength requirements.
-- Admins can lock/unlock accounts and specify reasons.
-- All sensitive actions are protected by role-based access control.
-
-## Getting Started
-
-1. Install dependencies: `npm install`
-2. Start the development server: `npm run dev`
-3. Log in as an admin to access user management and other admin features.
+## Overview
+A modern web application for managing property violations, units/customers, and user roles for strata/condo management. Built with React, TypeScript, and a Node.js backend.
 
 ---
 
-For more details, see the in-app help or contact your system administrator. 
+## Features
+- **User Management**: Add, edit, and delete users with multiple roles (Administrator, Council Member, Regular User). Strict Zod schemas enforce correct validation for both creation and editing.
+- **Unit/Customer Management**: Unified Add Unit/Customer flow with duplicate checking and update option, consistent across Violations and Customers sections.
+- **Violation Tracking**: Create, view, and manage violations, with file attachments and status tracking.
+- **Settings**: System and email settings with client-side navigation (SPA experience, no full page reloads).
+- **Responsive UI**: Modern, accessible, and mobile-friendly design.
+
+---
+
+## Architecture & Patterns
+- **Component-Driven**: All UI is built from small, reusable React components.
+- **Strict Typing**: Uses TypeScript and Zod for runtime and compile-time safety. No `any` types in core logic.
+- **Schema-Driven Forms**: All forms use Zod schemas for validation. Separate schemas for create/edit where logic differs (e.g., user password rules).
+- **Unified Add Unit/Customer**: The Add Customer dialog now uses the same logic and validation as the Add Unit flow in the Violation form, ensuring consistency and DRY code.
+- **Client-Side Routing**: Navigation (e.g., Settings, User Management) uses SPA routing (wouter or react-router) for a seamless experience.
+- **Feedback & Accessibility**: All actions provide user feedback (toasts, confirmations), and UI is accessible (keyboard, ARIA, color contrast).
+
+---
+
+## Code Quality & Testing
+- **Linting & Formatting**: ESLint and Prettier are enforced. No linter errors in committed code.
+- **File Size**: Components are kept under 300 lines; large logic is split into smaller files.
+- **Testing**: TDD encouraged. Write tests for new features and bug fixes. Use mock data only in tests.
+- **Security**: No secrets in code. All user input is validated and sanitized. Sensitive logic is server-side.
+- **Documentation**: All major components and schemas are documented with JSDoc. README is kept up to date with architecture and usage changes.
+
+---
+
+## Getting Started
+1. **Install dependencies**: `npm install`
+2. **Start the backend**: `npm run server`
+3. **Start the frontend**: `npm run client`
+4. **Access the app**: Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Contributing
+- Follow the Cursor rules: prioritize simplicity, maintainability, and clarity.
+- Update documentation and tests with any significant code changes.
+- Keep all code and UI consistent with established patterns.
+
+---
+
+## License
+MIT 
