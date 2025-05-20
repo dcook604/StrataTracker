@@ -35,6 +35,7 @@ import { Layout } from "@/components/layout";
 import { Users } from "lucide-react";
 import zxcvbn from "zxcvbn";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -640,167 +641,148 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update user details.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="john.doe@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="johndoe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>New Password (leave blank to keep current)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                        onChange={e => {
-                          field.onChange(e);
-                          handlePasswordChange(e.target.value);
-                        }}
-                      />
-                    </FormControl>
-                    {field.value && (
-                      <div className="mt-2">
-                        <Progress value={passwordStrength} className={
-                          passwordStrength < 40 ? "bg-red-200" :
-                          passwordStrength < 60 ? "bg-yellow-200" :
-                          passwordStrength < 80 ? "bg-blue-200" :
-                          "bg-green-200"
-                        } />
-                        <div className="text-xs mt-1 font-medium" style={{ color: passwordStrength < 40 ? '#dc2626' : passwordStrength < 60 ? '#ca8a04' : passwordStrength < 80 ? '#2563eb' : '#16a34a' }}>{passwordLabel}</div>
-                        {passwordFeedback && <div className="text-xs text-muted-foreground mt-1">{passwordFeedback}</div>}
-                      </div>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="space-y-4">
-                <h3 className="text-sm font-medium">User Roles</h3>
-                <div className="grid gap-4">
+      {editingUser && (
+        <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>Update user details.</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[70vh] p-4">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" id="editUserForm">
                   <FormField
                     control={form.control}
-                    name="roles.isAdmin"
+                    name="fullName"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormItem>
+                        <FormLabel>Full Name*</FormLabel>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Input {...field} />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Administrator</FormLabel>
-                          <FormDescription>
-                            Can manage all aspects of the system
-                          </FormDescription>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="roles.isCouncilMember"
+                    name="email"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormItem>
+                        <FormLabel>Email*</FormLabel>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Input {...field} />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Council Member</FormLabel>
-                          <FormDescription>
-                            Can approve violations
-                          </FormDescription>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="roles.isUser"
+                    name="username"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormItem>
+                        <FormLabel>Username*</FormLabel>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Input {...field} />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Regular User</FormLabel>
-                          <FormDescription>
-                            Basic access to report violations
-                          </FormDescription>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
-              </div>
-              
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Updating..." : "Update User"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Password (leave blank to keep current)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="••••••••"
+                            {...field}
+                            onChange={e => {
+                              field.onChange(e);
+                              handlePasswordChange(e.target.value);
+                            }}
+                          />
+                        </FormControl>
+                        {field.value && (
+                          <div className="mt-2">
+                            <Progress value={passwordStrength} className={
+                              passwordStrength < 40 ? "bg-red-200" :
+                              passwordStrength < 60 ? "bg-yellow-200" :
+                              passwordStrength < 80 ? "bg-blue-200" :
+                              "bg-green-200"
+                            } />
+                            <div className="text-xs mt-1 font-medium" style={{ color: passwordStrength < 40 ? '#dc2626' : passwordStrength < 60 ? '#ca8a04' : passwordStrength < 80 ? '#2563eb' : '#16a34a' }}>{passwordLabel}</div>
+                            {passwordFeedback && <div className="text-xs text-muted-foreground mt-1">{passwordFeedback}</div>}
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div>
+                    <FormLabel>User Roles</FormLabel>
+                    <FormField
+                      control={form.control}
+                      name="roles.isAdmin"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow mt-2">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Administrator</FormLabel>
+                            <FormDescription>Can manage all aspects of the system</FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="roles.isCouncilMember"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow mt-2">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Council Member</FormLabel>
+                            <FormDescription>Can approve violations</FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="roles.isUser"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow mt-2">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Regular User</FormLabel>
+                            <FormDescription>Basic access to report violations</FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </form>
+              </Form>
+            </ScrollArea>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingUser(null)}>Cancel</Button>
+              <Button type="submit" form="editUserForm" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? "Updating..." : "Update User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent className="sm:max-w-[425px] p-0">

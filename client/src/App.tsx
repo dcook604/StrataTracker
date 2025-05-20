@@ -15,7 +15,7 @@ import ReportsPage from "@/pages/reports-page";
 import CustomersPage from "@/pages/customers-page";
 import CategoriesPage from "@/pages/categories-page";
 import SettingsPage from "@/pages/settings-page";
-import UsersManagementPage from "@/pages/users-management-page";
+import UsersPage from "@/pages/users-page";
 import EmailSettingsPage from "@/pages/email-settings-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
@@ -33,7 +33,7 @@ function Router() {
       <ProtectedRoute path="/customers" component={CustomersPage} />
       <ProtectedRoute path="/categories" component={CategoriesPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
-      <ProtectedRoute path="/users" component={UsersManagementPage} />
+      <ProtectedRoute path="/users" component={UsersPage} />
       <ProtectedRoute path="/email-settings" component={EmailSettingsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />

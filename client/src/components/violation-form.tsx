@@ -77,6 +77,10 @@ export function ViolationForm() {
     staleTime: 1000 * 60 * 5,
   });
 
+  // Fix linter errors for .map on units and categories
+  const safeUnits = Array.isArray(units) ? units : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
   // Form setup
   const form = useForm<z.infer<typeof violationFormSchema>>({
     resolver: zodResolver(violationFormSchema),
@@ -124,8 +128,8 @@ export function ViolationForm() {
       const formData = new FormData();
       
       // Add regular fields
-      formData.append("unitId", data.unitId.toString());
-      formData.append("categoryId", data.categoryId.toString());
+      formData.append("unitId", Number(data.unitId).toString());
+      formData.append("categoryId", Number(data.categoryId).toString());
       formData.append("violationType", data.violationType);
       formData.append("violationDate", data.violationDate);
       formData.append("violationTime", data.violationTime || "");
@@ -171,7 +175,7 @@ export function ViolationForm() {
     if (showNewUnitForm && values.newUnit) {
       // First create the unit, then the violation will be created in the success callback
       const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
-      const missingFields = requiredFields.filter(field => !values.newUnit?.[field as keyof typeof values.newUnit]);
+      const missingFields = requiredFields.filter(field => !(values.newUnit && values.newUnit[field as keyof typeof values.newUnit]));
       
       if (missingFields.length > 0) {
         toast({
@@ -182,7 +186,42 @@ export function ViolationForm() {
         return;
       }
       
-      createUnitMutation.mutate(values.newUnit as z.infer<typeof newUnitSchema>);
+      // Check if unit exists
+      const existing = safeUnits.find((u: any) => u.unitNumber === values.newUnit?.unitNumber);
+      if (existing) {
+        if (confirm("This unit already exists. Do you want to update its information?")) {
+          const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = values.newUnit;
+          if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
+            const payload = { unitNumber, ownerName, ownerEmail, floor: floor || null, tenantName: tenantName || null, tenantEmail: tenantEmail || null };
+            apiRequest("PUT", `/api/property-units/${existing.id}`, payload)
+              .then(res => res.json())
+              .then(data => {
+                queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
+                form.setValue("unitId", data.id);
+                setShowNewUnitForm(false);
+                toast({
+                  title: "Unit updated",
+                  description: `Unit ${data.unitNumber} has been updated. Please proceed with violation details.`,
+                });
+              })
+              .catch(err => {
+                toast({
+                  title: "Failed to update unit",
+                  description: err.message,
+                  variant: "destructive",
+                });
+              });
+          }
+        }
+      } else {
+        if (values.newUnit) {
+          const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = values.newUnit;
+          if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
+            const payload = { unitNumber, ownerName, ownerEmail, floor: floor || null, tenantName: tenantName || null, tenantEmail: tenantEmail || null };
+            createUnitMutation.mutate(payload);
+          }
+        }
+      }
     } else {
       // Submit the violation directly
       submitViolationMutation.mutate(values);
@@ -226,7 +265,7 @@ export function ViolationForm() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {units?.map((unit) => (
+                              {safeUnits.map((unit: any) => (
                                 <SelectItem key={unit.id} value={unit.id.toString()}>
                                   Unit #{unit.unitNumber}
                                 </SelectItem>
@@ -328,13 +367,63 @@ export function ViolationForm() {
                         )}
                       />
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowNewUnitForm(false)}
-                    >
-                      Cancel
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowNewUnitForm(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={() => {
+                          // Validate required fields
+                          const values = form.getValues();
+                          const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
+                          const missingFields = requiredFields.filter(field => !(values.newUnit && values.newUnit[field as keyof typeof values.newUnit]));
+                          if (missingFields.length > 0) {
+                            toast({
+                              title: "Missing required fields",
+                              description: `Please fill in: ${missingFields.join(", ")}`,
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          // Check if unit exists
+                          const existing = safeUnits.find((u: any) => u.unitNumber === values.newUnit?.unitNumber);
+                          if (existing) {
+                            if (confirm("This unit already exists. Do you want to update its information?")) {
+                              const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = values.newUnit;
+                              if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
+                                const payload = { unitNumber, ownerName, ownerEmail, floor: floor || null, tenantName: tenantName || null, tenantEmail: tenantEmail || null };
+                                apiRequest("PUT", `/api/property-units/${existing.id}`, payload)
+                                  .then(res => res.json())
+                                  .then(data => {
+                                    queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
+                                    form.setValue("unitId", data.id);
+                                    setShowNewUnitForm(false);
+                                    toast({
+                                      title: "Unit updated",
+                                      description: `Unit ${data.unitNumber} has been updated. Please proceed with violation details.`,
+                                    });
+                                  })
+                                  .catch(err => {
+                                    toast({
+                                      title: "Failed to update unit",
+                                      description: err.message,
+                                      variant: "destructive",
+                                    });
+                                  });
+                              }
+                            }
+                          }
+                        }}
+                      >
+                        Add Unit
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -360,7 +449,7 @@ export function ViolationForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories?.map((cat) => (
+                        {safeCategories.map((cat: any) => (
                           <SelectItem key={cat.id} value={cat.id.toString()}>
                             {cat.name}
                           </SelectItem>

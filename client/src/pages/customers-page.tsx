@@ -374,8 +374,8 @@ export default function CustomersPage() {
                   />
                 </div>
                 
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Owner Information</h3>
+                <div className="space-y-4 mt-6 mb-2 select-none">
+                  <h3 className="font-semibold text-md">Owner Information</h3>
                   <FormField
                     control={form.control}
                     name="ownerName"
@@ -404,8 +404,8 @@ export default function CustomersPage() {
                   />
                 </div>
                 
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Tenant Information</h3>
+                <div className="space-y-4 mt-6 mb-2 select-none">
+                  <h3 className="font-semibold text-md">Tenant Information</h3>
                   <FormField
                     control={form.control}
                     name="tenantName"
@@ -434,8 +434,8 @@ export default function CustomersPage() {
                   />
                 </div>
                 
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Additional Information</h3>
+                <div className="space-y-4 mt-6 mb-2 select-none">
+                  <h3 className="font-semibold text-md">Additional Information</h3>
                   <FormField
                     control={form.control}
                     name="phone"
