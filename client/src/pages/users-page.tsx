@@ -38,7 +38,7 @@ import { Progress } from "@/components/ui/progress";
 
 const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().optional(),
   fullName: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email format"),
   roles: z.object({
@@ -46,6 +46,31 @@ const userFormSchema = z.object({
     isCouncilMember: z.boolean().default(false),
     isUser: z.boolean().default(true),
   }),
+}).superRefine((data, ctx) => {
+  const isEditing = ctx?.context?.editingUser;
+  if (isEditing) {
+    if (data.password && data.password.length < 6) {
+      ctx.addIssue({
+        path: ["password"],
+        code: z.ZodIssueCode.too_small,
+        minimum: 6,
+        type: "string",
+        inclusive: true,
+        message: "Password must be at least 6 characters",
+      });
+    }
+  } else {
+    if (!data.password || data.password.length < 6) {
+      ctx.addIssue({
+        path: ["password"],
+        code: z.ZodIssueCode.too_small,
+        minimum: 6,
+        type: "string",
+        inclusive: true,
+        message: "Password must be at least 6 characters",
+      });
+    }
+  }
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -282,7 +307,6 @@ export default function UsersPage() {
     setEditingUser(user);
     form.reset({
       username: user.username,
-      // Don't include password when editing
       password: "",
       fullName: user.fullName || "",
       email: user.email || "",
@@ -291,7 +315,7 @@ export default function UsersPage() {
         isCouncilMember: user.isCouncilMember || false,
         isUser: user.isUser || true,
       }
-    });
+    }, { keepValues: false, keepDirty: false, keepTouched: false, keepIsValid: false, keepErrors: false, keepSubmitCount: false, keepDefaultValues: false, context: { editingUser: true } });
   };
   
   const handleDelete = (id: number) => {
@@ -349,28 +373,17 @@ export default function UsersPage() {
       header: "Role",
       cell: ({ row }) => {
         const user = row.original;
+        const roles = [];
         if (user.isAdmin) {
-          return (
-            <div className="flex items-center">
-              <ShieldIcon className="h-4 w-4 mr-1 text-primary" />
-              <span>Administrator</span>
-            </div>
-          );
-        } else if (user.isCouncilMember) {
-          return (
-            <div className="flex items-center">
-              <UserCheckIcon className="h-4 w-4 mr-1 text-primary" />
-              <span>Council Member</span>
-            </div>
-          );
-        } else {
-          return (
-            <div className="flex items-center">
-              <UserIcon className="h-4 w-4 mr-1" />
-              <span>User</span>
-            </div>
-          );
+          roles.push(<span key="admin" className="flex items-center mr-2"><ShieldIcon className="h-4 w-4 mr-1 text-primary" /><span>Administrator</span></span>);
         }
+        if (user.isCouncilMember) {
+          roles.push(<span key="council" className="flex items-center mr-2"><UserCheckIcon className="h-4 w-4 mr-1 text-primary" /><span>Council Member</span></span>);
+        }
+        if (user.isUser) {
+          roles.push(<span key="user" className="flex items-center mr-2"><UserIcon className="h-4 w-4 mr-1" /><span>Regular User</span></span>);
+        }
+        return <div className="flex flex-wrap items-center gap-2">{roles}</div>;
       }
     },
     {
@@ -479,7 +492,7 @@ export default function UsersPage() {
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] p-0">
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto p-0">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="text-xl">Add User</DialogTitle>
             <DialogDescription>
