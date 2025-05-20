@@ -107,16 +107,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Violations API
   app.get("/api/violations", ensureAuthenticated, async (req, res) => {
     try {
-      const { status } = req.query;
-      
-      let violations;
-      if (status && typeof status === 'string') {
-        violations = await dbStorage.getViolationsByStatus(status as any);
+      const { status, unitId, page, limit } = req.query;
+      const pageNum = parseInt(page as string) || 1;
+      const limitNum = parseInt(limit as string) || 20;
+      if (status || unitId || page || limit) {
+        const result = await dbStorage.getViolationsPaginated(
+          pageNum,
+          limitNum,
+          status as string | undefined,
+          unitId ? parseInt(unitId as string) : undefined
+        );
+        res.json(result);
       } else {
-        violations = await dbStorage.getAllViolations();
+        const violations = await dbStorage.getAllViolations();
+        res.json({ violations, total: violations.length });
       }
-      
-      res.json(violations);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch violations" });
     }
