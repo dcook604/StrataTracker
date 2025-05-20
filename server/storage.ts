@@ -114,6 +114,8 @@ export interface IStorage {
   sessionStore: session.Store;
 
   getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
+
+  setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -396,10 +398,15 @@ export class DatabaseStorage implements IStorage {
   
   async incrementFailedLoginAttempts(id: number): Promise<void> {
     try {
+      // Get current failed attempts
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      const failedAttempts = (user?.failedLoginAttempts || 0) + 1;
+      const lock = failedAttempts >= 5;
       await db.update(users)
         .set({
-          failedLoginAttempts: sql`COALESCE(${users.failedLoginAttempts}, 0) + 1`,
-          accountLocked: sql`CASE WHEN COALESCE(${users.failedLoginAttempts}, 0) + 1 >= 5 THEN true ELSE ${users.accountLocked} END`
+          failedLoginAttempts,
+          accountLocked: lock,
+          lockReason: lock ? 'Too many failed login attempts' : null
         })
         .where(eq(users.id, id));
     } catch (error) {
@@ -412,7 +419,8 @@ export class DatabaseStorage implements IStorage {
       await db.update(users)
         .set({
           failedLoginAttempts: 0,
-          accountLocked: false
+          accountLocked: false,
+          lockReason: null
         })
         .where(eq(users.id, id));
     } catch (error) {
@@ -842,6 +850,19 @@ export class DatabaseStorage implements IStorage {
       violations: result.map(r => ({ ...r.violation, unit: r.unit })),
       total: Number(count)
     };
+  }
+
+  async setUserLock(id: number, locked: boolean, reason?: string): Promise<void> {
+    try {
+      await db.update(users)
+        .set({
+          accountLocked: locked,
+          lockReason: locked ? (reason || 'Locked by administrator') : null
+        })
+        .where(eq(users.id, id));
+    } catch (error) {
+      console.error('Failed to set user lock:', error);
+    }
   }
 }
 

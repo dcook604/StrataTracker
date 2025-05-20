@@ -345,6 +345,12 @@
           "notNull": false,
           "default": false
         },
+        "lock_reason": {
+          "name": "lock_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "password_reset_token": {
           "name": "password_reset_token",
           "type": "text",

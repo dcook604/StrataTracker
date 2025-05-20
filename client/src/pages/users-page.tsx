@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { User } from "@shared/schema";
 import { DataTable } from "@/components/ui/data-table";
@@ -33,6 +33,8 @@ import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIc
 import { useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { Users } from "lucide-react";
+import zxcvbn from "zxcvbn";
+import { Progress } from "@/components/ui/progress";
 
 const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -62,6 +64,14 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { toast } = useToast();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isLockDialogOpen, setIsLockDialogOpen] = useState(false);
+  const [lockUserId, setLockUserId] = useState<number | null>(null);
+  const [lockReason, setLockReason] = useState("");
+  const lockReasonInputRef = useRef<HTMLInputElement>(null);
+  // Password strength state for Add/Edit dialogs
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [passwordFeedback, setPasswordFeedback] = useState("");
+  const [passwordLabel, setPasswordLabel] = useState("");
   
   // Redirect if not an admin
   if (user && !user.isAdmin) {
@@ -204,6 +214,29 @@ export default function UsersPage() {
     }
   });
   
+  const lockMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      await apiRequest("POST", `/api/users/${id}/lock`, { reason });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User locked successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
+      setIsLockDialogOpen(false);
+      setLockUserId(null);
+      setLockReason("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
   const inviteForm = useForm<InviteFormValues>({
     resolver: zodResolver(z.object({
       email: z.string().email("Valid email is required"),
@@ -267,6 +300,21 @@ export default function UsersPage() {
     }
   };
   
+  // Password strength meter logic
+  function handlePasswordChange(value: string) {
+    if (!value) {
+      setPasswordStrength(0);
+      setPasswordFeedback("");
+      setPasswordLabel("");
+      return;
+    }
+    const result = zxcvbn(value);
+    setPasswordStrength((result.score + 1) * 20);
+    setPasswordFeedback(result.feedback.suggestions[0] || "");
+    const labels = ["Very Weak", "Weak", "Fair", "Good", "Strong"];
+    setPasswordLabel(labels[result.score] || "");
+  }
+  
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: "username",
@@ -286,7 +334,12 @@ export default function UsersPage() {
       cell: ({ row }) => {
         const user = row.original;
         return user.accountLocked ? (
-          <span className="flex items-center text-red-600 font-semibold"><LockIcon className="h-4 w-4 mr-1" /> Locked</span>
+          <span className="flex flex-col items-start text-red-600 font-semibold">
+            <span className="flex items-center"><LockIcon className="h-4 w-4 mr-1" /> Locked</span>
+            {user.lockReason && (
+              <span className="text-xs text-red-500 mt-1">Reason: {user.lockReason}</span>
+            )}
+          </span>
         ) : (
           <span className="flex items-center text-green-600 font-semibold"><UnlockIcon className="h-4 w-4 mr-1" /> Active</span>
         );
@@ -346,7 +399,7 @@ export default function UsersPage() {
                 <Trash2Icon className="h-4 w-4 text-destructive" />
               </Button>
             )}
-            {rowUser.accountLocked && (
+            {rowUser.accountLocked ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -355,6 +408,21 @@ export default function UsersPage() {
               >
                 <UnlockIcon className="h-4 w-4 mr-1" /> Unlock
               </Button>
+            ) : (
+              !isSelf && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setLockUserId(rowUser.id);
+                    setIsLockDialogOpen(true);
+                    setTimeout(() => lockReasonInputRef.current?.focus(), 100);
+                  }}
+                  className="ml-2 text-yellow-700 border-yellow-400"
+                >
+                  <LockIcon className="h-4 w-4 mr-1" /> Lock
+                </Button>
+              )
             )}
           </div>
         );
@@ -466,8 +534,28 @@ export default function UsersPage() {
                   <FormItem>
                     <FormLabel>{editingUser ? "New Password (leave blank to keep current)" : "Password*"}</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        onChange={e => {
+                          field.onChange(e);
+                          handlePasswordChange(e.target.value);
+                        }}
+                      />
                     </FormControl>
+                    {field.value && (
+                      <div className="mt-2">
+                        <Progress value={passwordStrength} className={
+                          passwordStrength < 40 ? "bg-red-200" :
+                          passwordStrength < 60 ? "bg-yellow-200" :
+                          passwordStrength < 80 ? "bg-blue-200" :
+                          "bg-green-200"
+                        } />
+                        <div className="text-xs mt-1 font-medium" style={{ color: passwordStrength < 40 ? '#dc2626' : passwordStrength < 60 ? '#ca8a04' : passwordStrength < 80 ? '#2563eb' : '#16a34a' }}>{passwordLabel}</div>
+                        {passwordFeedback && <div className="text-xs text-muted-foreground mt-1">{passwordFeedback}</div>}
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -608,8 +696,28 @@ export default function UsersPage() {
                   <FormItem>
                     <FormLabel>New Password (leave blank to keep current)</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        onChange={e => {
+                          field.onChange(e);
+                          handlePasswordChange(e.target.value);
+                        }}
+                      />
                     </FormControl>
+                    {field.value && (
+                      <div className="mt-2">
+                        <Progress value={passwordStrength} className={
+                          passwordStrength < 40 ? "bg-red-200" :
+                          passwordStrength < 60 ? "bg-yellow-200" :
+                          passwordStrength < 80 ? "bg-blue-200" :
+                          "bg-green-200"
+                        } />
+                        <div className="text-xs mt-1 font-medium" style={{ color: passwordStrength < 40 ? '#dc2626' : passwordStrength < 60 ? '#ca8a04' : passwordStrength < 80 ? '#2563eb' : '#16a34a' }}>{passwordLabel}</div>
+                        {passwordFeedback && <div className="text-xs text-muted-foreground mt-1">{passwordFeedback}</div>}
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -747,6 +855,48 @@ export default function UsersPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isLockDialogOpen} onOpenChange={setIsLockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock User Account</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for locking this account. The user will not be able to log in until unlocked by an administrator.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              if (lockUserId && lockReason.trim()) {
+                lockMutation.mutate({ id: lockUserId, reason: lockReason });
+              }
+            }}
+          >
+            <FormItem>
+              <FormLabel>Lock Reason</FormLabel>
+              <FormControl>
+                <Input
+                  ref={lockReasonInputRef}
+                  value={lockReason}
+                  onChange={e => setLockReason(e.target.value)}
+                  placeholder="Reason for locking account"
+                  required
+                  autoFocus
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setIsLockDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!lockReason.trim()}>
+                Lock Account
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </Layout>
