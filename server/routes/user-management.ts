@@ -5,7 +5,7 @@ import { storage as dbStorage } from '../storage';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
-import { sendWelcomeEmail, sendPasswordResetEmail } from '../email-service';
+import { sendWelcomeEmail, sendPasswordResetEmail, sendInvitationEmail } from '../email-service';
 
 const router = express.Router();
 const scryptAsync = promisify(scrypt);
@@ -313,8 +313,8 @@ router.post('/invite', isAdmin, async (req, res) => {
     const resetToken = randomBytes(32).toString('hex');
     const resetExpires = new Date(Date.now() + 3600 * 1000 * 24); // 24 hours
     await dbStorage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
-    // Send invitation email (reuse password reset email logic)
-    await sendPasswordResetEmail(email, resetToken, req);
+    // Send invitation email (not password reset)
+    await sendInvitationEmail(email, resetToken, fullName, req);
     res.status(201).json({ message: 'Invitation sent successfully' });
   } catch (error) {
     console.error('Error inviting user:', error);

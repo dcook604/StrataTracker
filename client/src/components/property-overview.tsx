@@ -1,15 +1,16 @@
 /**
  * PropertyOverview Component
  *
- * Displays a branded property overview card for Spectrum 4 (BCS2611) with:
+ * Displays a branded property overview card with:
+ * - Property name (dynamically provided)
  * - Responsive layout and stat cards
  * - Visual icons for each stat
  * - Modern property image
- * - Future-proofed for dynamic property name/image via props
+ * - Props for property name and image
  *
  * Usage:
- *   <PropertyOverview />
- *   <PropertyOverview propertyName="My Property" propertyImage="url" />
+ *   <PropertyOverview propertyName="My Awesome Property" />
+ *   <PropertyOverview propertyName="Another Property" propertyImage="url_to_image" />
  */
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,16 +44,16 @@ function StatCard({ label, value, icon }: { label: string; value: React.ReactNod
  *
  * Main property dashboard card. Shows property name, image, and key stats.
  *
- * @param propertyName - Name of the property (default: 'Spectrum 4 (BCS2611)')
- * @param propertyImage - Image URL for the property
+ * @param propertyName - Name of the property (required).
+ * @param propertyImage - Image URL for the property (optional).
  */
 export function PropertyOverview({
-  propertyName = "Spectrum 4 (BCS2611)",
+  propertyName,
   propertyImage = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450&q=80",
 }: {
-  propertyName?: string;
+  propertyName: string;
   propertyImage?: string;
-} = {}) {
+}) {
   const { data: units = [] } = useQuery({
     queryKey: ['/api/property-units'],
   });
