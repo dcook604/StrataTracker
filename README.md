@@ -40,18 +40,6 @@
 2. Start the development server: `npm run dev`
 3. Log in as an admin to access user management and other admin features.
 
-## Recent UI/UX Improvements
-
-### Edit User Dialog (User Management)
-- The Edit User dialog now uses a scrollable area (`ScrollArea`) for the form content.
-- This ensures all fields (Full Name, Email, Username, Password, Roles, etc.) are accessible even if the dialog content exceeds the viewport height.
-- The action buttons (Cancel, Update User) remain visible at the bottom of the dialog (`DialogFooter` is outside the scroll area).
-- This improves usability on all screen sizes and prevents form actions from being cut off.
-
-### How it works
-- When editing a user, the dialog will scroll internally if there are too many fields to fit on the screen.
-- The user can always access the action buttons to submit or cancel changes.
-
 ---
 
-For more details, see `client/src/pages/users-page.tsx` and the usage of `ScrollArea` in the Edit User dialog implementation. 
+For more details, see the in-app help or contact your system administrator. 

@@ -29,12 +29,10 @@ const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
 
 // Ensure user is council member middleware
 const ensureCouncilMember = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated() && 
-      req.user && 
-      (req.user.isCouncilMember === true || req.user.isAdmin === true)) {
+  if (req.isAuthenticated() && req.user && ((req.user as any).is_council_member || (req.user as any).is_admin)) {
     return next();
   }
-  res.status(403).json({ message: "Forbidden - Council or Admin access required" });
+  res.status(403).json({ message: "Forbidden - Council access required" });
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
