@@ -36,9 +36,10 @@ import { Users } from "lucide-react";
 import zxcvbn from "zxcvbn";
 import { Progress } from "@/components/ui/progress";
 
-const userFormSchema = z.object({
+// Define two schemas: one for create, one for edit
+const createUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   fullName: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email format"),
   roles: z.object({
@@ -46,31 +47,19 @@ const userFormSchema = z.object({
     isCouncilMember: z.boolean().default(false),
     isUser: z.boolean().default(true),
   }),
-}).superRefine((data, ctx) => {
-  const isEditing = ctx?.context?.editingUser;
-  if (isEditing) {
-    if (data.password && data.password.length < 6) {
-      ctx.addIssue({
-        path: ["password"],
-        code: z.ZodIssueCode.too_small,
-        minimum: 6,
-        type: "string",
-        inclusive: true,
-        message: "Password must be at least 6 characters",
-      });
-    }
-  } else {
-    if (!data.password || data.password.length < 6) {
-      ctx.addIssue({
-        path: ["password"],
-        code: z.ZodIssueCode.too_small,
-        minimum: 6,
-        type: "string",
-        inclusive: true,
-        message: "Password must be at least 6 characters",
-      });
-    }
-  }
+});
+const editUserSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().optional().refine(val => !val || val.length >= 6, {
+    message: "Password must be at least 6 characters",
+  }),
+  fullName: z.string().min(2, "Full name is required"),
+  email: z.string().email("Invalid email format"),
+  roles: z.object({
+    isAdmin: z.boolean().default(false),
+    isCouncilMember: z.boolean().default(false),
+    isUser: z.boolean().default(true),
+  }),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -120,7 +109,7 @@ export default function UsersPage() {
   });
   
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(editingUser ? editUserSchema : createUserSchema),
     defaultValues: {
       username: "",
       password: "",
@@ -315,7 +304,7 @@ export default function UsersPage() {
         isCouncilMember: user.isCouncilMember || false,
         isUser: user.isUser || true,
       }
-    }, { keepValues: false, keepDirty: false, keepTouched: false, keepIsValid: false, keepErrors: false, keepSubmitCount: false, keepDefaultValues: false, context: { editingUser: true } });
+    });
   };
   
   const handleDelete = (id: number) => {
