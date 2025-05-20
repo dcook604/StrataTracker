@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { Bell } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useLocation } from "wouter";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,7 +13,8 @@ interface LayoutProps {
 }
 
 export function Layout({ children, title, leftContent }: LayoutProps) {
-  const { user } = useAuth();
+  const { user, logoutMutation } = useAuth();
+  const [location, navigate] = useLocation();
 
   return (
     <div className="flex h-screen bg-neutral-50">
@@ -30,12 +33,20 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
             <Button variant="ghost" size="icon" className="text-neutral-600 hover:text-primary-600">
               <Bell className="h-5 w-5" />
             </Button>
-            <div className="flex items-center">
-              <UserAvatar user={user} className="h-8 w-8" />
-              <span className="ml-2 text-sm font-medium text-neutral-700 hidden md:inline-block">
-                {user?.fullName}
-              </span>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div className="flex items-center cursor-pointer select-none">
+                  <UserAvatar user={user} className="h-8 w-8" />
+                  <span className="ml-2 text-sm font-medium text-neutral-700 hidden md:inline-block">
+                    {user?.fullName}
+                  </span>
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/user-profile")}>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => logoutMutation.mutate()}>Logout</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
         

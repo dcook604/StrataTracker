@@ -49,7 +49,9 @@ const isAdmin = (req: express.Request, res: express.Response, next: express.Next
 router.get('/', isAdmin, async (req, res) => {
   try {
     const users = await dbStorage.getAllUsers();
-    res.json(users);
+    // Remove sensitive fields and include lockReason
+    const safeUsers = users.map(({ password, passwordResetToken, passwordResetExpires, ...u }) => u);
+    res.json(safeUsers);
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ message: 'Failed to fetch users' });
@@ -252,6 +254,24 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
+// Manually lock a user (admin only)
+router.post('/:id/lock', isAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { reason } = req.body;
+    // Check if user exists
+    const user = await dbStorage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    await dbStorage.setUserLock(userId, true, reason);
+    res.json({ message: 'User locked successfully' });
+  } catch (error) {
+    console.error('Error locking user:', error);
+    res.status(500).json({ message: 'Failed to lock user' });
+  }
+});
+
 // Unlock a locked user (admin only)
 router.post('/:id/unlock', isAdmin, async (req, res) => {
   try {
@@ -261,7 +281,7 @@ router.post('/:id/unlock', isAdmin, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    await dbStorage.resetFailedLoginAttempts(userId);
+    await dbStorage.setUserLock(userId, false);
     res.json({ message: 'User unlocked successfully' });
   } catch (error) {
     console.error('Error unlocking user:', error);

@@ -50,7 +50,7 @@ export interface IStorage {
   // Customer operations
   getCustomer(id: number): Promise<Customer | undefined>;
   getCustomerByUnitNumber(unitNumber: string): Promise<Customer | undefined>;
-  getAllCustomers(page?: number, limit?: number): Promise<{ customers: Customer[], total: number }>;
+  getAllCustomers(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ customers: Customer[], total: number }>;
   searchCustomers(query: string): Promise<Customer[]>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
@@ -113,7 +113,9 @@ export interface IStorage {
   // Session store
   sessionStore: session.Store;
 
-  getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
+  getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
+
+  setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -169,17 +171,24 @@ export class DatabaseStorage implements IStorage {
     return customer;
   }
   
-  async getAllCustomers(page: number = 1, limit: number = 10): Promise<{ customers: Customer[], total: number }> {
+  async getAllCustomers(page = 1, limit = 10, sortBy, sortOrder) {
     const offset = (page - 1) * limit;
+    // Only allow sorting by known columns
+    const sortMap = {
+      unitNumber: customers.unitNumber,
+      ownerName: customers.ownerName,
+      tenantName: customers.tenantName,
+      updatedAt: customers.updatedAt,
+      createdAt: customers.createdAt,
+      id: customers.id
+    };
+    let orderField = sortMap[sortBy as keyof typeof sortMap] || customers.unitNumber;
+    const orderFn = sortOrder === 'desc' ? desc(orderField) : orderField;
     const customersList = await db.select().from(customers)
+      .orderBy(orderFn)
       .limit(limit)
-      .offset(offset)
-      .orderBy(customers.unitNumber);
-      
-    const [countResult] = await db.select({
-      count: sql`count(*)`
-    }).from(customers);
-    
+      .offset(offset);
+    const [countResult] = await db.select({ count: sql`count(*)` }).from(customers);
     return {
       customers: customersList,
       total: Number(countResult.count)
@@ -389,10 +398,15 @@ export class DatabaseStorage implements IStorage {
   
   async incrementFailedLoginAttempts(id: number): Promise<void> {
     try {
+      // Get current failed attempts
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      const failedAttempts = (user?.failedLoginAttempts || 0) + 1;
+      const lock = failedAttempts >= 5;
       await db.update(users)
         .set({
-          failedLoginAttempts: sql`COALESCE(${users.failedLoginAttempts}, 0) + 1`,
-          accountLocked: sql`CASE WHEN COALESCE(${users.failedLoginAttempts}, 0) + 1 >= 5 THEN true ELSE ${users.accountLocked} END`
+          failedLoginAttempts,
+          accountLocked: lock,
+          lockReason: lock ? 'Too many failed login attempts' : null
         })
         .where(eq(users.id, id));
     } catch (error) {
@@ -405,7 +419,8 @@ export class DatabaseStorage implements IStorage {
       await db.update(users)
         .set({
           failedLoginAttempts: 0,
-          accountLocked: false
+          accountLocked: false,
+          lockReason: null
         })
         .where(eq(users.id, id));
     } catch (error) {
@@ -794,8 +809,19 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }> {
+  async getViolationsPaginated(page = 1, limit = 20, status, unitId, sortBy, sortOrder) {
     const offset = (page - 1) * limit;
+    // Only allow sorting by known columns
+    const sortMap = {
+      createdAt: violations.createdAt,
+      violationType: violations.violationType,
+      status: violations.status,
+      fineAmount: violations.fineAmount,
+      unitNumber: propertyUnits.unitNumber,
+      id: violations.id
+    };
+    let orderField = sortMap[sortBy as keyof typeof sortMap] || violations.createdAt;
+    const orderFn = sortOrder === 'asc' ? orderField : desc(orderField);
     let query = db
       .select({ violation: violations, unit: propertyUnits })
       .from(violations)
@@ -807,9 +833,10 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(violations.unitId, unitId));
     }
     const result = await query
-      .orderBy(desc(violations.createdAt))
+      .orderBy(orderFn)
       .limit(limit)
       .offset(offset);
+    // Count query
     const [{ count }] = await db
       .select({ count: sql`count(*)` })
       .from(violations)
@@ -823,6 +850,19 @@ export class DatabaseStorage implements IStorage {
       violations: result.map(r => ({ ...r.violation, unit: r.unit })),
       total: Number(count)
     };
+  }
+
+  async setUserLock(id: number, locked: boolean, reason?: string): Promise<void> {
+    try {
+      await db.update(users)
+        .set({
+          accountLocked: locked,
+          lockReason: locked ? (reason || 'Locked by administrator') : null
+        })
+        .where(eq(users.id, id));
+    } catch (error) {
+      console.error('Failed to set user lock:', error);
+    }
   }
 }
 

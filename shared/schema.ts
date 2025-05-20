@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login"),
   failedLoginAttempts: integer("failed_login_attempts").default(0),
   accountLocked: boolean("account_locked").default(false),
+  lockReason: text("lock_reason"),
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
   forcePasswordChange: boolean("force_password_change").default(false),

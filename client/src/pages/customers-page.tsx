@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Customer, PropertyUnit } from "@shared/schema";
 import { DataTable } from "@/components/ui/data-table";
@@ -30,6 +30,10 @@ import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, TrashIcon, BuildingIcon } from "lucide-react";
 import { Layout } from "@/components/layout";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { FilterX } from "lucide-react";
 
 const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
@@ -44,15 +48,33 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const PAGE_SIZE_KEY = "customersPageSize";
+const PAGE_KEY = "customersPage";
+const SORT_KEY = "customersSort";
+const SORT_ORDER_KEY = "customersSortOrder";
+
 export default function CustomersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
-  
+  const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
+  const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
+  const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
+
+  useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
+  useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
+  useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
+
   const { data: customerData, isLoading: customersLoading } = useQuery<{ customers: Customer[], total: number }>({
-    queryKey: ["/api/customers"],
+    queryKey: ["/api/customers", { page, limit: pageSize, sortBy, sortOrder }],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/customers");
+      const url = new URL("/api/customers", window.location.origin);
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("limit", String(pageSize));
+      url.searchParams.set("sortBy", sortBy);
+      url.searchParams.set("sortOrder", sortOrder);
+      const res = await apiRequest("GET", url.pathname + url.search);
       return res.json();
     },
   });
@@ -150,10 +172,21 @@ export default function CustomersPage() {
     });
   };
   
+  const handleSort = (column: string) => {
+    if (sortBy === column) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(column); setSortOrder('asc'); }
+    setPage(1);
+  };
+  
   const columns: ColumnDef<Customer>[] = [
     {
       accessorKey: "unitNumber",
-      header: "Unit",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('unitNumber')}>
+          Unit {sortBy === 'unitNumber' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
+      cell: ({ row }) => <div className="font-medium">#{row.original.unitNumber}</div>,
     },
     {
       accessorKey: "floor",
@@ -161,19 +194,36 @@ export default function CustomersPage() {
     },
     {
       accessorKey: "ownerName",
-      header: "Owner",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('ownerName')}>
+          Owner {sortBy === 'ownerName' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
+      cell: ({ row }) => row.original.ownerName,
     },
     {
       accessorKey: "ownerEmail",
       header: "Owner Email",
+      cell: ({ row }) => row.original.ownerEmail,
     },
     {
       accessorKey: "tenantName",
-      header: "Tenant",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('tenantName')}>
+          Tenant {sortBy === 'tenantName' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
+      cell: ({ row }) => row.original.tenantName,
+    },
+    {
+      accessorKey: "tenantEmail",
+      header: "Tenant Email",
+      cell: ({ row }) => row.original.tenantEmail,
     },
     {
       accessorKey: "phone",
       header: "Phone",
+      cell: ({ row }) => row.original.phone,
     },
     {
       id: "actions",
@@ -194,27 +244,9 @@ export default function CustomersPage() {
     }
   ];
   
-  // Merge customers and property units (if no customers)
-  let displayData: Customer[] = [];
-  if (customerData && customerData.customers.length > 0) {
-    displayData = customerData.customers;
-  } else if (propertyUnitsData && propertyUnitsData.length > 0) {
-    // Map property units to Customer shape
-    displayData = propertyUnitsData.map((unit) => ({
-      id: unit.id, // Not a real customer id, but unique
-      uuid: unit.unitNumber, // Use unit number as uuid fallback
-      unitNumber: unit.unitNumber,
-      floor: unit.floor,
-      ownerName: unit.ownerName,
-      ownerEmail: unit.ownerEmail,
-      tenantName: unit.tenantName,
-      tenantEmail: unit.tenantEmail,
-      phone: "",
-      notes: "",
-      createdAt: unit.createdAt,
-      updatedAt: unit.updatedAt,
-    }));
-  }
+  const total = customerData && 'total' in customerData ? customerData.total : 0;
+  const totalPages = Math.ceil(total / pageSize);
+  const customers = customerData && 'customers' in customerData ? customerData.customers : [];
 
   return (
     <Layout title="Customer Management">
@@ -228,17 +260,66 @@ export default function CustomersPage() {
         </Button>
       </div>
       
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+          <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1); }}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Page size" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
       {(customersLoading || unitsLoading) ? (
         <div className="flex justify-center p-8">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
         </div>
-      ) : displayData && displayData.length > 0 ? (
-        <DataTable 
-          columns={columns} 
-          data={displayData}
-          searchColumn="unitNumber"
-          searchPlaceholder="Search by unit number..."
-        />
+      ) : customers && customers.length > 0 ? (
+        <>
+          <DataTable 
+            columns={columns} 
+            data={customers}
+            searchColumn="unitNumber"
+            searchPlaceholder="Search by unit number..."
+          />
+          <div className="py-4 flex justify-center">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    aria-disabled={page === 1}
+                    tabIndex={page === 1 ? -1 : 0}
+                  />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <PaginationItem key={p}>
+                    <PaginationLink
+                      isActive={p === page}
+                      onClick={() => setPage(p)}
+                      href="#"
+                    >
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    aria-disabled={page === totalPages}
+                    tabIndex={page === totalPages ? -1 : 0}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={<BuildingIcon className="h-10 w-10" />}

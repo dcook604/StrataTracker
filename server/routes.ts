@@ -107,21 +107,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Violations API
   app.get("/api/violations", ensureAuthenticated, async (req, res) => {
     try {
-      const { status, unitId, page, limit } = req.query;
+      const { status, unitId, page, limit, sortBy, sortOrder } = req.query;
       const pageNum = parseInt(page as string) || 1;
       const limitNum = parseInt(limit as string) || 20;
-      if (status || unitId || page || limit) {
-        const result = await dbStorage.getViolationsPaginated(
-          pageNum,
-          limitNum,
-          status as string | undefined,
-          unitId ? parseInt(unitId as string) : undefined
-        );
-        res.json(result);
-      } else {
-        const violations = await dbStorage.getAllViolations();
-        res.json({ violations, total: violations.length });
-      }
+      const result = await dbStorage.getViolationsPaginated(
+        pageNum,
+        limitNum,
+        status as string | undefined,
+        unitId ? parseInt(unitId as string) : undefined,
+        sortBy as string | undefined,
+        sortOrder as 'asc' | 'desc' | undefined
+      );
+      res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch violations" });
     }
@@ -422,7 +419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
-      const result = await dbStorage.getAllCustomers(page, limit);
+      const sortBy = req.query.sortBy as string | undefined;
+      const sortOrder = req.query.sortOrder as 'asc' | 'desc' | undefined;
+      const result = await dbStorage.getAllCustomers(page, limit, sortBy, sortOrder);
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch customers" });

@@ -9,6 +9,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import zxcvbn from "zxcvbn";
+import { Progress } from "@/components/ui/progress";
 
 const resetPasswordSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -26,6 +28,9 @@ export function ResetPasswordPage() {
   const [token, setToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [passwordLabel, setPasswordLabel] = useState("");
+  const [passwordFeedback, setPasswordFeedback] = useState("");
 
   // Extract token from URL
   useEffect(() => {
@@ -45,6 +50,20 @@ export function ResetPasswordPage() {
       confirmPassword: '',
     },
   });
+
+  function handlePasswordChange(value: string) {
+    if (!value) {
+      setPasswordStrength(0);
+      setPasswordLabel("");
+      setPasswordFeedback("");
+      return;
+    }
+    const result = zxcvbn(value);
+    setPasswordStrength((result.score + 1) * 20);
+    const labels = ["Very Weak", "Weak", "Fair", "Good", "Strong"];
+    setPasswordLabel(labels[result.score] || "");
+    setPasswordFeedback(result.feedback.suggestions[0] || "");
+  }
 
   async function onSubmit(data: ResetPasswordFormData) {
     if (!token) {
@@ -117,8 +136,28 @@ export function ResetPasswordPage() {
                     <FormItem>
                       <FormLabel>New Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Enter new password" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="Enter new password"
+                          {...field}
+                          onChange={e => {
+                            field.onChange(e);
+                            handlePasswordChange(e.target.value);
+                          }}
+                        />
                       </FormControl>
+                      {field.value && (
+                        <div className="mt-2">
+                          <Progress value={passwordStrength} className={
+                            passwordStrength < 40 ? "bg-red-200" :
+                            passwordStrength < 60 ? "bg-yellow-200" :
+                            passwordStrength < 80 ? "bg-blue-200" :
+                            "bg-green-200"
+                          } />
+                          <div className="text-xs mt-1 font-medium" style={{ color: passwordStrength < 40 ? '#dc2626' : passwordStrength < 60 ? '#ca8a04' : passwordStrength < 80 ? '#2563eb' : '#16a34a' }}>{passwordLabel}</div>
+                          {passwordFeedback && <div className="text-xs text-muted-foreground mt-1">{passwordFeedback}</div>}
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
