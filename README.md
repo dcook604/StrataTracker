@@ -48,5 +48,12 @@ A modern web application for managing property violations, units/customers, and 
 
 ---
 
+## Documentation & Maintenance
+- Update this README and relevant JSDoc/comments whenever code changes impact architecture, patterns, or usage.
+- Review and refactor code for maintainability and DRYness before merging.
+- Never commit secrets or .env files to version control.
+
+---
+
 ## License
 MIT 
