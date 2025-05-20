@@ -170,8 +170,8 @@ router.post('/forgot-password', async (req, res) => {
     // Save token to database
     await dbStorage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
     
-    // Send reset email
-    await sendPasswordResetEmail(user.email, resetToken);
+    // Send reset email, pass req for correct base URL
+    await sendPasswordResetEmail(user.email, resetToken, req);
     
     res.json({ message: 'If your email is registered, you will receive a password reset link' });
   } catch (error) {
@@ -249,6 +249,56 @@ router.post('/change-password', async (req, res) => {
   } catch (error) {
     console.error('Error changing password:', error);
     res.status(500).json({ message: 'Failed to change password' });
+  }
+});
+
+// Unlock a locked user (admin only)
+router.post('/:id/unlock', isAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    // Check if user exists
+    const user = await dbStorage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    await dbStorage.resetFailedLoginAttempts(userId);
+    res.json({ message: 'User unlocked successfully' });
+  } catch (error) {
+    console.error('Error unlocking user:', error);
+    res.status(500).json({ message: 'Failed to unlock user' });
+  }
+});
+
+// Invite a new user (admin only)
+router.post('/invite', isAdmin, async (req, res) => {
+  try {
+    const { email, fullName, isCouncilMember, isAdmin, isUser } = req.body;
+    // Check if user already exists
+    const existingUser = await dbStorage.getUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this email already exists' });
+    }
+    // Create user with no password, force password change
+    const user = await dbStorage.createUser({
+      email,
+      username: email,
+      password: '', // No password yet
+      fullName,
+      isCouncilMember: !!isCouncilMember,
+      isAdmin: !!isAdmin,
+      isUser: isUser !== false,
+      forcePasswordChange: true
+    });
+    // Generate invitation token (reuse password reset logic)
+    const resetToken = randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 3600 * 1000 * 24); // 24 hours
+    await dbStorage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
+    // Send invitation email (reuse password reset email logic)
+    await sendPasswordResetEmail(email, resetToken, req);
+    res.status(201).json({ message: 'Invitation sent successfully' });
+  } catch (error) {
+    console.error('Error inviting user:', error);
+    res.status(500).json({ message: 'Failed to invite user' });
   }
 });
 

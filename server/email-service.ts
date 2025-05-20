@@ -196,9 +196,19 @@ export async function sendWelcomeEmail(email: string, password: string, fullName
 }
 
 // Send password reset email
-export async function sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
-  const resetUrl = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
-  
+export async function sendPasswordResetEmail(email: string, resetToken: string, req?: any): Promise<boolean> {
+  let baseUrl = process.env.APP_URL;
+  if (!baseUrl && req) {
+    // Try to build from request headers
+    const protocol = req.protocol || 'http';
+    const host = req.get ? req.get('host') : (req.headers && req.headers.host);
+    baseUrl = `${protocol}://${host}`;
+  }
+  if (!baseUrl) {
+    baseUrl = 'http://localhost:5000';
+  }
+  const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+
   const subject = 'Password Reset Request';
   const html = `
     <h1>Reset Your Password</h1>
@@ -208,7 +218,7 @@ export async function sendPasswordResetEmail(email: string, resetToken: string):
     <p>This link will expire in 1 hour.</p>
     <p>Thank you,<br/>Strata Management Team</p>
   `;
-  
+
   return sendEmail({
     to: email,
     subject,

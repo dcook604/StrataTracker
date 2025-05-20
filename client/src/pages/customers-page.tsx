@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Customer } from "@shared/schema";
+import { Customer, PropertyUnit } from "@shared/schema";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,12 +49,22 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
   
-  const { data, isLoading } = useQuery<{ customers: Customer[], total: number }>({
+  const { data: customerData, isLoading: customersLoading } = useQuery<{ customers: Customer[], total: number }>({
     queryKey: ["/api/customers"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/customers");
       return res.json();
     },
+  });
+
+  // Fetch property units as fallback if no customers
+  const { data: propertyUnitsData, isLoading: unitsLoading } = useQuery<PropertyUnit[]>({
+    queryKey: ["/api/property-units"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/property-units");
+      return res.json();
+    },
+    enabled: !customerData || (customerData.customers.length === 0),
   });
   
   const form = useForm<FormValues>({
@@ -184,6 +194,28 @@ export default function CustomersPage() {
     }
   ];
   
+  // Merge customers and property units (if no customers)
+  let displayData: Customer[] = [];
+  if (customerData && customerData.customers.length > 0) {
+    displayData = customerData.customers;
+  } else if (propertyUnitsData && propertyUnitsData.length > 0) {
+    // Map property units to Customer shape
+    displayData = propertyUnitsData.map((unit) => ({
+      id: unit.id, // Not a real customer id, but unique
+      uuid: unit.unitNumber, // Use unit number as uuid fallback
+      unitNumber: unit.unitNumber,
+      floor: unit.floor,
+      ownerName: unit.ownerName,
+      ownerEmail: unit.ownerEmail,
+      tenantName: unit.tenantName,
+      tenantEmail: unit.tenantEmail,
+      phone: "",
+      notes: "",
+      createdAt: unit.createdAt,
+      updatedAt: unit.updatedAt,
+    }));
+  }
+
   return (
     <Layout title="Customer Management">
       <div className="space-y-6">
@@ -196,14 +228,14 @@ export default function CustomersPage() {
         </Button>
       </div>
       
-      {isLoading ? (
+      {(customersLoading || unitsLoading) ? (
         <div className="flex justify-center p-8">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
         </div>
-      ) : data?.customers && data.customers.length > 0 ? (
+      ) : displayData && displayData.length > 0 ? (
         <DataTable 
           columns={columns} 
-          data={data.customers}
+          data={displayData}
           searchColumn="unitNumber"
           searchPlaceholder="Search by unit number..."
         />

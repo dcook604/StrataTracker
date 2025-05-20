@@ -38,6 +38,9 @@ const violationFormSchema = z.object({
   unitId: z.string().or(z.number()).refine(val => Number(val) > 0, {
     message: "Please select a unit",
   }),
+  categoryId: z.string().or(z.number()).refine(val => Number(val) > 0, {
+    message: "Please select a category",
+  }),
   newUnit: z.object({
     unitNumber: z.string().optional(),
     floor: z.string().optional(),
@@ -68,11 +71,18 @@ export function ViolationForm() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  // Load categories
+  const { data: categories, isLoading: categoriesLoading } = useQuery({
+    queryKey: ["/api/violation-categories"],
+    staleTime: 1000 * 60 * 5,
+  });
+
   // Form setup
   const form = useForm<z.infer<typeof violationFormSchema>>({
     resolver: zodResolver(violationFormSchema),
     defaultValues: {
       unitId: "",
+      categoryId: "",
       violationType: "",
       violationDate: new Date().toISOString().split("T")[0],
       violationTime: "",
@@ -115,6 +125,7 @@ export function ViolationForm() {
       
       // Add regular fields
       formData.append("unitId", data.unitId.toString());
+      formData.append("categoryId", data.categoryId.toString());
       formData.append("violationType", data.violationType);
       formData.append("violationDate", data.violationDate);
       formData.append("violationTime", data.violationTime || "");
@@ -327,6 +338,39 @@ export function ViolationForm() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Category Selection */}
+            <div>
+              <h3 className="text-lg font-medium text-neutral-800 mb-4">Category</h3>
+              <FormField
+                control={form.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Select Category *</FormLabel>
+                    <Select
+                      disabled={categoriesLoading}
+                      onValueChange={field.onChange}
+                      value={field.value.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories?.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id.toString()}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             {/* Violation Details */}
