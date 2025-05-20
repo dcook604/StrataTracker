@@ -13,32 +13,38 @@ async function hashPassword(password: string) {
 
 async function createAdminUser() {
   try {
+    // Support custom user via env or args
+    const email = process.env.USER_EMAIL || process.argv[2] || "admin@spectrum4.com";
+    const password = process.env.USER_PASSWORD || process.argv[3] || "Admin123!";
+    const fullName = process.env.USER_FULLNAME || process.argv[4] || "Administrator";
+
     // Check if admin already exists
     const existingAdmin = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.email, "admin@spectrum4.com")
+      where: (users, { eq }) => eq(users.email, email)
     });
 
     if (existingAdmin) {
-      console.log("Admin user already exists");
+      console.log(`User with email ${email} already exists`);
       process.exit(0);
     }
 
     // Create admin user
-    const hashedPassword = await hashPassword("Admin123!");
+    const hashedPassword = await hashPassword(password);
     
     await db.insert(users).values({
-      email: "admin@spectrum4.com",
+      email,
       password: hashedPassword,
-      fullName: "Administrator",
+      fullName,
       isAdmin: true,
       isCouncilMember: true,
+      isUser: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
-    console.log("Admin user created successfully");
-    console.log("Email: admin@spectrum4.com");
-    console.log("Password: Admin123!");
+    console.log(`Admin user created successfully`);
+    console.log(`Email: ${email}`);
+    console.log(`Password: ${password}`);
   } catch (error) {
     console.error("Error creating admin user:", error);
   } finally {
