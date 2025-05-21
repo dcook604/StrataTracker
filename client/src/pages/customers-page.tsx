@@ -61,6 +61,7 @@ export default function CustomersPage() {
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
@@ -320,18 +321,13 @@ export default function CustomersPage() {
             </Pagination>
           </div>
         </>
-      ) : (
+      ) :
         <EmptyState
           icon={<BuildingIcon className="h-10 w-10" />}
           title="No customers found"
           description="Add your first customer to get started"
-          actionLabel="Add Customer"
-          onAction={() => {
-            form.reset();
-            setIsAddDialogOpen(true);
-          }}
         />
-      )}
+      }
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -339,11 +335,62 @@ export default function CustomersPage() {
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>Add Customer</DialogTitle>
             <DialogDescription>
-              Enter the details for the new customer.
+              Enter the details for the new customer/unit. If the unit already exists, you can update its information.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="overflow-y-auto px-6 py-4">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const values = form.getValues();
+                // Required fields
+                const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
+                const missingFields = requiredFields.filter(field => !(values[field as keyof typeof values]));
+                if (missingFields.length > 0) {
+                  toast({
+                    title: "Missing required fields",
+                    description: `Please fill in: ${missingFields.join(", ")}`,
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setIsCheckingDuplicate(true);
+                // Check for duplicate unit
+                const res = await apiRequest("GET", `/api/property-units`);
+                const units = await res.json();
+                const existing = Array.isArray(units) ? units.find((u: any) => u.unitNumber === values.unitNumber) : null;
+                setIsCheckingDuplicate(false);
+                if (existing) {
+                  if (confirm("This unit already exists. Do you want to update its information?")) {
+                    // Update existing unit (and customer)
+                    const payload = {
+                      unitNumber: values.unitNumber,
+                      ownerName: values.ownerName,
+                      ownerEmail: values.ownerEmail,
+                      floor: values.floor || null,
+                      tenantName: values.tenantName || null,
+                      tenantEmail: values.tenantEmail || null,
+                      phone: values.phone || null,
+                      notes: values.notes || null,
+                    };
+                    await apiRequest("PUT", `/api/property-units/${existing.id}`, payload);
+                    createMutation.mutate(values); // Also create/update customer record
+                    toast({
+                      title: "Unit updated",
+                      description: `Unit ${values.unitNumber} has been updated. Customer record will be created/updated as well.`,
+                    });
+                    setIsAddDialogOpen(false);
+                    form.reset();
+                    return;
+                  } else {
+                    return;
+                  }
+                }
+                // No duplicate, proceed to create
+                createMutation.mutate(values);
+              }}
+              className="overflow-y-auto px-6 py-4"
+            >
               <div className="space-y-4 pb-4">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -351,9 +398,9 @@ export default function CustomersPage() {
                     name="unitNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Unit Number*</FormLabel>
+                        <FormLabel>Unit Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="123A" {...field} />
+                          <Input placeholder="e.g. 203" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -366,24 +413,22 @@ export default function CustomersPage() {
                       <FormItem>
                         <FormLabel>Floor</FormLabel>
                         <FormControl>
-                          <Input placeholder="3" {...field} />
+                          <Input placeholder="e.g. 2" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                
-                <div className="space-y-4 mt-6 mb-2 select-none">
-                  <h3 className="font-semibold text-md">Owner Information</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="ownerName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Owner Name*</FormLabel>
+                        <FormLabel>Owner Name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" {...field} />
+                          <Input placeholder="Full name" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -394,26 +439,24 @@ export default function CustomersPage() {
                     name="ownerEmail"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Owner Email*</FormLabel>
+                        <FormLabel>Owner Email *</FormLabel>
                         <FormControl>
-                          <Input placeholder="john.doe@example.com" {...field} />
+                          <Input placeholder="email@example.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                
-                <div className="space-y-4 mt-6 mb-2 select-none">
-                  <h3 className="font-semibold text-md">Tenant Information</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="tenantName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tenant Name</FormLabel>
+                        <FormLabel>Tenant Name (if applicable)</FormLabel>
                         <FormControl>
-                          <Input placeholder="Jane Smith" {...field} />
+                          <Input placeholder="Full name" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -424,18 +467,16 @@ export default function CustomersPage() {
                     name="tenantEmail"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tenant Email</FormLabel>
+                        <FormLabel>Tenant Email (if applicable)</FormLabel>
                         <FormControl>
-                          <Input placeholder="jane.smith@example.com" {...field} />
+                          <Input placeholder="email@example.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                
-                <div className="space-y-4 mt-6 mb-2 select-none">
-                  <h3 className="font-semibold text-md">Additional Information</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="phone"
@@ -464,16 +505,16 @@ export default function CustomersPage() {
                   />
                 </div>
               </div>
+              <DialogFooter className="px-6 py-4">
+                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending || isCheckingDuplicate}>
+                  {createMutation.isPending || isCheckingDuplicate ? "Saving..." : "Save"}
+                </Button>
+              </DialogFooter>
             </form>
           </Form>
-          <DialogFooter className="px-6 py-4">
-            <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={form.handleSubmit(onSubmit)} disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
       

@@ -1,23 +1,66 @@
+/**
+ * PropertyOverview Component
+ *
+ * Displays a branded property overview card for Spectrum 4 (BCS2611) with:
+ * - Responsive layout and stat cards
+ * - Visual icons for each stat
+ * - Modern property image
+ * - Future-proofed for dynamic property name/image via props
+ *
+ * Usage:
+ *   <PropertyOverview />
+ *   <PropertyOverview propertyName="My Property" propertyImage="url" />
+ */
+
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2 } from "lucide-react";
+import { Building2, ListChecks, AlertTriangle, HelpCircle } from "lucide-react";
+import React from "react";
 
-export function PropertyOverview() {
-  const { data: units, isLoading: unitsLoading } = useQuery({
+/**
+ * StatCard
+ *
+ * Displays a single stat with label, value, and icon.
+ * @param label - The label for the stat (e.g., 'Total Units')
+ * @param value - The value to display
+ * @param icon - A React node for the icon
+ */
+function StatCard({ label, value, icon }: { label: string; value: React.ReactNode; icon: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 bg-neutral-50 rounded p-3 shadow-sm">
+      <div className="text-blue-600">{icon}</div>
+      <div>
+        <p className="text-xs text-neutral-500">{label}</p>
+        <p className="text-lg font-semibold">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * PropertyOverview
+ *
+ * Main property dashboard card. Shows property name, image, and key stats.
+ *
+ * @param propertyName - Name of the property (default: 'Spectrum 4 (BCS2611)')
+ * @param propertyImage - Image URL for the property
+ */
+export function PropertyOverview({
+  propertyName = "Spectrum 4 (BCS2611)",
+  propertyImage = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450&q=80",
+}: {
+  propertyName?: string;
+  propertyImage?: string;
+} = {}) {
+  const { data: units = [] } = useQuery({
     queryKey: ['/api/property-units'],
   });
-  
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats = {} } = useQuery({
     queryKey: ['/api/reports/stats'],
   });
-  
-  const isLoading = unitsLoading || statsLoading;
-  
-  // Get current month and year for display
-  const currentDate = new Date();
-  const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate);
-  
+  const isLoading = !units || !stats;
+
   if (isLoading) {
     return (
       <Card className="shadow rounded-lg p-6">
@@ -34,43 +77,28 @@ export function PropertyOverview() {
       </Card>
     );
   }
-  
-  const unitCount = units?.length || 0;
-  const monthlyViolations = stats?.totalViolations || 0;
-  const openCases = (stats?.newViolations || 0) + (stats?.pendingViolations || 0);
-  const disputedCases = stats?.disputedViolations || 0;
-  
-  // Use a modern residential building image
-  const propertyImage = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450&q=80";
-  
+
+  const unitCount = (units as any[]).length || 0;
+  const monthlyViolations = (stats as any).totalViolations ?? 0;
+  const openCases = ((stats as any).newViolations ?? 0) + ((stats as any).pendingViolations ?? 0);
+  const disputedCases = (stats as any).disputedViolations ?? 0;
+
   return (
     <Card className="shadow rounded-lg p-6">
-      <h3 className="text-lg font-medium text-neutral-900 mb-4">Property Overview</h3>
+      <h3 className="text-xl font-bold text-neutral-900 mb-1">{propertyName}</h3>
+      <p className="text-sm text-neutral-500 mb-4">Property Overview</p>
       <div className="aspect-w-16 aspect-h-9 mb-4 relative bg-neutral-100 rounded-lg overflow-hidden">
-        {/* Modern residential building image */}
-        <img 
+        <img
           src={propertyImage}
-          alt="Property building" 
+          alt={propertyName}
           className="object-cover rounded-lg shadow-sm w-full h-full"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-sm text-neutral-500">Total Units</p>
-          <p className="text-lg font-semibold">{unitCount}</p>
-        </div>
-        <div>
-          <p className="text-sm text-neutral-500">Violations This Month</p>
-          <p className="text-lg font-semibold">{monthlyViolations}</p>
-        </div>
-        <div>
-          <p className="text-sm text-neutral-500">Open Cases</p>
-          <p className="text-lg font-semibold">{openCases}</p>
-        </div>
-        <div>
-          <p className="text-sm text-neutral-500">Disputed Cases</p>
-          <p className="text-lg font-semibold">{disputedCases}</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StatCard label="Total Units" value={unitCount} icon={<Building2 className="h-6 w-6" />} />
+        <StatCard label="Violations This Month" value={monthlyViolations} icon={<ListChecks className="h-6 w-6" />} />
+        <StatCard label="Open Cases" value={openCases} icon={<AlertTriangle className="h-6 w-6" />} />
+        <StatCard label="Disputed Cases" value={disputedCases} icon={<HelpCircle className="h-6 w-6" />} />
       </div>
     </Card>
   );

@@ -35,8 +35,26 @@ import { Layout } from "@/components/layout";
 import { Users } from "lucide-react";
 import zxcvbn from "zxcvbn";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 
-const userFormSchema = z.object({
+/**
+ * UsersPage - User Management
+ *
+ * This page allows administrators to view, add, edit, and delete users.
+ *
+ * - Uses two Zod schemas:
+ *   - createUserSchema: for creating users (password required)
+ *   - editUserSchema: for editing users (password optional, min 6 chars if present)
+ * - The form dynamically switches schema based on whether editingUser is set.
+ * - Handles password strength, role assignment, and user status.
+ * - Table displays all user roles with icons.
+ */
+
+// --- Zod Schemas ---
+/**
+ * createUserSchema: Used when creating a new user. Password is required.
+ */
+const createUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   fullName: z.string().min(2, "Full name is required"),
@@ -48,7 +66,28 @@ const userFormSchema = z.object({
   }),
 });
 
-type UserFormValues = z.infer<typeof userFormSchema>;
+/**
+ * editUserSchema: Used when editing a user. Password is optional, but must be at least 6 characters if provided.
+ */
+const editUserSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().optional().refine(val => !val || val.length >= 6, {
+    message: "Password must be at least 6 characters",
+  }),
+  fullName: z.string().min(2, "Full name is required"),
+  email: z.string().email("Invalid email format"),
+  roles: z.object({
+    isAdmin: z.boolean().default(false),
+    isCouncilMember: z.boolean().default(false),
+    isUser: z.boolean().default(true),
+  }),
+});
+
+// Use a union type for form values
+/**
+ * UserFormValues: Used for both create and edit user forms.
+ */
+type UserFormValues = z.infer<typeof createUserSchema> | z.infer<typeof editUserSchema>;
 
 type InviteFormValues = {
   email: string;
@@ -72,9 +111,11 @@ export default function UsersPage() {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordFeedback, setPasswordFeedback] = useState("");
   const [passwordLabel, setPasswordLabel] = useState("");
+  const editLockStatusRef = useRef<{ locked: boolean; reason: string }>({ locked: false, reason: "" });
   
   // Redirect if not an admin
-  if (user && !user.isAdmin) {
+  const isCurrentUserAdmin = user && (user.isAdmin || user.is_admin);
+  if (user && !isCurrentUserAdmin) {
     return (
       <div className="container mx-auto py-8">
         <EmptyState
@@ -95,7 +136,7 @@ export default function UsersPage() {
   });
   
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(editingUser ? editUserSchema : createUserSchema),
     defaultValues: {
       username: "",
       password: "",
@@ -144,16 +185,16 @@ export default function UsersPage() {
   const updateMutation = useMutation({
     mutationFn: async (data: UserFormValues & { id: number }) => {
       const { id, ...userData } = data;
-      // Flatten roles object for API
-      const apiData = {
+      const apiData: any = {
         ...userData,
-        isAdmin: userData.roles.isAdmin,
-        isCouncilMember: userData.roles.isCouncilMember,
-        isUser: userData.roles.isUser,
+        isAdmin: !!userData.roles.isAdmin,
+        isCouncilMember: !!userData.roles.isCouncilMember,
+        isUser: !!userData.roles.isUser,
       };
-      delete (apiData as any).roles;
-      
-      const res = await apiRequest("PATCH", `/api/users/${id}`, apiData);
+      delete apiData.roles;
+      apiData.accountLocked = editLockStatusRef.current.locked;
+      apiData.lockReason = editLockStatusRef.current.locked ? editLockStatusRef.current.reason : null;
+      const res = await apiRequest("PUT", `/api/user-management/${id}`, apiData);
       return res.json();
     },
     onSuccess: () => {
@@ -271,6 +312,14 @@ export default function UsersPage() {
   });
   
   const onSubmit = (values: UserFormValues) => {
+    if (!isCurrentUserAdmin) {
+      toast({
+        title: "Error",
+        description: "Only administrators can update users.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (editingUser) {
       updateMutation.mutate({ ...values, id: editingUser.id });
     } else {
@@ -282,7 +331,6 @@ export default function UsersPage() {
     setEditingUser(user);
     form.reset({
       username: user.username,
-      // Don't include password when editing
       password: "",
       fullName: user.fullName || "",
       email: user.email || "",
@@ -292,6 +340,8 @@ export default function UsersPage() {
         isUser: user.isUser || true,
       }
     });
+    setEditLockStatus({ locked: !!user.accountLocked, reason: user.lockReason || "" });
+    editLockStatusRef.current = { locked: !!user.accountLocked, reason: user.lockReason || "" };
   };
   
   const handleDelete = (id: number) => {
@@ -349,28 +399,17 @@ export default function UsersPage() {
       header: "Role",
       cell: ({ row }) => {
         const user = row.original;
+        const roles = [];
         if (user.isAdmin) {
-          return (
-            <div className="flex items-center">
-              <ShieldIcon className="h-4 w-4 mr-1 text-primary" />
-              <span>Administrator</span>
-            </div>
-          );
-        } else if (user.isCouncilMember) {
-          return (
-            <div className="flex items-center">
-              <UserCheckIcon className="h-4 w-4 mr-1 text-primary" />
-              <span>Council Member</span>
-            </div>
-          );
-        } else {
-          return (
-            <div className="flex items-center">
-              <UserIcon className="h-4 w-4 mr-1" />
-              <span>User</span>
-            </div>
-          );
+          roles.push(<span key="admin" className="flex items-center mr-2"><ShieldIcon className="h-4 w-4 mr-1 text-primary" /><span>Administrator</span></span>);
         }
+        if (user.isCouncilMember) {
+          roles.push(<span key="council" className="flex items-center mr-2"><UserCheckIcon className="h-4 w-4 mr-1 text-primary" /><span>Council Member</span></span>);
+        }
+        if (user.isUser) {
+          roles.push(<span key="user" className="flex items-center mr-2"><UserIcon className="h-4 w-4 mr-1" /><span>Regular User</span></span>);
+        }
+        return <div className="flex flex-wrap items-center gap-2">{roles}</div>;
       }
     },
     {
@@ -479,7 +518,7 @@ export default function UsersPage() {
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] p-0">
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto p-0">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="text-xl">Add User</DialogTitle>
             <DialogDescription>
@@ -627,6 +666,30 @@ export default function UsersPage() {
                 </div>
               </div>
               
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Account Lock</h3>
+                <div className="flex items-center gap-4">
+                  <Switch
+                    checked={editLockStatusRef.current.locked}
+                    onCheckedChange={locked => { setEditLockStatus(s => ({ ...s, locked })); editLockStatusRef.current.locked = locked; }}
+                    id="edit-lock-switch"
+                  />
+                  <label htmlFor="edit-lock-switch" className="text-sm">
+                    {editLockStatusRef.current.locked ? "Locked" : "Active"}
+                  </label>
+                </div>
+                {editLockStatusRef.current.locked && (
+                  <div className="mt-2">
+                    <Input
+                      placeholder="Lock reason (required)"
+                      value={editLockStatusRef.current.reason}
+                      onChange={e => { setEditLockStatus(s => ({ ...s, reason: e.target.value })); editLockStatusRef.current.reason = e.target.value; }}
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+              
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -641,7 +704,7 @@ export default function UsersPage() {
       </Dialog>
       
       <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
@@ -787,6 +850,30 @@ export default function UsersPage() {
                     )}
                   />
                 </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Account Lock</h3>
+                <div className="flex items-center gap-4">
+                  <Switch
+                    checked={editLockStatusRef.current.locked}
+                    onCheckedChange={locked => { setEditLockStatus(s => ({ ...s, locked })); editLockStatusRef.current.locked = locked; }}
+                    id="edit-lock-switch"
+                  />
+                  <label htmlFor="edit-lock-switch" className="text-sm">
+                    {editLockStatusRef.current.locked ? "Locked" : "Active"}
+                  </label>
+                </div>
+                {editLockStatusRef.current.locked && (
+                  <div className="mt-2">
+                    <Input
+                      placeholder="Lock reason (required)"
+                      value={editLockStatusRef.current.reason}
+                      onChange={e => { setEditLockStatus(s => ({ ...s, reason: e.target.value })); editLockStatusRef.current.reason = e.target.value; }}
+                      required
+                    />
+                  </div>
+                )}
               </div>
               
               <DialogFooter>

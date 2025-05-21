@@ -18,12 +18,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { insertViolationSchema, insertPropertyUnitSchema } from "@shared/schema";
 import { Loader2 } from "lucide-react";
 import { FileUpload } from "@/components/file-upload";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
 
 const newUnitSchema = insertPropertyUnitSchema.pick({
   unitNumber: true,
@@ -64,6 +72,8 @@ export function ViolationForm() {
   const { user } = useAuth();
   const [showNewUnitForm, setShowNewUnitForm] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [unitUpdateDialog, setUnitUpdateDialog] = useState<null | { existing: any; newUnit: any; changedFields: { field: string; oldValue: any; newValue: any }[] }>(null);
+  const [pendingUnitUpdatePayload, setPendingUnitUpdatePayload] = useState<any>(null);
   
   // Load property units
   const { data: units, isLoading: unitsLoading } = useQuery({
@@ -175,7 +185,8 @@ export function ViolationForm() {
     if (showNewUnitForm && values.newUnit) {
       // First create the unit, then the violation will be created in the success callback
       const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
-      const missingFields = requiredFields.filter(field => !(values.newUnit && values.newUnit[field as keyof typeof values.newUnit]));
+      const newUnit = values.newUnit || {};
+      const missingFields = requiredFields.filter(field => !(newUnit[field as keyof typeof newUnit]));
       
       if (missingFields.length > 0) {
         toast({
@@ -187,10 +198,10 @@ export function ViolationForm() {
       }
       
       // Check if unit exists
-      const existing = safeUnits.find((u: any) => u.unitNumber === values.newUnit?.unitNumber);
+      const existing = safeUnits.find((u: any) => u.unitNumber === newUnit.unitNumber);
       if (existing) {
         if (confirm("This unit already exists. Do you want to update its information?")) {
-          const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = values.newUnit;
+          const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = newUnit;
           if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
             const payload = { unitNumber, ownerName, ownerEmail, floor: floor || null, tenantName: tenantName || null, tenantEmail: tenantEmail || null };
             apiRequest("PUT", `/api/property-units/${existing.id}`, payload)
@@ -217,8 +228,21 @@ export function ViolationForm() {
         if (values.newUnit) {
           const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = values.newUnit;
           if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
-            const payload = { unitNumber, ownerName, ownerEmail, floor: floor || null, tenantName: tenantName || null, tenantEmail: tenantEmail || null };
+            const payload = {
+              unitNumber: unitNumber as string,
+              ownerName: ownerName as string,
+              ownerEmail: ownerEmail as string,
+              floor: floor || null,
+              tenantName: tenantName || null,
+              tenantEmail: tenantEmail || null
+            };
             createUnitMutation.mutate(payload);
+          } else {
+            toast({
+              title: "Missing required fields",
+              description: "Unit Number, Owner Name, and Owner Email are required.",
+              variant: "destructive",
+            });
           }
         }
       }
@@ -379,10 +403,10 @@ export function ViolationForm() {
                         type="button"
                         variant="default"
                         onClick={() => {
-                          // Validate required fields
                           const values = form.getValues();
                           const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
-                          const missingFields = requiredFields.filter(field => !(values.newUnit && values.newUnit[field as keyof typeof values.newUnit]));
+                          const newUnit = values.newUnit || {};
+                          const missingFields = requiredFields.filter(field => !(newUnit[field as keyof typeof newUnit]));
                           if (missingFields.length > 0) {
                             toast({
                               title: "Missing required fields",
@@ -391,32 +415,53 @@ export function ViolationForm() {
                             });
                             return;
                           }
-                          // Check if unit exists
-                          const existing = safeUnits.find((u: any) => u.unitNumber === values.newUnit?.unitNumber);
+                          const existing = safeUnits.find((u: any) => u.unitNumber === newUnit.unitNumber);
                           if (existing) {
-                            if (confirm("This unit already exists. Do you want to update its information?")) {
-                              const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = values.newUnit;
-                              if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
-                                const payload = { unitNumber, ownerName, ownerEmail, floor: floor || null, tenantName: tenantName || null, tenantEmail: tenantEmail || null };
-                                apiRequest("PUT", `/api/property-units/${existing.id}`, payload)
-                                  .then(res => res.json())
-                                  .then(data => {
-                                    queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
-                                    form.setValue("unitId", data.id);
-                                    setShowNewUnitForm(false);
-                                    toast({
-                                      title: "Unit updated",
-                                      description: `Unit ${data.unitNumber} has been updated. Please proceed with violation details.`,
-                                    });
-                                  })
-                                  .catch(err => {
-                                    toast({
-                                      title: "Failed to update unit",
-                                      description: err.message,
-                                      variant: "destructive",
-                                    });
-                                  });
-                              }
+                            const fields = ["unitNumber", "floor", "ownerName", "ownerEmail", "tenantName", "tenantEmail"];
+                            const changedFields = fields
+                              .map(field => ({
+                                field,
+                                oldValue: existing[field],
+                                newValue: newUnit[field as keyof typeof newUnit],
+                              }))
+                              .filter(f => (f.oldValue || "") !== (f.newValue || ""));
+                            if (changedFields.length > 0) {
+                              setUnitUpdateDialog({ existing, newUnit, changedFields });
+                              setPendingUnitUpdatePayload({
+                                id: existing.id,
+                                payload: {
+                                  unitNumber: newUnit.unitNumber as string,
+                                  ownerName: newUnit.ownerName as string,
+                                  ownerEmail: newUnit.ownerEmail as string,
+                                  floor: newUnit.floor || null,
+                                  tenantName: newUnit.tenantName || null,
+                                  tenantEmail: newUnit.tenantEmail || null
+                                }
+                              });
+                            } else {
+                              toast({
+                                title: "No changes detected",
+                                description: "The unit already exists and no fields were changed.",
+                              });
+                            }
+                          } else {
+                            const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = newUnit;
+                            if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
+                              const payload = {
+                                unitNumber: unitNumber as string,
+                                ownerName: ownerName as string,
+                                ownerEmail: ownerEmail as string,
+                                floor: floor || null,
+                                tenantName: tenantName || null,
+                                tenantEmail: tenantEmail || null
+                              };
+                              createUnitMutation.mutate(payload);
+                            } else {
+                              toast({
+                                title: "Missing required fields",
+                                description: "Unit Number, Owner Name, and Owner Email are required.",
+                                variant: "destructive",
+                              });
                             }
                           }
                         }}
@@ -585,6 +630,61 @@ export function ViolationForm() {
             </div>
           </form>
         </Form>
+
+        {/* Unit Update Confirmation Dialog */}
+        <Dialog open={!!unitUpdateDialog} onOpenChange={open => { if (!open) setUnitUpdateDialog(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Unit Update</DialogTitle>
+              <DialogDescription>
+                This unit already exists. The following fields will be updated:
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              {unitUpdateDialog?.changedFields.map(f => (
+                <div key={f.field} className="text-sm">
+                  <strong>{f.field}:</strong>
+                  <div className="ml-2">
+                    <span className="text-muted-foreground">Old:</span> {f.oldValue || <em>(empty)</em>}<br />
+                    <span className="text-muted-foreground">New:</span> {f.newValue || <em>(empty)</em>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setUnitUpdateDialog(null)}>Cancel</Button>
+              <Button
+                variant="default"
+                onClick={() => {
+                  if (pendingUnitUpdatePayload) {
+                    apiRequest("PUT", `/api/property-units/${pendingUnitUpdatePayload.id}`, pendingUnitUpdatePayload.payload)
+                      .then(res => res.json())
+                      .then(data => {
+                        queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
+                        form.setValue("unitId", data.id);
+                        setShowNewUnitForm(false);
+                        setUnitUpdateDialog(null);
+                        setPendingUnitUpdatePayload(null);
+                        toast({
+                          title: "Unit updated",
+                          description: `Unit ${data.unitNumber} has been updated. Please proceed with violation details.`,
+                        });
+                      })
+                      .catch(err => {
+                        toast({
+                          title: "Failed to update unit",
+                          description: err.message,
+                          variant: "destructive",
+                        });
+                      });
+                  }
+                }}
+              >
+                Accept Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
