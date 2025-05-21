@@ -27,7 +27,7 @@ import {
   type UnitPersonRole
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, not, gte, lt } from "drizzle-orm";
+import { eq, and, desc, sql, like, or, not, gte, lt, asc, SQL, Name } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
@@ -118,6 +118,7 @@ export interface IStorage {
   sessionStore: session.Store;
 
   getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
+  getAllUnitsPaginated(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ units: PropertyUnit[], total: number }>;
 
   setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
 
@@ -834,10 +835,11 @@ export class DatabaseStorage implements IStorage {
       id: violations.id
     };
     let orderField = sortMap[sortBy as keyof typeof sortMap] || violations.createdAt;
-    const orderFn = sortOrder === 'asc' ? orderField : desc(orderField);
+    const orderFn = sortOrder === 'asc' ? asc(orderField) : desc(orderField);
     let whereClause = [];
     if (status) whereClause.push(eq(violations.status, status));
     if (unitId) whereClause.push(eq(violations.unitId, unitId));
+
     const result = await db
       .select({ violation: violations, unit: propertyUnits })
       .from(violations)
@@ -846,19 +848,81 @@ export class DatabaseStorage implements IStorage {
       .orderBy(orderFn)
       .limit(limit)
       .offset(offset);
+
     // Count query
-    const [{ count }] = await db
+    const countQuery = db
       .select({ count: sql`count(*)` })
-      .from(violations)
-      .where(
-        and(
-          status ? eq(violations.status, status) : sql`TRUE`,
-          unitId ? eq(violations.unitId, unitId) : sql`TRUE`
-        )
-      );
+      .from(violations);
+
+    // Only add join if it's actually needed for the where clause or future sort/filter on count
+    // For now, the whereClause only pertains to the 'violations' table.
+    // If sortMap included unit specific fields that were part of the 'whereClause' for count, then join.
+    // Current 'whereClause' does not require a join for the count.
+
+    if (whereClause.length > 0) {
+      // If there are filters on the violations table, apply them directly.
+      // If any filter in whereClause were to depend on propertyUnits, a join would be needed here.
+      // Example: if (whereClause.some(condition => condition involves propertyUnits)) {
+      //   countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
+      // }
+      // For now, no join in count is strictly necessary as filters are on `violations` table.
+      // However, to keep it symmetric with the main query for potential future changes or if
+      // the DB optimizer benefits from identical structures:
+      countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
+      countQuery.where(and(...whereClause));
+    } else {
+      // If no filters, count all violations. This can be slow.
+      // Consider if a different strategy is needed for unfiltered counts on very large tables.
+      // For now, keeping it simple and counting all related to the query (which has an implicit join).
+      // To count all violations *without* the join (if that's ever the desired total):
+      // const [{ count }] = await db.select({ count: sql`count(*)` }).from(violations);
+      // But the current 'total' should reflect the items that *could* be paged through.
+       countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
+       // No .where() clause means count all records resulting from the join
+    }
+
+    const [{ count }] = await countQuery;
+
     return {
       violations: result.map(r => ({ ...r.violation, unit: r.unit })),
       total: Number(count)
+    };
+  }
+
+  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc') {
+    const offset = (page - 1) * limit;
+    // Only allow sorting by known columns
+    // Adjust sortMap for propertyUnits table columns
+    const sortMap: Record<string, any> = {
+      unitNumber: propertyUnits.unitNumber,
+      floor: propertyUnits.floor,
+      ownerName: propertyUnits.ownerName,
+      ownerEmail: propertyUnits.ownerEmail,
+      tenantName: propertyUnits.tenantName,
+      tenantEmail: propertyUnits.tenantEmail,
+      createdAt: propertyUnits.createdAt,
+      updatedAt: propertyUnits.updatedAt,
+      id: propertyUnits.id
+    };
+
+    let orderField = sortMap[sortBy as string] || propertyUnits.unitNumber; // Default sort by unitNumber
+    const orderFn = sortOrder === 'asc' ? asc(orderField) : desc(orderField);
+
+    const results = await db
+      .select()
+      .from(propertyUnits)
+      .orderBy(orderFn)
+      .limit(limit)
+      .offset(offset);
+
+    // Count query
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` }) // Ensure count is a number
+      .from(propertyUnits);
+
+    return {
+      units: results,
+      total: Number(count) // Ensure total is a number
     };
   }
 

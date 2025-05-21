@@ -16,11 +16,9 @@ import UnitsPage from "@/pages/units-page";
 import CategoriesPage from "@/pages/categories-page";
 import SettingsPage from "@/pages/settings-page";
 import UsersPage from "@/pages/users-page";
-import EmailSettingsPage from "@/pages/email-settings-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import UserProfilePage from "@/pages/user-profile-page";
-import SetPasswordPage from "@/pages/set-password-page";
 import { Route } from "wouter";
 import { ThemeProvider } from "next-themes";
 
@@ -36,12 +34,10 @@ function Router() {
       <ProtectedRoute path="/categories" component={CategoriesPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/users" component={UsersPage} />
-      <ProtectedRoute path="/email-settings" component={EmailSettingsPage} />
       <ProtectedRoute path="/user-profile" component={UserProfilePage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
-      <Route path="/set-password" component={SetPasswordPage} />
       <Route component={NotFound} />
     </Switch>
   );
