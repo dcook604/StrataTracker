@@ -26,12 +26,15 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Settings, MailIcon } from "lucide-react";
+import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle, Users as UsersIconLucide } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { Layout } from "@/components/layout";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { UserManagementTabContent } from "@/components/user-management-tab";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -45,7 +48,24 @@ const emailSettingsSchema = z.object({
   violationRejectedSubject: z.string().min(1, "Subject is required"),
 });
 
+// SMTP Configuration Schema
+const smtpConfigSchema = z.object({
+  host: z.string().min(1, "SMTP host is required"),
+  port: z.coerce.number().int().positive("Port must be a positive integer"),
+  secure: z.boolean().default(false),
+  authUser: z.string().optional(),
+  authPass: z.string().optional(),
+  from: z.string().email("From address must be a valid email")
+});
+
+// Test Email Schema for SMTP
+const smtpTestEmailSchema = z.object({
+  testEmail: z.string().email("Please enter a valid email address")
+});
+
 type EmailSettingsFormValues = z.infer<typeof emailSettingsSchema>;
+type SmtpConfigFormData = z.infer<typeof smtpConfigSchema>;
+type SmtpTestEmailFormData = z.infer<typeof smtpTestEmailSchema>;
 
 const mapSettingsToForm = (settings: SystemSetting[]): EmailSettingsFormValues => {
   const getValue = (key: string, defaultValue: string = "") => {
@@ -78,8 +98,14 @@ export default function SettingsPage() {
   const [testEmailAddress, setTestEmailAddress] = useState<string>("");
   const [sendingTestEmail, setSendingTestEmail] = useState<boolean>(false);
   const [, navigate] = useLocation();
+  const queryClientHook = useQueryClient();
 
-  const { data: settings, isLoading } = useQuery<SystemSetting[]>({
+  // State for SMTP Test
+  const [isSmtpTestDialogOpen, setIsSmtpTestDialogOpen] = useState(false);
+  const [smtpTestStatus, setSmtpTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [smtpTestMessage, setSmtpTestMessage] = useState('');
+
+  const { data: settings, isLoading: isLoadingEmailNotificationSettings } = useQuery<SystemSetting[]>({
     queryKey: ["/api/settings"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/settings");
@@ -109,6 +135,52 @@ export default function SettingsPage() {
       emailForm.reset(formValues);
     }
   }, [settings, emailForm]);
+
+  // Fetch SMTP configuration
+  const { data: smtpConfig, isLoading: isLoadingSmtpConfig, error: smtpConfigError } = useQuery({
+    queryKey: ['/api/email-config'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", '/api/email-config');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch SMTP configuration' }));
+        throw new Error(errorData.message || 'Failed to fetch SMTP configuration');
+      }
+      return response.json();
+    }
+  });
+
+  const smtpForm = useForm<SmtpConfigFormData>({
+    resolver: zodResolver(smtpConfigSchema),
+    defaultValues: {
+      host: '',
+      port: 587, // Common default
+      secure: false,
+      authUser: '',
+      authPass: '',
+      from: ''
+    },
+  });
+
+  // Update SMTP form values when smtpConfig is loaded
+  useEffect(() => {
+    if (smtpConfig) {
+      smtpForm.reset({
+        host: smtpConfig.host || '',
+        port: smtpConfig.port || 587,
+        secure: !!smtpConfig.secure,
+        authUser: smtpConfig.auth?.user || '',
+        authPass: '', // Do not populate password
+        from: smtpConfig.from || ''
+      });
+    }
+  }, [smtpConfig, smtpForm]);
+  
+  const smtpTestForm = useForm<SmtpTestEmailFormData>({
+    resolver: zodResolver(smtpTestEmailSchema),
+    defaultValues: {
+      testEmail: user?.email || ''
+    }
+  });
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: EmailSettingsFormValues) => {
@@ -146,26 +218,87 @@ export default function SettingsPage() {
     }
   });
 
-  const sendTestEmailMutation = useMutation({
-    mutationFn: async (email: string) => {
-      await apiRequest("POST", "/api/settings/test-email", { email });
-      return true;
+  // Mutation for saving SMTP configuration
+  const saveSmtpConfigMutation = useMutation({
+    mutationFn: async (data: SmtpConfigFormData) => {
+      // Construct payload, ensuring authPass is only included if provided
+      const payload: any = {
+        host: data.host,
+        port: data.port,
+        secure: data.secure,
+        from: data.from,
+        auth: {
+          user: data.authUser,
+        },
+      };
+      if (data.authPass) {
+        payload.auth.pass = data.authPass;
+      }
+
+      const response = await apiRequest('POST', '/api/email-config', payload);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({message: 'Failed to save SMTP configuration'}));
+        throw new Error(error.message || 'Failed to save SMTP configuration');
+      }
+      return response.json();
     },
     onSuccess: () => {
+      queryClientHook.invalidateQueries({ queryKey: ['/api/email-config'] });
       toast({
-        title: "Test Email Sent",
-        description: "A test email has been sent to the specified address.",
+        title: 'Success',
+        description: 'SMTP configuration saved successfully.',
       });
-      setSendingTestEmail(false);
-      setTestEmailAddress("");
+      smtpForm.setValue('authPass', ''); // Clear password field after save
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: 'Error Saving SMTP Config',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
-      setSendingTestEmail(false);
+    }
+  });
+
+  // Mutation for testing SMTP email configuration
+  const testSmtpEmailMutation = useMutation({
+    mutationFn: async (data: { testEmail: string; config: SmtpConfigFormData }) => {
+      setSmtpTestStatus('loading');
+      setSmtpTestMessage('');
+
+      // Construct payload, ensuring authPass is only included if provided
+      const payload: any = {
+        host: data.config.host,
+        port: data.config.port,
+        secure: data.config.secure,
+        from: data.config.from,
+        auth: {
+          user: data.config.authUser,
+        },
+        testEmail: data.testEmail,
+      };
+      if (data.config.authPass && data.config.authPass !== '********') { // only send if not placeholder
+        payload.auth.pass = data.config.authPass;
+      } else {
+         // If password is placeholder or empty, try to use existing stored password logic (if BE supports it)
+         // For now, we rely on the user re-entering it if they want to test with a password change.
+         // Or, the backend could use the currently stored password if an empty one is sent for test.
+      }
+
+
+      const response = await apiRequest('POST', '/api/email-config/test', payload);
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to send test email');
+      }
+      return result;
+    },
+    onSuccess: () => {
+      setSmtpTestStatus('success');
+      setSmtpTestMessage('Test email sent successfully! Please check your inbox.');
+    },
+    onError: (error: Error) => {
+      setSmtpTestStatus('error');
+      setSmtpTestMessage(error.message || 'Failed to send test email');
     }
   });
 
@@ -173,18 +306,21 @@ export default function SettingsPage() {
     updateSettingsMutation.mutate(data);
   };
 
-  const sendTestEmail = () => {
-    if (!testEmailAddress) {
-      toast({
-        title: "Error",
-        description: "Please enter an email address.",
-        variant: "destructive",
-      });
-      return;
+  const onSmtpConfigSubmit = (data: SmtpConfigFormData) => {
+    // Mask password in form data if not changed, to avoid sending '********'
+    const currentValues = smtpForm.getValues();
+    if (data.authPass === '' && smtpConfig?.auth?.user === data.authUser) {
+      // If password field is empty and user hasn't changed, don't send password
+      // This relies on backend to keep existing password if not provided.
+      // Or, make authPass truly optional in payload if user doesn't want to change it.
+      // For now, we'll let the mutationFn handle empty authPass.
     }
+    saveSmtpConfigMutation.mutate(data);
+  };
 
-    setSendingTestEmail(true);
-    sendTestEmailMutation.mutate(testEmailAddress);
+  const onSmtpTestSubmit = (data: SmtpTestEmailFormData) => {
+    const configData = smtpForm.getValues(); // Get current SMTP form values
+    testSmtpEmailMutation.mutate({ testEmail: data.testEmail, config: configData });
   };
 
   // Check if user is admin or council member
@@ -204,17 +340,17 @@ export default function SettingsPage() {
     <Layout title="System Settings">
       <div className="space-y-6">
         <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={() => navigate("/email-settings")}>
+          <Button variant="outline" onClick={() => setActiveTab("smtp")}>
             <MailIcon className="mr-2 h-4 w-4" />
             SMTP Settings
           </Button>
-          <Button variant="outline" onClick={() => navigate("/users")}>
-            <Settings className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={() => setActiveTab("userManagement")}>
+            <UsersIconLucide className="mr-2 h-4 w-4" />
             User Management
           </Button>
         </div>
         
-        {isLoading ? (
+        {isLoadingEmailNotificationSettings || isLoadingSmtpConfig ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -222,7 +358,9 @@ export default function SettingsPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList>
               <TabsTrigger value="email">Email Settings</TabsTrigger>
+              <TabsTrigger value="smtp">SMTP Settings</TabsTrigger>
               <TabsTrigger value="system">System Settings</TabsTrigger>
+              <TabsTrigger value="userManagement">User Management</TabsTrigger>
             </TabsList>
             
             <TabsContent value="email" className="space-y-4">
@@ -404,7 +542,7 @@ export default function SettingsPage() {
                           <Button 
                             type="button"
                             variant="outline"
-                            onClick={sendTestEmail}
+                            onClick={() => setIsSmtpTestDialogOpen(true)}
                             disabled={sendingTestEmail}
                           >
                             {sendingTestEmail ? (
@@ -434,6 +572,176 @@ export default function SettingsPage() {
               </Card>
             </TabsContent>
             
+            <TabsContent value="smtp" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle>SMTP Configuration</CardTitle>
+                    <CardDescription>
+                      Configure your SMTP server settings for sending system emails.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {smtpConfigError ? (
+                       <Alert variant="destructive">
+                         <AlertCircle className="h-4 w-4" />
+                         <AlertTitle>Error Loading SMTP Config</AlertTitle>
+                         <AlertDescription>
+                           {(smtpConfigError as Error).message || "Could not load SMTP configuration. Please try again."}
+                           <Button 
+                             variant="link" 
+                             className="p-0 h-auto ml-2" 
+                             onClick={() => queryClientHook.invalidateQueries({ queryKey: ['/api/email-config'] })}
+                           >
+                             Retry
+                           </Button>
+                         </AlertDescription>
+                       </Alert>
+                    ) : (
+                    <Form {...smtpForm}>
+                      <form onSubmit={smtpForm.handleSubmit(onSmtpConfigSubmit)} className="space-y-4">
+                        <FormField
+                          control={smtpForm.control}
+                          name="host"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>SMTP Host</FormLabel>
+                              <FormControl>
+                                <Input placeholder="smtp.example.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <FormField
+                            control={smtpForm.control}
+                            name="port"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>SMTP Port</FormLabel>
+                                <FormControl>
+                                  <Input type="number" placeholder="587" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={smtpForm.control}
+                            name="secure"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mt-2 sm:mt-0 sm:pt-[2.1rem] sm:pb-[2.1rem]">
+                                <div className="space-y-0.5">
+                                  <FormLabel>Use SSL/TLS</FormLabel>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={smtpForm.control}
+                          name="authUser"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>SMTP Username</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Optional" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={smtpForm.control}
+                          name="authPass"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>SMTP Password</FormLabel>
+                              <FormControl>
+                                <Input type="password" placeholder="Leave blank to keep existing" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={smtpForm.control}
+                          name="from"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>From Email Address</FormLabel>
+                              <FormControl>
+                                <Input placeholder="noreply@example.com" {...field} />
+                              </FormControl>
+                              <FormDescription>This email will be used as the sender for system notifications.</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <CardFooter className="flex justify-end px-0 pt-6 border-t">
+                          <Button type="submit" disabled={saveSmtpConfigMutation.isPending}>
+                            {saveSmtpConfigMutation.isPending ? (
+                              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving SMTP...</>
+                            ) : "Save SMTP Settings"}
+                          </Button>
+                        </CardFooter>
+                      </form>
+                    </Form>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="md:col-span-1">
+                  <CardHeader>
+                    <CardTitle>Test SMTP Connection</CardTitle>
+                    <CardDescription>Send a test email using the above SMTP settings.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...smtpTestForm}>
+                      <form onSubmit={smtpTestForm.handleSubmit(onSmtpTestSubmit)} className="space-y-4">
+                        <FormField
+                          control={smtpTestForm.control}
+                          name="testEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Recipient Email</FormLabel>
+                              <FormControl>
+                                <Input placeholder="your-email@example.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button type="submit" className="w-full" disabled={testSmtpEmailMutation.isPending || isLoadingSmtpConfig || !smtpForm.formState.isValid && !smtpConfig}>
+                          {testSmtpEmailMutation.isPending ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending Test...</>
+                          ) : "Send Test Email"}
+                        </Button>
+                      </form>
+                    </Form>
+                    {smtpTestStatus !== 'idle' && (
+                      <Alert className={`mt-4 ${smtpTestStatus === 'success' ? 'border-green-500 text-green-700' : smtpTestStatus === 'error' ? 'border-red-500 text-red-700' : 'border-blue-500 text-blue-700'}`}>
+                        {smtpTestStatus === 'success' && <CheckCircle2 className={`h-4 w-4 ${smtpTestStatus === 'success' ? 'text-green-700' : ''}`} />}
+                        {smtpTestStatus === 'error' && <AlertCircle className={`h-4 w-4 ${smtpTestStatus === 'error' ? 'text-red-700' : ''}`} />}
+                        {smtpTestStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin" />}
+                        <AlertTitle className="ml-2">
+                          {smtpTestStatus === 'success' ? 'Success' : smtpTestStatus === 'error' ? 'Error' : 'Sending'}
+                        </AlertTitle>
+                        <AlertDescription className="ml-2">{smtpTestMessage}</AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+            
             <TabsContent value="system" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -446,6 +754,10 @@ export default function SettingsPage() {
                   <p className="text-muted-foreground">General system settings will be added in a future update.</p>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="userManagement" className="space-y-4">
+              <UserManagementTabContent />
             </TabsContent>
           </Tabs>
         )}

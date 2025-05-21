@@ -11,6 +11,8 @@ A modern web application for managing property violations, units/customers, and 
 - **Violation Tracking**: Create, view, and manage violations, with file attachments and status tracking.
 - **Settings**: System and email settings with client-side navigation (SPA experience, no full page reloads).
 - **Responsive UI**: Modern, accessible, and mobile-friendly design.
+- **Performance Optimizations**: Paginated queries, optimized count queries, and recommended database indexing for large datasets.
+- **Security**: All sensitive logic is server-side, and user input is strictly validated and sanitized.
 
 ---
 
@@ -21,15 +23,26 @@ A modern web application for managing property violations, units/customers, and 
 - **Unified Add Unit/Customer**: The Add Customer dialog now uses the same logic and validation as the Add Unit flow in the Violation form, ensuring consistency and DRY code.
 - **Client-Side Routing**: Navigation (e.g., Settings, User Management) uses SPA routing (wouter or react-router) for a seamless experience.
 - **Feedback & Accessibility**: All actions provide user feedback (toasts, confirmations), and UI is accessible (keyboard, ARIA, color contrast).
+- **Backend Pagination**: All major data tables use paginated queries and optimized count queries for scalability.
+- **Testing**: TDD is encouraged. Write tests for new features and bug fixes. Use mock data only in tests.
 
 ---
 
-## Code Quality & Testing
-- **Linting & Formatting**: ESLint and Prettier are enforced. No linter errors in committed code.
-- **File Size**: Components are kept under 300 lines; large logic is split into smaller files.
-- **Testing**: TDD encouraged. Write tests for new features and bug fixes. Use mock data only in tests.
-- **Security**: No secrets in code. All user input is validated and sanitized. Sensitive logic is server-side.
-- **Documentation**: All major components and schemas are documented with JSDoc. README is kept up to date with architecture and usage changes.
+## Cursor Development Rules (Summary)
+This project follows the [Cursor Development Rules](#) for all code and documentation:
+- **Simplicity**: Prioritize clear, maintainable solutions over complexity.
+- **Iteration**: Build on existing code; avoid unnecessary rewrites.
+- **Focus**: Stay on task and avoid scope creep.
+- **Quality**: Maintain clean, organized, well-tested, secure code.
+- **Collaboration**: Communicate clearly and document all significant changes.
+- **TypeScript**: Use strict typing, avoid `any`, and document complex logic with JSDoc.
+- **Organization**: Keep files under 300 lines, break up large components, and follow DRY principles.
+- **Testing**: Use TDD where possible, write comprehensive tests, and ensure all tests pass before merging.
+- **Security**: Validate and sanitize all user input, keep secrets out of code, and use environment variables.
+- **Version Control**: Commit frequently with clear messages, never commit secrets or .env files.
+- **Documentation**: Update documentation with all architectural or pattern changes.
+
+For the full rules, see the project documentation or ask a maintainer.
 
 ---
 
@@ -45,6 +58,7 @@ A modern web application for managing property violations, units/customers, and 
 - Follow the Cursor rules: prioritize simplicity, maintainability, and clarity.
 - Update documentation and tests with any significant code changes.
 - Keep all code and UI consistent with established patterns.
+- Review and refactor code for maintainability and DRYness before merging.
 
 ---
 
@@ -52,6 +66,7 @@ A modern web application for managing property violations, units/customers, and 
 - Update this README and relevant JSDoc/comments whenever code changes impact architecture, patterns, or usage.
 - Review and refactor code for maintainability and DRYness before merging.
 - Never commit secrets or .env files to version control.
+- Monitor performance and optimize queries and indexes as data grows.
 
 ---
 

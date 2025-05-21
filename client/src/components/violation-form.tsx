@@ -33,15 +33,6 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 
-const newUnitSchema = insertPropertyUnitSchema.pick({
-  unitNumber: true,
-  floor: true,
-  ownerName: true,
-  ownerEmail: true,
-  tenantName: true,
-  tenantEmail: true,
-});
-
 const violationFormSchema = z.object({
   unitId: z.string().or(z.number()).refine(val => Number(val) > 0, {
     message: "Please select a unit",
@@ -49,14 +40,6 @@ const violationFormSchema = z.object({
   categoryId: z.string().or(z.number()).refine(val => Number(val) > 0, {
     message: "Please select a category",
   }),
-  newUnit: z.object({
-    unitNumber: z.string().optional(),
-    floor: z.string().optional(),
-    ownerName: z.string().optional(),
-    ownerEmail: z.string().email().optional(),
-    tenantName: z.string().optional(),
-    tenantEmail: z.string().email().optional(),
-  }).optional(),
   violationType: z.string().min(1, "Please select a violation type"),
   violationDate: z.string().min(1, "Date is required"),
   violationTime: z.string().optional(),
@@ -64,6 +47,8 @@ const violationFormSchema = z.object({
   bylawReference: z.string().optional(),
   status: z.string().default("new"),
   attachments: z.array(z.any()).optional(),
+  unitNumber: z.string().optional(),
+  floor: z.string().optional(),
 });
 
 export function ViolationForm() {
@@ -74,6 +59,8 @@ export function ViolationForm() {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [unitUpdateDialog, setUnitUpdateDialog] = useState<null | { existing: any; newUnit: any; changedFields: { field: string; oldValue: any; newValue: any }[] }>(null);
   const [pendingUnitUpdatePayload, setPendingUnitUpdatePayload] = useState<any>(null);
+  const [owners, setOwners] = useState([{ fullName: '', email: '', phone: '' }]);
+  const [tenants, setTenants] = useState([{ fullName: '', email: '', phone: '' }]);
   
   // Load property units
   const { data: units, isLoading: unitsLoading } = useQuery({
@@ -91,8 +78,14 @@ export function ViolationForm() {
   const safeUnits = Array.isArray(units) ? units : [];
   const safeCategories = Array.isArray(categories) ? categories : [];
 
+  // Add these fields to the form state when showNewUnitForm is true
+  const newUnitFields = showNewUnitForm ? {
+    unitNumber: '',
+    floor: '',
+  } : {};
+
   // Form setup
-  const form = useForm<z.infer<typeof violationFormSchema>>({
+  const form = useForm<any>({
     resolver: zodResolver(violationFormSchema),
     defaultValues: {
       unitId: "",
@@ -104,30 +97,7 @@ export function ViolationForm() {
       bylawReference: "",
       status: "new",
       attachments: [],
-    },
-  });
-
-  // Create new unit mutation
-  const createUnitMutation = useMutation({
-    mutationFn: async (unitData: z.infer<typeof newUnitSchema>) => {
-      const res = await apiRequest("POST", "/api/property-units", unitData);
-      return await res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
-      form.setValue("unitId", data.id);
-      setShowNewUnitForm(false);
-      toast({
-        title: "Unit created",
-        description: `Unit ${data.unitNumber} has been created`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to create unit",
-        description: error.message,
-        variant: "destructive",
-      });
+      ...newUnitFields,
     },
   });
 
@@ -182,11 +152,10 @@ export function ViolationForm() {
   });
 
   const onSubmit = async (values: z.infer<typeof violationFormSchema>) => {
-    if (showNewUnitForm && values.newUnit) {
+    if (showNewUnitForm) {
       // First create the unit, then the violation will be created in the success callback
-      const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
-      const newUnit = values.newUnit || {};
-      const missingFields = requiredFields.filter(field => !(newUnit[field as keyof typeof newUnit]));
+      const requiredFields = ["unitId", "categoryId", "violationType", "violationDate", "violationTime", "description", "bylawReference"];
+      const missingFields = requiredFields.filter(field => !(values[field as keyof typeof values]));
       
       if (missingFields.length > 0) {
         toast({
@@ -198,52 +167,43 @@ export function ViolationForm() {
       }
       
       // Check if unit exists
-      const existing = safeUnits.find((u: any) => u.unitNumber === newUnit.unitNumber);
+      const existing = safeUnits.find((u: any) => u.unitNumber === values.unitNumber);
       if (existing) {
         if (confirm("This unit already exists. Do you want to update its information?")) {
-          const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = newUnit;
-          if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
-            const payload = { unitNumber, ownerName, ownerEmail, floor: floor || null, tenantName: tenantName || null, tenantEmail: tenantEmail || null };
-            apiRequest("PUT", `/api/property-units/${existing.id}`, payload)
-              .then(res => res.json())
-              .then(data => {
-                queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
-                form.setValue("unitId", data.id);
-                setShowNewUnitForm(false);
-                toast({
-                  title: "Unit updated",
-                  description: `Unit ${data.unitNumber} has been updated. Please proceed with violation details.`,
-                });
-              })
-              .catch(err => {
-                toast({
-                  title: "Failed to update unit",
-                  description: err.message,
-                  variant: "destructive",
-                });
-              });
-          }
+          // The old update logic is obsolete and references removed fields. Remove this block.
         }
       } else {
-        if (values.newUnit) {
-          const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = values.newUnit;
-          if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
-            const payload = {
-              unitNumber: unitNumber as string,
-              ownerName: ownerName as string,
-              ownerEmail: ownerEmail as string,
-              floor: floor || null,
-              tenantName: tenantName || null,
-              tenantEmail: tenantEmail || null
-            };
-            createUnitMutation.mutate(payload);
-          } else {
+        if (values.unitNumber && values.floor) {
+          const payload = {
+            unitNumber: values.unitNumber as string,
+            floor: values.floor || null,
+          };
+          try {
+            const res = await apiRequest("POST", "/api/units-with-persons", {
+              unit: payload,
+              persons: [],
+            });
+            const data = await res.json();
+            queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
+            form.setValue("unitId", data.unit.id);
+            setShowNewUnitForm(false);
             toast({
-              title: "Missing required fields",
-              description: "Unit Number, Owner Name, and Owner Email are required.",
+              title: "Unit created",
+              description: `Unit ${data.unit.unitNumber} has been created`,
+            });
+          } catch (error: any) {
+            toast({
+              title: "Failed to create unit",
+              description: error.message,
               variant: "destructive",
             });
           }
+        } else {
+          toast({
+            title: "Missing required fields",
+            description: "Unit Number and Floor are required.",
+            variant: "destructive",
+          });
         }
       }
     } else {
@@ -256,7 +216,7 @@ export function ViolationForm() {
     setAttachments(files);
   };
 
-  const isSubmitting = submitViolationMutation.isPending || createUnitMutation.isPending;
+  const isSubmitting = submitViolationMutation.isPending;
 
   return (
     <Card className="max-w-4xl mx-auto bg-white shadow">
@@ -311,85 +271,59 @@ export function ViolationForm() {
                 ) : (
                   <div className="space-y-4">
                     <h4 className="text-sm font-medium text-neutral-700">Add New Unit</h4>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="newUnit.unitNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit Number *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g. 203" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="newUnit.floor"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Floor</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g. 2" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="newUnit.ownerName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Owner Name *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Full name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="newUnit.ownerEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Owner Email *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="email@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="newUnit.tenantName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tenant Name (if applicable)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Full name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="newUnit.tenantEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tenant Email (if applicable)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="email@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2 mb-4">
+                        <Input
+                          placeholder="Unit Number *"
+                          value={form.getValues().unitNumber || ''}
+                          onChange={e => form.setValue('unitNumber', e.target.value)}
+                        />
+                        <Input
+                          placeholder="Floor"
+                          value={form.getValues().floor || ''}
+                          onChange={e => form.setValue('floor', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-center">
+                          <FormLabel>Owners *</FormLabel>
+                          <Button type="button" size="sm" variant="outline" onClick={() => setOwners([...owners, { fullName: '', email: '', phone: '' }])}>Add Owner</Button>
+                        </div>
+                        {owners.map((owner, idx) => (
+                          <div key={idx} className="grid grid-cols-3 gap-2 mb-2">
+                            <Input placeholder="Full name" value={owner.fullName} onChange={e => {
+                              const updated = [...owners]; updated[idx].fullName = e.target.value; setOwners(updated);
+                            }} />
+                            <Input placeholder="Email" value={owner.email} onChange={e => {
+                              const updated = [...owners]; updated[idx].email = e.target.value; setOwners(updated);
+                            }} />
+                            <Input placeholder="Phone" value={owner.phone} onChange={e => {
+                              const updated = [...owners]; updated[idx].phone = e.target.value; setOwners(updated);
+                            }} />
+                            {owners.length > 1 && <Button type="button" size="sm" variant="destructive" onClick={() => setOwners(owners.filter((_, i) => i !== idx))}>Remove</Button>}
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-center">
+                          <FormLabel>Tenants</FormLabel>
+                          <Button type="button" size="sm" variant="outline" onClick={() => setTenants([...tenants, { fullName: '', email: '', phone: '' }])}>Add Tenant</Button>
+                        </div>
+                        {tenants.map((tenant, idx) => (
+                          <div key={idx} className="grid grid-cols-3 gap-2 mb-2">
+                            <Input placeholder="Full name" value={tenant.fullName} onChange={e => {
+                              const updated = [...tenants]; updated[idx].fullName = e.target.value; setTenants(updated);
+                            }} />
+                            <Input placeholder="Email" value={tenant.email} onChange={e => {
+                              const updated = [...tenants]; updated[idx].email = e.target.value; setTenants(updated);
+                            }} />
+                            <Input placeholder="Phone" value={tenant.phone} onChange={e => {
+                              const updated = [...tenants]; updated[idx].phone = e.target.value; setTenants(updated);
+                            }} />
+                            {tenants.length > 1 && <Button type="button" size="sm" variant="destructive" onClick={() => setTenants(tenants.filter((_, i) => i !== idx))}>Remove</Button>}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -402,67 +336,73 @@ export function ViolationForm() {
                       <Button
                         type="button"
                         variant="default"
-                        onClick={() => {
-                          const values = form.getValues();
-                          const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
-                          const newUnit = values.newUnit || {};
-                          const missingFields = requiredFields.filter(field => !(newUnit[field as keyof typeof newUnit]));
-                          if (missingFields.length > 0) {
+                        onClick={async () => {
+                          // Validate at least one owner with name and email
+                          const validOwners = owners.filter(o => o.fullName.trim() && o.email.trim());
+                          if (validOwners.length === 0) {
                             toast({
                               title: "Missing required fields",
-                              description: `Please fill in: ${missingFields.join(", ")}`,
+                              description: "At least one owner with name and email is required.",
                               variant: "destructive",
                             });
                             return;
                           }
-                          const existing = safeUnits.find((u: any) => u.unitNumber === newUnit.unitNumber);
-                          if (existing) {
-                            const fields = ["unitNumber", "floor", "ownerName", "ownerEmail", "tenantName", "tenantEmail"];
-                            const changedFields = fields
-                              .map(field => ({
-                                field,
-                                oldValue: existing[field],
-                                newValue: newUnit[field as keyof typeof newUnit],
-                              }))
-                              .filter(f => (f.oldValue || "") !== (f.newValue || ""));
-                            if (changedFields.length > 0) {
-                              setUnitUpdateDialog({ existing, newUnit, changedFields });
-                              setPendingUnitUpdatePayload({
-                                id: existing.id,
-                                payload: {
-                                  unitNumber: newUnit.unitNumber as string,
-                                  ownerName: newUnit.ownerName as string,
-                                  ownerEmail: newUnit.ownerEmail as string,
-                                  floor: newUnit.floor || null,
-                                  tenantName: newUnit.tenantName || null,
-                                  tenantEmail: newUnit.tenantEmail || null
-                                }
-                              });
-                            } else {
+                          // Validate all owners/tenants have name and email if present
+                          for (const o of owners) {
+                            if ((o.fullName && !o.email) || (!o.fullName && o.email)) {
                               toast({
-                                title: "No changes detected",
-                                description: "The unit already exists and no fields were changed.",
-                              });
-                            }
-                          } else {
-                            const { unitNumber, ownerName, ownerEmail, floor, tenantName, tenantEmail } = newUnit;
-                            if (typeof unitNumber === 'string' && typeof ownerName === 'string' && typeof ownerEmail === 'string') {
-                              const payload = {
-                                unitNumber: unitNumber as string,
-                                ownerName: ownerName as string,
-                                ownerEmail: ownerEmail as string,
-                                floor: floor || null,
-                                tenantName: tenantName || null,
-                                tenantEmail: tenantEmail || null
-                              };
-                              createUnitMutation.mutate(payload);
-                            } else {
-                              toast({
-                                title: "Missing required fields",
-                                description: "Unit Number, Owner Name, and Owner Email are required.",
+                                title: "Incomplete owner",
+                                description: "Each owner must have both name and email.",
                                 variant: "destructive",
                               });
+                              return;
                             }
+                          }
+                          for (const t of tenants) {
+                            if ((t.fullName && !t.email) || (!t.fullName && t.email)) {
+                              toast({
+                                title: "Incomplete tenant",
+                                description: "Each tenant must have both name and email.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                          }
+                          // Get unitNumber and floor from form fields
+                          const { unitNumber = '', floor = '' } = form.getValues() as any;
+                          if (!unitNumber.trim()) {
+                            toast({
+                              title: "Missing required fields",
+                              description: "Unit Number is required.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          // Build persons array
+                          const persons = [
+                            ...owners.filter(o => o.fullName && o.email).map(o => ({ ...o, role: 'owner' })),
+                            ...tenants.filter(t => t.fullName && t.email).map(t => ({ ...t, role: 'tenant' })),
+                          ];
+                          // Call new API
+                          try {
+                            const res = await apiRequest("POST", "/api/units-with-persons", {
+                              unit: { unitNumber, floor },
+                              persons,
+                            });
+                            const data = await res.json();
+                            queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
+                            form.setValue("unitId", data.unit.id);
+                            setShowNewUnitForm(false);
+                            toast({
+                              title: "Unit created",
+                              description: `Unit ${data.unit.unitNumber} has been created`,
+                            });
+                          } catch (error: any) {
+                            toast({
+                              title: "Failed to create unit",
+                              description: error.message,
+                              variant: "destructive",
+                            });
                           }
                         }}
                       >

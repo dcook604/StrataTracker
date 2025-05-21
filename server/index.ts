@@ -32,8 +32,8 @@ app.use(requestLogger);
 app.use(errorLogger);
 app.use(express.json());
 
-// Use port 5000 consistently for both production and development
-const port = Number(process.env.PORT) || 5000;
+// Use port 3000 consistently for both production and development
+const port = Number(process.env.PORT) || 3000;
 
 logger.info(`Attempting to start server on port ${port}`);
 

@@ -227,6 +227,37 @@ export const systemSettingsRelations = relations(systemSettings, ({ one }) => ({
   }),
 }));
 
+// Persons table (for owners/tenants)
+export const persons = pgTable("persons", {
+  id: serial("id").primaryKey(),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPersonSchema = createInsertSchema(persons).pick({
+  fullName: true,
+  email: true,
+  phone: true,
+});
+
+// Unit-Person Roles (many-to-many, with role: 'owner' | 'tenant')
+export const unitPersonRoles = pgTable("unit_person_roles", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
+  personId: integer("person_id").notNull().references(() => persons.id),
+  role: text("role").notNull(), // 'owner' or 'tenant'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUnitPersonRoleSchema = createInsertSchema(unitPersonRoles).pick({
+  unitId: true,
+  personId: true,
+  role: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -240,3 +271,7 @@ export type Violation = typeof violations.$inferSelect;
 export type InsertViolation = z.infer<typeof insertViolationSchema>;
 export type ViolationHistory = typeof violationHistories.$inferSelect;
 export type InsertViolationHistory = z.infer<typeof insertViolationHistorySchema>;
+export type Person = typeof persons.$inferSelect;
+export type InsertPerson = z.infer<typeof insertPersonSchema>;
+export type UnitPersonRole = typeof unitPersonRoles.$inferSelect;
+export type InsertUnitPersonRole = z.infer<typeof insertUnitPersonRoleSchema>;

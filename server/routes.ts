@@ -62,6 +62,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register email configuration routes
   app.use("/api/email-config", emailConfigRoutes);
 
+  // Unit Management API (New)
+  app.get("/api/units", ensureAuthenticated, async (req, res) => {
+    try {
+      const { page, limit, sortBy, sortOrder } = req.query;
+      const pageNum = parseInt(page as string) || 1;
+      const limitNum = parseInt(limit as string) || 20;
+      const result = await dbStorage.getAllUnitsPaginated(
+        pageNum,
+        limitNum,
+        sortBy as string | undefined,
+        sortOrder as 'asc' | 'desc' | undefined
+      );
+      res.json(result); // Should be { units: PropertyUnit[], total: number }
+    } catch (error: any) {
+      console.error("Failed to fetch units:", error);
+      res.status(500).json({ message: "Failed to fetch units", details: error.message });
+    }
+  });
+
   // Configure multer for file uploads
   const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -579,6 +598,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.sendFile(filePath);
     } catch (error) {
       res.status(404).json({ message: "File not found" });
+    }
+  });
+
+  // Create Unit with Persons (owners/tenants)
+  app.post("/api/units-with-persons", ensureAuthenticated, async (req, res) => {
+    try {
+      // Validate input
+      const unitSchema = insertPropertyUnitSchema;
+      const personSchema = z.object({
+        fullName: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        role: z.enum(["owner", "tenant"])
+      });
+      const bodySchema = z.object({
+        unit: unitSchema,
+        persons: z.array(personSchema).min(1)
+      });
+      const parsed = bodySchema.parse(req.body);
+      const result = await dbStorage.createUnitWithPersons(parsed);
+      res.status(201).json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create unit with persons", error: error.message });
     }
   });
 

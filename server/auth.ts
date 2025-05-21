@@ -306,4 +306,53 @@ export function setupAuth(app: Express) {
     const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
     res.json(safeUser);
   });
+
+  // Change password for the currently authenticated user
+  app.post("/api/users/change-password", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const changePasswordSchema = z.object({
+        currentPassword: z.string(),
+        newPassword: z.string()
+          .min(8, "Password must be at least 8 characters")
+          .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+          .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+          .regex(/[0-9]/, "Password must contain at least one number")
+          .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
+      });
+
+      const validatedData = changePasswordSchema.parse(req.body);
+      const userId = req.user.id;
+
+      // Get user from DB to verify current password
+      const user = await dbStorage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Verify current password
+      const isMatch = await dbStorage.comparePasswords(validatedData.currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Incorrect current password" });
+      }
+
+      // Hash and update new password
+      const hashedNewPassword = await dbStorage.hashPassword(validatedData.newPassword);
+      await dbStorage.updateUserPassword(userId, hashedNewPassword);
+
+      res.status(200).json({ message: "Password changed successfully" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      console.error("Error changing password:", error);
+      next(error);
+    }
+  });
+
+  // Forgot password
+  // ... existing code ...
 }
