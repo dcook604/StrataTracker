@@ -582,6 +582,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create Unit with Persons (owners/tenants)
+  app.post("/api/units-with-persons", ensureAuthenticated, async (req, res) => {
+    try {
+      // Validate input
+      const unitSchema = insertPropertyUnitSchema;
+      const personSchema = z.object({
+        fullName: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        role: z.enum(["owner", "tenant"])
+      });
+      const bodySchema = z.object({
+        unit: unitSchema,
+        persons: z.array(personSchema).min(1)
+      });
+      const parsed = bodySchema.parse(req.body);
+      const result = await dbStorage.createUnitWithPersons(parsed);
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create unit with persons", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

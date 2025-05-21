@@ -20,7 +20,16 @@ import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ViolationStatus } from "@shared/schema";
+import { ViolationStatus, type Violation, type ViolationCategory, type PropertyUnit } from "@shared/schema";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { useQuery as useReactQuery } from "@tanstack/react-query";
 
 interface ViolationDetailProps {
   id: string;
@@ -31,16 +40,25 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
   const { user } = useAuth();
   const [comment, setComment] = useState("");
   const [fineAmount, setFineAmount] = useState<number | "">("");
+  const [showFineModal, setShowFineModal] = useState(false);
+  const [pendingApprove, setPendingApprove] = useState(false);
+  const [fineInput, setFineInput] = useState<number | "">("");
   
   // Fetch violation details
-  const { data: violation, isLoading } = useQuery({
+  const { data: violation, isLoading } = useQuery<Violation & { unit?: PropertyUnit }>({
     queryKey: [`/api/violations/${id}`],
   });
   
   // Fetch violation history
-  const { data: history, isLoading: historyLoading } = useQuery({
+  const { data: history, isLoading: historyLoading } = useQuery<any[]>({
     queryKey: [`/api/violations/${id}/history`],
     enabled: !!id,
+  });
+
+  // Fetch category details for default fine
+  const { data: category, isLoading: categoryLoading } = useReactQuery<ViolationCategory>({
+    queryKey: violation?.categoryId ? ["/api/violation-categories/" + violation.categoryId] : [],
+    enabled: !!violation?.categoryId,
   });
 
   // Status change mutation
@@ -133,6 +151,26 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
     commentMutation.mutate(comment);
   };
 
+  const handleApproveClick = () => {
+    setFineInput(category?.defaultFineAmount ?? "");
+    setShowFineModal(true);
+  };
+
+  const handleConfirmFineAndApprove = async () => {
+    if (fineInput === "" || isNaN(Number(fineInput))) return;
+    setPendingApprove(true);
+    try {
+      await fineMutation.mutateAsync(Number(fineInput));
+      await statusMutation.mutateAsync({ status: "approved", comment: comment || undefined });
+      setShowFineModal(false);
+      toast({ title: "Violation approved", description: `Violation approved with fine $${Number(fineInput).toFixed(2)}` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setPendingApprove(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center p-8">
@@ -150,9 +188,9 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
   }
 
   // Format violation data for display
-  const violationDate = violation.violationDate ? new Date(violation.violationDate) : null;
+  const violationDate = violation?.violationDate ? new Date(violation.violationDate) : null;
   const formattedDate = violationDate ? format(violationDate, "MMM dd, yyyy") : "N/A";
-  const formattedTime = violation.violationTime || "Not specified";
+  const formattedTime = violation?.violationTime || "Not specified";
 
   const getViolationTypeName = (type: string) => {
     const typeMap: Record<string, string> = {
@@ -178,11 +216,11 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
               <div>
                 <h2 className="text-xl font-bold text-white">Violation #{violation.id}</h2>
                 <p className="text-neutral-300 text-sm">
-                  Reported on {violation.createdAt ? format(new Date(violation.createdAt), "MMM dd, yyyy") : "N/A"}
+                  Reported on {violation?.createdAt ? format(new Date(violation.createdAt), "MMM dd, yyyy") : "N/A"}
                 </p>
               </div>
               <div className="mt-2 md:mt-0">
-                <StatusBadge status={violation.status as ViolationStatus} />
+                <StatusBadge status={violation?.status as ViolationStatus} />
               </div>
             </div>
           </div>
@@ -194,11 +232,11 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">Unit</dt>
-                    <dd className="text-sm text-neutral-900">#{violation.unit?.unitNumber}</dd>
+                    <dd className="text-sm text-neutral-900">#{violation?.unit?.unitNumber}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">Type</dt>
-                    <dd className="text-sm text-neutral-900">{getViolationTypeName(violation.violationType)}</dd>
+                    <dd className="text-sm text-neutral-900">{getViolationTypeName(violation?.violationType)}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">Date/Time</dt>
@@ -206,9 +244,9 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">Bylaw Reference</dt>
-                    <dd className="text-sm text-neutral-900">{violation.bylawReference || "Not specified"}</dd>
+                    <dd className="text-sm text-neutral-900">{violation?.bylawReference || "Not specified"}</dd>
                   </div>
-                  {violation.fineAmount !== null && (
+                  {violation?.fineAmount !== null && (
                     <div>
                       <dt className="text-sm font-medium text-neutral-500">Fine Amount</dt>
                       <dd className="text-sm text-neutral-900">${violation.fineAmount.toFixed(2)}</dd>
@@ -335,11 +373,8 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
             <Button
               className="w-full"
               variant="default"
-              onClick={() => handleStatusChange("approved")}
-              disabled={
-                violation.status === "approved" || 
-                statusMutation.isPending
-              }
+              onClick={handleApproveClick}
+              disabled={violation.status === "approved" || statusMutation.isPending}
             >
               {statusMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -366,7 +401,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
               Reject Violation
             </Button>
             
-            {user?.isCouncil && (
+            {Boolean(user && (user as any).isCouncil) && (
               <div className="pt-2">
                 <p className="text-sm font-medium text-neutral-700 mb-1">Fine Amount ($)</p>
                 <div className="flex">
@@ -427,10 +462,10 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium text-neutral-700">Owner</p>
-                <p className="text-sm text-neutral-900">{violation.unit?.ownerName}</p>
-                <p className="text-sm text-primary-600">{violation.unit?.ownerEmail}</p>
+                <p className="text-sm text-neutral-900">{violation?.unit?.ownerName}</p>
+                <p className="text-sm text-primary-600">{violation?.unit?.ownerEmail}</p>
               </div>
-              {violation.unit?.tenantName && (
+              {violation?.unit?.tenantName && (
                 <div>
                   <p className="text-sm font-medium text-neutral-700">Tenant</p>
                   <p className="text-sm text-neutral-900">{violation.unit.tenantName}</p>
@@ -466,6 +501,39 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
           </div>
         </Card>
       </div>
+
+      {/* Fine Modal */}
+      <Dialog open={showFineModal} onOpenChange={setShowFineModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Levy Fine</DialogTitle>
+            <DialogDescription>
+              {categoryLoading ? "Loading..." : category?.defaultFineAmount ? (
+                <>Default fine for this category: <b>${category.defaultFineAmount.toFixed(2)}</b></>
+              ) : (
+                "No default fine set for this category."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-1">Fine Amount ($)</label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={fineInput}
+              onChange={e => setFineInput(e.target.value === "" ? "" : parseFloat(e.target.value))}
+              placeholder="0.00"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFineModal(false)} disabled={pendingApprove}>Cancel</Button>
+            <Button variant="default" onClick={handleConfirmFineAndApprove} disabled={pendingApprove || fineInput === ""}>
+              {pendingApprove ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm and Approve"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

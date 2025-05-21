@@ -20,7 +20,11 @@ import {
   type InsertViolation,
   type ViolationHistory,
   type InsertViolationHistory,
-  type ViolationStatus
+  type ViolationStatus,
+  persons,
+  unitPersonRoles,
+  type Person,
+  type UnitPersonRole
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, like, or, not, gte, lt } from "drizzle-orm";
@@ -116,6 +120,16 @@ export interface IStorage {
   getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
 
   setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
+
+  /**
+   * Create a unit with multiple persons/roles (owners/tenants) in a single transaction.
+   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant' }> }
+   * @returns The created unit and associated persons/roles.
+   */
+  createUnitWithPersons(unitData: {
+    unit: InsertPropertyUnit,
+    persons: Array<{ fullName: string; email: string; phone?: string; role: 'owner' | 'tenant' }>
+  }): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[] }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -171,7 +185,7 @@ export class DatabaseStorage implements IStorage {
     return customer;
   }
   
-  async getAllCustomers(page = 1, limit = 10, sortBy, sortOrder) {
+  async getAllCustomers(page: number = 1, limit: number = 10, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
     // Only allow sorting by known columns
     const sortMap = {
@@ -240,13 +254,10 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getAllViolationCategories(activeOnly: boolean = false): Promise<ViolationCategory[]> {
-    let query = db.select().from(violationCategories);
-    
     if (activeOnly) {
-      query = query.where(eq(violationCategories.active, true));
+      return db.select().from(violationCategories).where(eq(violationCategories.active, true)).orderBy(violationCategories.name);
     }
-    
-    return query.orderBy(violationCategories.name);
+    return db.select().from(violationCategories).orderBy(violationCategories.name);
   }
   
   async createViolationCategory(category: InsertViolationCategory): Promise<ViolationCategory> {
@@ -404,7 +415,7 @@ export class DatabaseStorage implements IStorage {
       const lock = failedAttempts >= 5;
       await db.update(users)
         .set({
-          failedLoginAttempts,
+          failedLoginAttempts: failedAttempts,
           accountLocked: lock,
           lockReason: lock ? 'Too many failed login attempts' : null
         })
@@ -579,6 +590,7 @@ export class DatabaseStorage implements IStorage {
       .insert(violations)
       .values({
         ...violation,
+        attachments: Array.isArray(violation.attachments) ? Array.from(violation.attachments).filter((a): a is string => typeof a === 'string') : [],
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -592,6 +604,7 @@ export class DatabaseStorage implements IStorage {
       .update(violations)
       .set({
         ...violation,
+        attachments: Array.isArray(violation.attachments) ? Array.from(violation.attachments).filter((a): a is string => typeof a === 'string') : [],
         updatedAt: new Date()
       })
       .where(eq(violations.id, id))
@@ -809,7 +822,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getViolationsPaginated(page = 1, limit = 20, status, unitId, sortBy, sortOrder) {
+  async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
     // Only allow sorting by known columns
     const sortMap = {
@@ -822,17 +835,14 @@ export class DatabaseStorage implements IStorage {
     };
     let orderField = sortMap[sortBy as keyof typeof sortMap] || violations.createdAt;
     const orderFn = sortOrder === 'asc' ? orderField : desc(orderField);
-    let query = db
+    let whereClause = [];
+    if (status) whereClause.push(eq(violations.status, status));
+    if (unitId) whereClause.push(eq(violations.unitId, unitId));
+    const result = await db
       .select({ violation: violations, unit: propertyUnits })
       .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
-    if (status) {
-      query = query.where(eq(violations.status, status));
-    }
-    if (unitId) {
-      query = query.where(eq(violations.unitId, unitId));
-    }
-    const result = await query
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(whereClause.length ? and(...whereClause) : undefined)
       .orderBy(orderFn)
       .limit(limit)
       .offset(offset);
@@ -863,6 +873,49 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Failed to set user lock:', error);
     }
+  }
+
+  /**
+   * Create a unit with multiple persons/roles (owners/tenants) in a single transaction.
+   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant' }> }
+   * @returns The created unit and associated persons/roles.
+   */
+  async createUnitWithPersons(unitData: {
+    unit: InsertPropertyUnit,
+    persons: Array<{ fullName: string; email: string; phone?: string; role: 'owner' | 'tenant' }>
+  }) {
+    return await db.transaction(async (trx) => {
+      // 1. Create or find the unit
+      let [unit] = await trx.select().from(propertyUnits).where(eq(propertyUnits.unitNumber, unitData.unit.unitNumber));
+      if (!unit) {
+        [unit] = await trx.insert(propertyUnits).values(unitData.unit).returning();
+      }
+      // 2. For each person, create or find by email
+      const personIds: { [email: string]: number } = {};
+      for (const p of unitData.persons) {
+        let [person] = await trx.select().from(persons).where(eq(persons.email, p.email));
+        if (!person) {
+          [person] = await trx.insert(persons).values({ fullName: p.fullName, email: p.email, phone: p.phone }).returning();
+        }
+        personIds[p.email] = person.id;
+      }
+      // 3. Create unit_person_roles for each person/role (dedupe by unitId+personId+role)
+      for (const p of unitData.persons) {
+        const existing = await trx.select().from(unitPersonRoles)
+          .where(and(eq(unitPersonRoles.unitId, unit.id), eq(unitPersonRoles.personId, personIds[p.email]), eq(unitPersonRoles.role, p.role)));
+        if (!existing.length) {
+          await trx.insert(unitPersonRoles).values({ unitId: unit.id, personId: personIds[p.email], role: p.role }).returning();
+        }
+      }
+      // 4. Return the unit and all associated persons/roles
+      const roles = await trx.select().from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unit.id));
+      const personList = await trx.select().from(persons).where(or(...roles.map(r => eq(persons.id, r.personId))));
+      return {
+        unit,
+        persons: personList,
+        roles
+      };
+    });
   }
 }
 

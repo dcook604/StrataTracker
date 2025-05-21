@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Customer, PropertyUnit } from "@shared/schema";
+import { Unit, PropertyUnit } from "@shared/schema";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,14 +48,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const PAGE_SIZE_KEY = "customersPageSize";
-const PAGE_KEY = "customersPage";
-const SORT_KEY = "customersSort";
-const SORT_ORDER_KEY = "customersSortOrder";
+const PAGE_SIZE_KEY = "unitsPageSize";
+const PAGE_KEY = "unitsPage";
+const SORT_KEY = "unitsSort";
+const SORT_ORDER_KEY = "unitsSortOrder";
 
-export default function CustomersPage() {
+export default function UnitsPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const { toast } = useToast();
   const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
@@ -67,10 +67,10 @@ export default function CustomersPage() {
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
 
-  const { data: customerData, isLoading: customersLoading } = useQuery<{ customers: Customer[], total: number }>({
-    queryKey: ["/api/customers", { page, limit: pageSize, sortBy, sortOrder }],
+  const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: Unit[], total: number }>({
+    queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder }],
     queryFn: async () => {
-      const url = new URL("/api/customers", window.location.origin);
+      const url = new URL("/api/units", window.location.origin);
       url.searchParams.set("page", String(page));
       url.searchParams.set("limit", String(pageSize));
       url.searchParams.set("sortBy", sortBy);
@@ -80,14 +80,14 @@ export default function CustomersPage() {
     },
   });
 
-  // Fetch property units as fallback if no customers
+  // Fetch property units as fallback if no units
   const { data: propertyUnitsData, isLoading: unitsLoading } = useQuery<PropertyUnit[]>({
     queryKey: ["/api/property-units"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/property-units");
       return res.json();
     },
-    enabled: !customerData || (customerData.customers.length === 0),
+    enabled: !unitData || (unitData.units.length === 0),
   });
   
   const form = useForm<FormValues>({
@@ -106,15 +106,15 @@ export default function CustomersPage() {
   
   const createMutation = useMutation({
     mutationFn: async (data: FormValues) => {
-      const res = await apiRequest("POST", "/api/customers", data);
+      const res = await apiRequest("POST", "/api/units", data);
       return res;
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Customer added successfully",
+        description: "Unit added successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/units"] });
       setIsAddDialogOpen(false);
       form.reset();
     },
@@ -129,17 +129,17 @@ export default function CustomersPage() {
   
   const updateMutation = useMutation({
     mutationFn: async (data: FormValues & { id: number }) => {
-      const { id, ...customerData } = data;
-      const res = await apiRequest("PATCH", `/api/customers/${id}`, customerData);
+      const { id, ...unitData } = data;
+      const res = await apiRequest("PATCH", `/api/units/${id}`, unitData);
       return res;
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Customer updated successfully",
+        description: "Unit updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-      setEditingCustomer(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      setEditingUnit(null);
       form.reset();
     },
     onError: (error: Error) => {
@@ -152,24 +152,24 @@ export default function CustomersPage() {
   });
   
   const onSubmit = (values: FormValues) => {
-    if (editingCustomer) {
-      updateMutation.mutate({ ...values, id: editingCustomer.id });
+    if (editingUnit) {
+      updateMutation.mutate({ ...values, id: editingUnit.id });
     } else {
       createMutation.mutate(values);
     }
   };
   
-  const handleEdit = (customer: Customer) => {
-    setEditingCustomer(customer);
+  const handleEdit = (unit: Unit) => {
+    setEditingUnit(unit);
     form.reset({
-      unitNumber: customer.unitNumber,
-      floor: customer.floor || "",
-      ownerName: customer.ownerName,
-      ownerEmail: customer.ownerEmail,
-      tenantName: customer.tenantName || "",
-      tenantEmail: customer.tenantEmail || "",
-      phone: customer.phone || "",
-      notes: customer.notes || "",
+      unitNumber: unit.unitNumber,
+      floor: unit.floor || "",
+      ownerName: unit.ownerName,
+      ownerEmail: unit.ownerEmail,
+      tenantName: unit.tenantName || "",
+      tenantEmail: unit.tenantEmail || "",
+      phone: unit.phone || "",
+      notes: unit.notes || "",
     });
   };
   
@@ -179,7 +179,7 @@ export default function CustomersPage() {
     setPage(1);
   };
   
-  const columns: ColumnDef<Customer>[] = [
+  const columns: ColumnDef<Unit>[] = [
     {
       accessorKey: "unitNumber",
       header: () => (
@@ -229,13 +229,13 @@ export default function CustomersPage() {
     {
       id: "actions",
       cell: ({ row }) => {
-        const customer = row.original;
+        const unit = row.original;
         return (
           <div className="flex items-center gap-2">
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => handleEdit(customer)}
+              onClick={() => handleEdit(unit)}
             >
               <PencilIcon className="h-4 w-4" />
             </Button>
@@ -245,19 +245,19 @@ export default function CustomersPage() {
     }
   ];
   
-  const total = customerData && 'total' in customerData ? customerData.total : 0;
+  const total = unitData && 'total' in unitData ? unitData.total : 0;
   const totalPages = Math.ceil(total / pageSize);
-  const customers = customerData && 'customers' in customerData ? customerData.customers : [];
+  const units = unitData && 'units' in unitData ? unitData.units : [];
 
   return (
-    <Layout title="Customer Management">
+    <Layout title="Unit Management">
       <div className="space-y-6">
         <div className="flex justify-end">
         <Button onClick={() => {
           form.reset();
           setIsAddDialogOpen(true);
         }}>
-          Add Customer
+          Add Unit
         </Button>
       </div>
       
@@ -277,15 +277,15 @@ export default function CustomersPage() {
         </div>
       </div>
       
-      {(customersLoading || unitsLoading) ? (
+      {(unitsLoading || unitsLoading) ? (
         <div className="flex justify-center p-8">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
         </div>
-      ) : customers && customers.length > 0 ? (
+      ) : units && units.length > 0 ? (
         <>
           <DataTable 
             columns={columns} 
-            data={customers}
+            data={units}
             searchColumn="unitNumber"
             searchPlaceholder="Search by unit number..."
           />
@@ -324,8 +324,8 @@ export default function CustomersPage() {
       ) :
         <EmptyState
           icon={<BuildingIcon className="h-10 w-10" />}
-          title="No customers found"
-          description="Add your first customer to get started"
+          title="No units found"
+          description="Add your first unit to get started"
         />
       }
       </div>
@@ -333,9 +333,9 @@ export default function CustomersPage() {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[425px] max-h-[90vh] p-0">
           <DialogHeader className="p-6 pb-0">
-            <DialogTitle>Add Customer</DialogTitle>
+            <DialogTitle>Add Unit</DialogTitle>
             <DialogDescription>
-              Enter the details for the new customer/unit. If the unit already exists, you can update its information.
+              Enter the details for the new unit. If the unit already exists, you can update its information.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -362,7 +362,7 @@ export default function CustomersPage() {
                 setIsCheckingDuplicate(false);
                 if (existing) {
                   if (confirm("This unit already exists. Do you want to update its information?")) {
-                    // Update existing unit (and customer)
+                    // Update existing unit (and unit)
                     const payload = {
                       unitNumber: values.unitNumber,
                       ownerName: values.ownerName,
@@ -374,10 +374,10 @@ export default function CustomersPage() {
                       notes: values.notes || null,
                     };
                     await apiRequest("PUT", `/api/property-units/${existing.id}`, payload);
-                    createMutation.mutate(values); // Also create/update customer record
+                    createMutation.mutate(values); // Also create/update unit record
                     toast({
                       title: "Unit updated",
-                      description: `Unit ${values.unitNumber} has been updated. Customer record will be created/updated as well.`,
+                      description: `Unit ${values.unitNumber} has been updated. Unit record will be created/updated as well.`,
                     });
                     setIsAddDialogOpen(false);
                     form.reset();
@@ -518,12 +518,12 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && setEditingCustomer(null)}>
+      <Dialog open={!!editingUnit} onOpenChange={(open) => !open && setEditingUnit(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Customer</DialogTitle>
+            <DialogTitle>Edit Unit</DialogTitle>
             <DialogDescription>
-              Update the customer details.
+              Update the unit details.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -633,7 +633,7 @@ export default function CustomersPage() {
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditingCustomer(null)}>
+                <Button type="button" variant="outline" onClick={() => setEditingUnit(null)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>

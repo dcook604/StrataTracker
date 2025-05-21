@@ -12,7 +12,7 @@ import NewViolationPage from "@/pages/new-violation-page";
 import AllViolationsPage from "@/pages/all-violations-page";
 import ViolationDetailPage from "@/pages/violation-detail-page";
 import ReportsPage from "@/pages/reports-page";
-import CustomersPage from "@/pages/customers-page";
+import UnitsPage from "@/pages/units-page";
 import CategoriesPage from "@/pages/categories-page";
 import SettingsPage from "@/pages/settings-page";
 import UsersPage from "@/pages/users-page";
@@ -32,7 +32,7 @@ function Router() {
       <ProtectedRoute path="/violations" component={AllViolationsPage} />
       <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
-      <ProtectedRoute path="/customers" component={CustomersPage} />
+      <ProtectedRoute path="/units" component={UnitsPage} />
       <ProtectedRoute path="/categories" component={CategoriesPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/users" component={UsersPage} />

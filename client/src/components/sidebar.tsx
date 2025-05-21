@@ -56,9 +56,9 @@ export function Sidebar({ className }: SidebarProps) {
       href: "/reports",
     },
     {
-      title: "Customers",
+      title: "Units",
       icon: <Users className="h-5 w-5" />,
-      href: "/customers", 
+      href: "/units", 
       adminOnly: true,
     },
     {
