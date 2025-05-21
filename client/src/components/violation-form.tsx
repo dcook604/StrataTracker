@@ -78,12 +78,6 @@ export function ViolationForm() {
   const safeUnits = Array.isArray(units) ? units : [];
   const safeCategories = Array.isArray(categories) ? categories : [];
 
-  // Add these fields to the form state when showNewUnitForm is true
-  const newUnitFields = showNewUnitForm ? {
-    unitNumber: '',
-    floor: '',
-  } : {};
-
   // Form setup
   const form = useForm<any>({
     resolver: zodResolver(violationFormSchema),
@@ -97,7 +91,8 @@ export function ViolationForm() {
       bylawReference: "",
       status: "new",
       attachments: [],
-      ...newUnitFields,
+      unitNumber: '',
+      floor: '',
     },
   });
 
@@ -273,15 +268,31 @@ export function ViolationForm() {
                     <h4 className="text-sm font-medium text-neutral-700">Add New Unit</h4>
                     <div className="space-y-2">
                       <div className="grid grid-cols-2 gap-2 mb-4">
-                        <Input
-                          placeholder="Unit Number *"
-                          value={form.getValues().unitNumber || ''}
-                          onChange={e => form.setValue('unitNumber', e.target.value)}
+                        <FormField
+                          control={form.control}
+                          name="unitNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Unit Number *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Unit Number *" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
-                        <Input
-                          placeholder="Floor"
-                          value={form.getValues().floor || ''}
-                          onChange={e => form.setValue('floor', e.target.value)}
+                        <FormField
+                          control={form.control}
+                          name="floor"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Floor</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Floor" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
                       </div>
                       <div>

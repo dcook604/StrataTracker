@@ -339,428 +339,372 @@ export default function SettingsPage() {
   return (
     <Layout title="System Settings">
       <div className="space-y-6">
-        <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={() => setActiveTab("smtp")}>
-            <MailIcon className="mr-2 h-4 w-4" />
-            SMTP Settings
-          </Button>
-          <Button variant="outline" onClick={() => setActiveTab("userManagement")}>
-            <UsersIconLucide className="mr-2 h-4 w-4" />
-            User Management
-          </Button>
-        </div>
-        
-        {isLoadingEmailNotificationSettings || isLoadingSmtpConfig ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="email">Email Settings</TabsTrigger>
-              <TabsTrigger value="smtp">SMTP Settings</TabsTrigger>
-              <TabsTrigger value="system">System Settings</TabsTrigger>
-              <TabsTrigger value="userManagement">User Management</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="flex items-center justify-between">
+            <TabsList className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <TabsTrigger value="email">
+                <MailIcon className="mr-2 h-4 w-4" /> Email Settings
+              </TabsTrigger>
+              <TabsTrigger value="system">
+                <Settings className="mr-2 h-4 w-4" /> System Settings
+              </TabsTrigger>
             </TabsList>
-            
-            <TabsContent value="email" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Email Notification Settings</CardTitle>
-                  <CardDescription>
-                    Configure how email notifications are sent to residents
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...emailForm}>
-                    <form onSubmit={emailForm.handleSubmit(onEmailFormSubmit)} className="space-y-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <FormField
-                          control={emailForm.control}
-                          name="emailSenderName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Sender Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Strata Management" {...field} />
-                              </FormControl>
-                              <FormDescription>
-                                This name will appear as the sender of all notification emails
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={emailForm.control}
-                          name="emailSenderAddress"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Sender Email Address</FormLabel>
-                              <FormControl>
-                                <Input placeholder="violations@example.com" {...field} />
-                              </FormControl>
-                              <FormDescription>
-                                The email address that will be used to send all notifications
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <FormField
-                          control={emailForm.control}
-                          name="emailNotificationsEnabled"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                              <div className="space-y-0.5">
-                                <FormLabel>Email Notifications</FormLabel>
-                                <FormDescription>
-                                  Enable or disable all email notifications
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={emailForm.control}
-                          name="emailLogoEnabled"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                              <div className="space-y-0.5">
-                                <FormLabel>Include Logo in Emails</FormLabel>
-                                <FormDescription>
-                                  Show the strata logo in notification emails
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
+          </div>
+
+          <TabsContent value="email">
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Notification Settings</CardTitle>
+                <CardDescription>
+                  Configure how email notifications are sent to residents
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...emailForm}>
+                  <form onSubmit={emailForm.handleSubmit(onEmailFormSubmit)} className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <FormField
                         control={emailForm.control}
-                        name="emailFooterText"
+                        name="emailSenderName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email Footer Text</FormLabel>
+                            <FormLabel>Sender Name</FormLabel>
                             <FormControl>
-                              <Input placeholder="© Strata Management System" {...field} />
+                              <Input placeholder="Strata Management" {...field} />
                             </FormControl>
                             <FormDescription>
-                              Text to appear at the bottom of all notification emails
+                              This name will appear as the sender of all notification emails
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <FormField
-                          control={emailForm.control}
-                          name="violationSubmittedSubject"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>New Violation Subject</FormLabel>
-                              <FormControl>
-                                <Input placeholder="New Violation Report" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={emailForm.control}
-                          name="violationApprovedSubject"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Violation Approved Subject</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Violation Approved - Action Required" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                      <FormField
+                        control={emailForm.control}
+                        name="emailSenderAddress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Sender Email Address</FormLabel>
+                            <FormControl>
+                              <Input placeholder="violations@example.com" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              The email address that will be used to send all notifications
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <FormField
+                        control={emailForm.control}
+                        name="emailNotificationsEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Email Notifications</FormLabel>
+                              <FormDescription>
+                                Enable or disable all email notifications
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
                       
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <FormField
-                          control={emailForm.control}
-                          name="violationDisputedSubject"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Violation Disputed Subject</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Violation Disputed" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={emailForm.control}
-                          name="violationRejectedSubject"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Violation Rejected Subject</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Violation Rejected" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                      <FormField
+                        control={emailForm.control}
+                        name="emailLogoEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Include Logo in Emails</FormLabel>
+                              <FormDescription>
+                                Show the strata logo in notification emails
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <FormField
+                      control={emailForm.control}
+                      name="emailFooterText"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Footer Text</FormLabel>
+                          <FormControl>
+                            <Input placeholder="© Strata Management System" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Text to appear at the bottom of all notification emails
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <FormField
+                        control={emailForm.control}
+                        name="violationSubmittedSubject"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>New Violation Subject</FormLabel>
+                            <FormControl>
+                              <Input placeholder="New Violation Report" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       
-                      <CardFooter className="flex justify-between border-t pt-6 px-0">
-                        <div className="flex items-center space-x-2">
-                          <Input
-                            className="w-64"
-                            placeholder="Enter email for test"
-                            value={testEmailAddress}
-                            onChange={(e) => setTestEmailAddress(e.target.value)}
-                          />
-                          <Button 
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsSmtpTestDialogOpen(true)}
-                            disabled={sendingTestEmail}
-                          >
-                            {sendingTestEmail ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Sending...
-                              </>
-                            ) : "Test Email"}
-                          </Button>
-                        </div>
-                        
+                      <FormField
+                        control={emailForm.control}
+                        name="violationApprovedSubject"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Violation Approved Subject</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Violation Approved - Action Required" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <FormField
+                        control={emailForm.control}
+                        name="violationDisputedSubject"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Violation Disputed Subject</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Violation Disputed" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={emailForm.control}
+                        name="violationRejectedSubject"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Violation Rejected Subject</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Violation Rejected" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <CardFooter className="flex justify-between border-t pt-6 px-0">
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          className="w-64"
+                          placeholder="Enter email for test"
+                          value={testEmailAddress}
+                          onChange={(e) => setTestEmailAddress(e.target.value)}
+                        />
                         <Button 
-                          type="submit" 
-                          disabled={updateSettingsMutation.isPending}
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsSmtpTestDialogOpen(true)}
+                          disabled={sendingTestEmail}
                         >
-                          {updateSettingsMutation.isPending ? (
+                          {sendingTestEmail ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Saving...
+                              Sending...
                             </>
-                          ) : "Save Settings"}
+                          ) : "Test Email"}
                         </Button>
-                      </CardFooter>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="smtp" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2">
-                  <CardHeader>
-                    <CardTitle>SMTP Configuration</CardTitle>
-                    <CardDescription>
-                      Configure your SMTP server settings for sending system emails.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {smtpConfigError ? (
-                       <Alert variant="destructive">
-                         <AlertCircle className="h-4 w-4" />
-                         <AlertTitle>Error Loading SMTP Config</AlertTitle>
-                         <AlertDescription>
-                           {(smtpConfigError as Error).message || "Could not load SMTP configuration. Please try again."}
-                           <Button 
-                             variant="link" 
-                             className="p-0 h-auto ml-2" 
-                             onClick={() => queryClientHook.invalidateQueries({ queryKey: ['/api/email-config'] })}
-                           >
-                             Retry
-                           </Button>
-                         </AlertDescription>
-                       </Alert>
-                    ) : (
-                    <Form {...smtpForm}>
-                      <form onSubmit={smtpForm.handleSubmit(onSmtpConfigSubmit)} className="space-y-4">
-                        <FormField
-                          control={smtpForm.control}
-                          name="host"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>SMTP Host</FormLabel>
-                              <FormControl>
-                                <Input placeholder="smtp.example.com" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <FormField
-                            control={smtpForm.control}
-                            name="port"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>SMTP Port</FormLabel>
-                                <FormControl>
-                                  <Input type="number" placeholder="587" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={smtpForm.control}
-                            name="secure"
-                            render={({ field }) => (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mt-2 sm:mt-0 sm:pt-[2.1rem] sm:pb-[2.1rem]">
-                                <div className="space-y-0.5">
-                                  <FormLabel>Use SSL/TLS</FormLabel>
-                                </div>
-                                <FormControl>
-                                  <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <FormField
-                          control={smtpForm.control}
-                          name="authUser"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>SMTP Username</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Optional" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={smtpForm.control}
-                          name="authPass"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>SMTP Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" placeholder="Leave blank to keep existing" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={smtpForm.control}
-                          name="from"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>From Email Address</FormLabel>
-                              <FormControl>
-                                <Input placeholder="noreply@example.com" {...field} />
-                              </FormControl>
-                              <FormDescription>This email will be used as the sender for system notifications.</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <CardFooter className="flex justify-end px-0 pt-6 border-t">
-                          <Button type="submit" disabled={saveSmtpConfigMutation.isPending}>
-                            {saveSmtpConfigMutation.isPending ? (
-                              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving SMTP...</>
-                            ) : "Save SMTP Settings"}
-                          </Button>
-                        </CardFooter>
-                      </form>
-                    </Form>
-                    )}
-                  </CardContent>
-                </Card>
+                      </div>
+                      
+                      <Button 
+                        type="submit" 
+                        disabled={updateSettingsMutation.isPending}
+                      >
+                        {updateSettingsMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : "Save Settings"}
+                      </Button>
+                    </CardFooter>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                <Card className="md:col-span-1">
-                  <CardHeader>
-                    <CardTitle>Test SMTP Connection</CardTitle>
-                    <CardDescription>Send a test email using the above SMTP settings.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Form {...smtpTestForm}>
-                      <form onSubmit={smtpTestForm.handleSubmit(onSmtpTestSubmit)} className="space-y-4">
-                        <FormField
-                          control={smtpTestForm.control}
-                          name="testEmail"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Recipient Email</FormLabel>
-                              <FormControl>
-                                <Input placeholder="your-email@example.com" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button type="submit" className="w-full" disabled={testSmtpEmailMutation.isPending || isLoadingSmtpConfig || !smtpForm.formState.isValid && !smtpConfig}>
-                          {testSmtpEmailMutation.isPending ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending Test...</>
-                          ) : "Send Test Email"}
-                        </Button>
-                      </form>
-                    </Form>
-                    {smtpTestStatus !== 'idle' && (
-                      <Alert className={`mt-4 ${smtpTestStatus === 'success' ? 'border-green-500 text-green-700' : smtpTestStatus === 'error' ? 'border-red-500 text-red-700' : 'border-blue-500 text-blue-700'}`}>
-                        {smtpTestStatus === 'success' && <CheckCircle2 className={`h-4 w-4 ${smtpTestStatus === 'success' ? 'text-green-700' : ''}`} />}
-                        {smtpTestStatus === 'error' && <AlertCircle className={`h-4 w-4 ${smtpTestStatus === 'error' ? 'text-red-700' : ''}`} />}
-                        {smtpTestStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin" />}
-                        <AlertTitle className="ml-2">
-                          {smtpTestStatus === 'success' ? 'Success' : smtpTestStatus === 'error' ? 'Error' : 'Sending'}
-                        </AlertTitle>
-                        <AlertDescription className="ml-2">{smtpTestMessage}</AlertDescription>
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="system" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>General Settings</CardTitle>
-                  <CardDescription>
-                    Configure system-wide settings and preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">General system settings will be added in a future update.</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
+          <TabsContent value="smtp">
+            <Card>
+              <CardHeader>
+                <CardTitle>SMTP Configuration</CardTitle>
+                <CardDescription>
+                  Configure your SMTP server settings for sending system emails.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {smtpConfigError ? (
+                   <Alert variant="destructive">
+                     <AlertCircle className="h-4 w-4" />
+                     <AlertTitle>Error Loading SMTP Config</AlertTitle>
+                     <AlertDescription>
+                       {(smtpConfigError as Error).message || "Could not load SMTP configuration. Please try again."}
+                       <Button 
+                         variant="link" 
+                         className="p-0 h-auto ml-2" 
+                         onClick={() => queryClientHook.invalidateQueries({ queryKey: ['/api/email-config'] })}
+                       >
+                         Retry
+                       </Button>
+                     </AlertDescription>
+                   </Alert>
+                ) : (
+                <Form {...smtpForm}>
+                  <form onSubmit={smtpForm.handleSubmit(onSmtpConfigSubmit)} className="space-y-4">
+                    <FormField
+                      control={smtpForm.control}
+                      name="host"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Host</FormLabel>
+                          <FormControl>
+                            <Input placeholder="smtp.example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={smtpForm.control}
+                        name="port"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>SMTP Port</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="587" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={smtpForm.control}
+                        name="secure"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mt-2 sm:mt-0 sm:pt-[2.1rem] sm:pb-[2.1rem]">
+                            <div className="space-y-0.5">
+                              <FormLabel>Use SSL/TLS</FormLabel>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={smtpForm.control}
+                      name="authUser"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Username</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Optional" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={smtpForm.control}
+                      name="authPass"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="Leave blank to keep existing" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={smtpForm.control}
+                      name="from"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>From Email Address</FormLabel>
+                          <FormControl>
+                            <Input placeholder="noreply@example.com" {...field} />
+                          </FormControl>
+                          <FormDescription>This email will be used as the sender for system notifications.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <CardFooter className="flex justify-end px-0 pt-6 border-t">
+                      <Button type="submit" disabled={saveSmtpConfigMutation.isPending}>
+                        {saveSmtpConfigMutation.isPending ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving SMTP...</>
+                        ) : "Save SMTP Settings"}
+                      </Button>
+                    </CardFooter>
+                  </form>
+                </Form>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <TabsContent value="userManagement" className="space-y-4">
-              <UserManagementTabContent />
-            </TabsContent>
-          </Tabs>
-        )}
+          <TabsContent value="system">
+            <Card>
+              <CardHeader>
+                <CardTitle>General Settings</CardTitle>
+                <CardDescription>
+                  Configure system-wide settings and preferences
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">General system settings will be added in a future update.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users">
+            <UserManagementTabContent />
+          </TabsContent>
+
+        </Tabs>
       </div>
     </Layout>
   );
