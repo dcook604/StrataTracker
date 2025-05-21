@@ -389,16 +389,26 @@ export function ViolationForm() {
                             });
                             return;
                           }
-                          // Build persons array
-                          const persons = [
-                            ...owners.filter(o => o.fullName && o.email).map(o => ({ ...o, role: 'owner' })),
+
+                          const firstOwner = validOwners[0]; // Get the first valid owner
+                          const unitPayload = {
+                            unitNumber,
+                            floor: floor || null,
+                            ownerName: firstOwner.fullName,
+                            ownerEmail: firstOwner.email,
+                          };
+
+                          // Build persons array (excluding the first owner, if they are the primary)
+                          const personsPayload = [
+                            ...validOwners.slice(1).map(o => ({ ...o, role: 'owner' })),
                             ...tenants.filter(t => t.fullName && t.email).map(t => ({ ...t, role: 'tenant' })),
                           ];
+
                           // Call new API
                           try {
                             const res = await apiRequest("POST", "/api/units-with-persons", {
-                              unit: { unitNumber, floor },
-                              persons,
+                              unit: unitPayload, // Use the new unitPayload
+                              persons: personsPayload, // Use the new personsPayload
                             });
                             const data = await res.json();
                             queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });

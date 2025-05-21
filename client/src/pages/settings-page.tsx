@@ -348,6 +348,12 @@ export default function SettingsPage() {
               <TabsTrigger value="system">
                 <Settings className="mr-2 h-4 w-4" /> System Settings
               </TabsTrigger>
+              <TabsTrigger value="smtp">
+                <MailIcon className="mr-2 h-4 w-4" /> SMTP Settings
+              </TabsTrigger>
+              <TabsTrigger value="users">
+                <UsersIconLucide className="mr-2 h-4 w-4" /> User Management
+              </TabsTrigger>
             </TabsList>
           </div>
 

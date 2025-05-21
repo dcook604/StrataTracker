@@ -9,7 +9,7 @@ A modern web application for managing property violations, units/customers, and 
 - **User Management**: Add, edit, and delete users with multiple roles (Administrator, Council Member, Regular User). Strict Zod schemas enforce correct validation for both creation and editing.
 - **Unit/Customer Management**: Unified Add Unit/Customer flow with duplicate checking and update option, consistent across Violations and Customers sections.
 - **Violation Tracking**: Create, view, and manage violations, with file attachments and status tracking.
-- **Settings**: System and email settings with client-side navigation (SPA experience, no full page reloads).
+- **Settings**: System, email, SMTP, and user management settings with client-side navigation (SPA experience, no full page reloads). Admins and council members can now configure SMTP (outgoing email server) and manage user accounts directly from the Settings page.
 - **Responsive UI**: Modern, accessible, and mobile-friendly design.
 - **Performance Optimizations**: Paginated queries, optimized count queries, and recommended database indexing for large datasets.
 - **Security**: All sensitive logic is server-side, and user input is strictly validated and sanitized.
@@ -72,3 +72,14 @@ For the full rules, see the project documentation or ask a maintainer.
 
 ## License
 MIT 
+
+## Settings Page Tabs
+
+The Settings page now includes the following tabs (visible to Administrators and Council Members):
+
+- **Email Settings**: Configure notification sender, enable/disable notifications, customize email subjects and footer.
+- **System Settings**: General system-wide preferences (future expansion).
+- **SMTP Settings**: Configure the outgoing email (SMTP) server, including host, port, authentication, and sender address. Test email delivery directly from this tab.
+- **User Management**: Add, edit, lock, or remove user accounts and assign roles.
+
+**Access:** Only users with the Administrator or Council Member role can view and modify these settings. Regular users will not see the Settings page or its tabs. 
