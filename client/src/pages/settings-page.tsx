@@ -26,7 +26,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle, Users as UsersIconLucide } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
@@ -34,6 +34,7 @@ import { Layout } from "@/components/layout";
 import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { UserManagementTabContent } from "@/components/user-management-tab";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -343,8 +344,8 @@ export default function SettingsPage() {
             <MailIcon className="mr-2 h-4 w-4" />
             SMTP Settings
           </Button>
-          <Button variant="outline" onClick={() => navigate("/users")}>
-            <Settings className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={() => setActiveTab("userManagement")}>
+            <UsersIconLucide className="mr-2 h-4 w-4" />
             User Management
           </Button>
         </div>
@@ -359,6 +360,7 @@ export default function SettingsPage() {
               <TabsTrigger value="email">Email Settings</TabsTrigger>
               <TabsTrigger value="smtp">SMTP Settings</TabsTrigger>
               <TabsTrigger value="system">System Settings</TabsTrigger>
+              <TabsTrigger value="userManagement">User Management</TabsTrigger>
             </TabsList>
             
             <TabsContent value="email" className="space-y-4">
@@ -752,6 +754,10 @@ export default function SettingsPage() {
                   <p className="text-muted-foreground">General system settings will be added in a future update.</p>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="userManagement" className="space-y-4">
+              <UserManagementTabContent />
             </TabsContent>
           </Tabs>
         )}

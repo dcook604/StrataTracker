@@ -21,15 +21,47 @@ export default function DashboardPage() {
   } = useQuery<SystemSetting>({
     queryKey: ["/api/system-settings/propertyName"],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/system-settings/propertyName");
-      if (!res.ok) {
-        // If the setting is not found, return a default or handle as an error
-        // For now, let's assume it means we use a default display name.
-        // Alternatively, throw new Error('Failed to fetch property name');
-        console.warn('Property name setting not found, using default.');
-        return { key: 'propertyName', value: 'Property' }; 
+      try {
+        const res = await apiRequest("GET", "/api/system-settings/propertyName");
+
+        if (!res.ok) {
+          // Attempt to parse error message from response if it's a known format
+          let errorJsonMessage = 'Property name setting not found or failed to load.';
+          try {
+            const errorData = await res.json();
+            if (errorData && errorData.message) {
+              errorJsonMessage = errorData.message;
+            }
+          } catch (parseError) {
+            // Ignore if parsing error response fails, use default message
+            console.warn('Could not parse error response for propertyName setting:', parseError);
+          }
+          
+          // Specifically handle 404 by returning a default, otherwise throw to trigger query error state
+          if (res.status === 404) {
+            console.warn(`Property name setting not found (404): ${errorJsonMessage}. Using default.`);
+            return { key: 'propertyName', value: 'Property' }; 
+          }
+          // For other non-ok statuses, throw an error to be caught by useQuery
+          console.error(`Failed to fetch property name: ${res.status} ${res.statusText} - ${errorJsonMessage}`);
+          throw new Error(`Failed to fetch property name: ${errorJsonMessage}`);
+        }
+
+        // If res.ok, try to parse the JSON
+        try {
+          return await res.json();
+        } catch (parseError) {
+          console.error('Failed to parse successful response for propertyName setting:', parseError);
+          throw new Error('Property name data is malformed.'); // This will set propertyNameError
+        }
+
+      } catch (err) {
+        // This catches errors from apiRequest itself (e.g. network) or errors thrown above
+        console.error("Error in propertyNameSetting queryFn:", err);
+        // Ensure the error is re-thrown so useQuery can set its error state
+        if (err instanceof Error) throw err;
+        throw new Error('An unexpected error occurred while fetching property name.');
       }
-      return res.json();
     },
   });
 
