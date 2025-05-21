@@ -226,6 +226,34 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
   });
 }
 
+// Send invitation email
+export async function sendInvitationEmail(email: string, inviteToken: string, fullName: string, req?: any): Promise<boolean> {
+  let baseUrl = process.env.APP_URL;
+  if (!baseUrl && req) {
+    const protocol = req.protocol || 'http';
+    const host = req.get ? req.get('host') : (req.headers && req.headers.host);
+    baseUrl = `${protocol}://${host}`;
+  }
+  if (!baseUrl) {
+    baseUrl = 'http://localhost:5000';
+  }
+  const inviteUrl = `${baseUrl}/set-password?token=${inviteToken}`;
+  const subject = 'Welcome to Strata Violation Management System – Set Your Password';
+  const html = `
+    <h1>Welcome to Strata Violation Management System</h1>
+    <p>Hello ${fullName},</p>
+    <p>Your account has been created. Please set your password to activate your account:</p>
+    <p><a href="${inviteUrl}">Set Your Password</a></p>
+    <p>If you did not expect this invitation, you can ignore this email.</p>
+    <p>Thank you,<br/>Strata Management Team</p>
+  `;
+  return sendEmail({
+    to: email,
+    subject,
+    html
+  });
+}
+
 // Initialize email settings
 loadEmailSettings().catch(error => {
   console.error('Failed to load initial email settings:', error);
