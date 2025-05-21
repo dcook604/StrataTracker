@@ -81,7 +81,7 @@ export default function UnitsPage() {
   });
 
   // Fetch property units as fallback if no units
-  const { data: propertyUnitsData, isLoading: unitsLoading } = useQuery<PropertyUnit[]>({
+  const { data: propertyUnitsData, isLoading: isPropertyUnitsLoading } = useQuery<PropertyUnit[]>({
     queryKey: ["/api/property-units"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/property-units");
