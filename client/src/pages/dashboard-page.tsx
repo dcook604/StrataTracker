@@ -28,33 +28,44 @@ export default function DashboardPage() {
           // Attempt to parse error message from response if it's a known format
           let errorJsonMessage = 'Property name setting not found or failed to load.';
           try {
-            const errorData = await res.json();
-            if (errorData && errorData.message) {
-              errorJsonMessage = errorData.message;
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const errorData = await res.json();
+              if (errorData && errorData.message) {
+                errorJsonMessage = errorData.message;
+              }
+            } else {
+              // Not JSON, try to get text for debugging
+              const errorText = await res.text();
+              console.warn('Non-JSON error response for propertyName setting:', errorText);
             }
           } catch (parseError) {
             // Ignore if parsing error response fails, use default message
             console.warn('Could not parse error response for propertyName setting:', parseError);
           }
-          
           // Specifically handle 404 by returning a default, otherwise throw to trigger query error state
           if (res.status === 404) {
             console.warn(`Property name setting not found (404): ${errorJsonMessage}. Using default.`);
-            return { key: 'propertyName', value: 'Property' }; 
+            return { key: 'propertyName', value: 'Property' };
           }
           // For other non-ok statuses, throw an error to be caught by useQuery
           console.error(`Failed to fetch property name: ${res.status} ${res.statusText} - ${errorJsonMessage}`);
           throw new Error(`Failed to fetch property name: ${errorJsonMessage}`);
         }
 
-        // If res.ok, try to parse the JSON
+        // If res.ok, check content type before parsing
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error('Expected JSON but got non-JSON response for propertyName setting:', text);
+          throw new Error('Property name data is malformed (not JSON).');
+        }
         try {
           return await res.json();
         } catch (parseError) {
           console.error('Failed to parse successful response for propertyName setting:', parseError);
-          throw new Error('Property name data is malformed.'); // This will set propertyNameError
+          throw new Error('Property name data is malformed (invalid JSON).');
         }
-
       } catch (err) {
         // This catches errors from apiRequest itself (e.g. network) or errors thrown above
         console.error("Error in propertyNameSetting queryFn:", err);
