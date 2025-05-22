@@ -70,6 +70,38 @@ For the full rules, see the project documentation or ask a maintainer.
 
 ---
 
+## Database Migrations (Drizzle ORM)
+
+This project uses Drizzle ORM and `drizzle-kit` for managing database schema changes.
+
+**Standard Workflow:**
+
+1.  **Modify Schema:** Make changes to your table definitions in `shared/schema.ts`.
+2.  **Generate Migration:** Run `npx drizzle-kit generate` (or the specific command suggested by `drizzle-kit` if it changes, e.g., `npx drizzle-kit generate:pg`). This will create a new SQL migration file in the `migrations/` directory.
+3.  **Review Migration:** Inspect the generated SQL file to ensure it accurately reflects your intended changes.
+4.  **Apply Migration:** Run the migration script. Ideally, you should have an npm script for this, e.g., `npm run migrate`.
+    *   A typical migration script (e.g., `scripts/migrate.ts`) uses `drizzle-orm/postgres-js/migrator` to apply migrations.
+    *   Example `package.json` script: `"migrate": "tsx ./scripts/migrate.ts"`
+
+**Troubleshooting Migration Script Execution (Manual Intervention Record - 2025-05-22):**
+
+*   **Issue:** During development, automated execution of migration scripts (e.g., `npm run migrate` via `tsx ./scripts/migrate.ts` or `npm run db:push` via `drizzle-kit push`) failed in the Replit environment without providing clear error messages. This prevented the creation of the `persons` and `unit_person_roles` tables automatically.
+*   **Manual Resolution:** The migration `migrations/0001_slow_chimera.sql` (which included `CREATE TABLE "persons"` and `CREATE TABLE "unit_person_roles"`) was applied manually by executing its SQL content directly against the PostgreSQL database using Replit's built-in database UI.
+*   **Future Considerations:**
+    *   The underlying issue causing `tsx` and `drizzle-kit push` to fail silently in the Replit terminal needs further investigation. This could be related to environment configuration, PATH issues, or how `stderr` is handled.
+    *   If automated migration application continues to be problematic, manual SQL execution via the database UI remains a fallback. However, this is not ideal for CI/CD or team workflows.
+    *   **Reconciling Manual Migrations:** If a migration is applied manually, `drizzle-kit`'s metadata (e.g., `migrations/meta/_journal.json`) might not be aware. To prevent `drizzle-kit generate` from trying to re-apply the same changes:
+        1.  Ensure the manually applied SQL was successful.
+        2.  Consider deleting the corresponding `.sql` migration file *after* manual application and before running `drizzle-kit generate` again for *new* changes. Alternatively, if `drizzle-kit push` can be made to work, it should reconcile the schema state. The goal is to ensure `drizzle-kit` accurately understands the current state of the deployed database schema.
+
+**Key Migration Commands:**
+
+*   `npx drizzle-kit generate`: Generates a new SQL migration file based on schema changes.
+*   `npm run migrate` (or equivalent): Applies pending SQL migration files from the `migrations` folder.
+*   `npm run db:push` (or `npx drizzle-kit push`): Directly synchronizes the DB schema with the code schema (use with caution, especially in production, as it can be destructive and bypasses versioned SQL migration files).
+
+---
+
 ## License
 MIT 
 

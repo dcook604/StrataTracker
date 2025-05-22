@@ -19,10 +19,10 @@ export default function DashboardPage() {
     isLoading: isLoadingPropertyName, 
     error: propertyNameError 
   } = useQuery<SystemSetting>({
-    queryKey: ["/api/system-settings/propertyName"],
+    queryKey: ["/api/settings/propertyName"],
     queryFn: async () => {
       try {
-        const res = await apiRequest("GET", "/api/system-settings/propertyName");
+        const res = await apiRequest("GET", "/api/settings/propertyName");
 
         if (!res.ok) {
           // Attempt to parse error message from response if it's a known format
