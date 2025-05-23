@@ -145,7 +145,7 @@ export const violations = pgTable("violations", {
   violationTime: text("violation_time"),
   description: text("description").notNull(),
   bylawReference: text("bylaw_reference"),
-  status: text("status").notNull().default("new"),
+  status: text("status").notNull().default("pending_approval"),
   fineAmount: integer("fine_amount"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -189,6 +189,7 @@ export const violationHistories = pgTable("violation_histories", {
   userId: integer("user_id").notNull().references(() => users.id),
   action: text("action").notNull(),
   comment: text("comment"),
+  commenterName: text("commenter_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -208,6 +209,7 @@ export const insertViolationHistorySchema = createInsertSchema(violationHistorie
   userId: true,
   action: true,
   comment: true,
+  commenterName: true,
 });
 
 // Types

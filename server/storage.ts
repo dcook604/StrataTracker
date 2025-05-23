@@ -103,7 +103,7 @@ export interface IStorage {
   generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined>;
   
   // Violation history operations
-  getViolationHistory(violationId: number): Promise<ViolationHistory[]>;
+  getViolationHistory(violationId: number): Promise<ViolationHistoryWithUser[]>;
   addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory>;
   
   // Reporting operations
@@ -154,6 +154,10 @@ export interface IStorage {
   createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink>;
   getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined>;
   markViolationAccessLinkUsed(id: number): Promise<void>;
+}
+
+export interface ViolationHistoryWithUser extends ViolationHistory {
+  userFullName?: string | null;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -610,6 +614,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createViolation(violation: InsertViolation): Promise<Violation> {
+    console.log("[DB] createViolation called with attachments:", violation.attachments);
     const [newViolation] = await db
       .insert(violations)
       .values({
@@ -619,7 +624,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .returning();
-      
+    console.log("[DB] createViolation inserted attachments:", newViolation.attachments);
     return newViolation;
   }
   
@@ -683,12 +688,25 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Violation history operations
-  async getViolationHistory(violationId: number): Promise<ViolationHistory[]> {
-    return db
-      .select()
+  async getViolationHistory(violationId: number): Promise<ViolationHistoryWithUser[]> {
+    const result = await db
+      .select({
+        // Select all columns from violationHistories
+        id: violationHistories.id,
+        violationId: violationHistories.violationId,
+        userId: violationHistories.userId,
+        action: violationHistories.action,
+        comment: violationHistories.comment,
+        createdAt: violationHistories.createdAt,
+        // Select fullName from users table
+        userFullName: users.fullName,
+      })
       .from(violationHistories)
+      .leftJoin(users, eq(violationHistories.userId, users.id))
       .where(eq(violationHistories.violationId, violationId))
-      .orderBy(desc(violationHistories.createdAt));
+      .orderBy(asc(violationHistories.createdAt)); // Ensure ascending order
+
+    return result;
   }
   
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
@@ -764,13 +782,13 @@ export class DatabaseStorage implements IStorage {
 
     const [counts] = await db
       .select({
-        total: drizzleCount().$cast<number>(),
-        new: drizzleCount().filter(eq(violations.status, 'new')).$cast<number>(),
-        pending: drizzleCount().filter(eq(violations.status, 'pending_approval')).$cast<number>(),
-        approved: drizzleCount().filter(eq(violations.status, 'approved')).$cast<number>(),
-        disputed: drizzleCount().filter(eq(violations.status, 'disputed')).$cast<number>(),
-        rejected: drizzleCount().filter(eq(violations.status, 'rejected')).$cast<number>(),
-        resolved: drizzleCount().filter(eq(violations.status, 'resolved')).$cast<number>()
+        total: drizzleCount(),
+        new: sql<number>`SUM(CASE WHEN ${violations.status} = 'new' THEN 1 ELSE 0 END)`,
+        pending: sql<number>`SUM(CASE WHEN ${violations.status} = 'pending_approval' THEN 1 ELSE 0 END)`,
+        approved: sql<number>`SUM(CASE WHEN ${violations.status} = 'approved' THEN 1 ELSE 0 END)`,
+        disputed: sql<number>`SUM(CASE WHEN ${violations.status} = 'disputed' THEN 1 ELSE 0 END)`,
+        rejected: sql<number>`SUM(CASE WHEN ${violations.status} = 'rejected' THEN 1 ELSE 0 END)`,
+        resolved: sql<number>`SUM(CASE WHEN ${violations.status} = 'resolved' THEN 1 ELSE 0 END)`
       })
       .from(violations)
       .where(whereClause);

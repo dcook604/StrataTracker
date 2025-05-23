@@ -184,6 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle file uploads
       const files = req.files as Express.Multer.File[];
       const attachments = files ? files.map(file => file.filename) : [];
+      console.log("[Violation Upload] Received files:", files?.map(f => f.originalname), "Saved as:", attachments);
       
       // Combine form data with file paths
       const violationData = {
@@ -202,6 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the violation
       const violation = await dbStorage.createViolation(validatedData);
+      console.log("[Violation Upload] Created violation with attachments:", violation.attachments);
       
       // Add to history
       await dbStorage.addViolationHistory({
@@ -405,9 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reports/stats", ensureAuthenticated, async (req, res) => {
     try {
       const { from, to, categoryId } = req.query;
-      
       const filters: { from?: Date, to?: Date, categoryId?: number } = {};
-      
       if (from && typeof from === 'string') {
         const fromDate = new Date(from);
         if (!isNaN(fromDate.getTime())) {
@@ -417,7 +417,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (to && typeof to === 'string') {
         const toDate = new Date(to);
         if (!isNaN(toDate.getTime())) {
-          // Ensure the 'to' date includes the whole day
           toDate.setHours(23, 59, 59, 999);
           filters.to = toDate;
         }
@@ -428,15 +427,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filters.categoryId = catId;
         }
       }
-      
-      const stats = await dbStorage.getViolationStats(filters);
-      const violationsByMonth = await dbStorage.getViolationsByMonth(filters);
-      const violationsByType = await dbStorage.getViolationsByType(filters);
-      
+      console.log('[REPORTS/STATS] Filters:', filters);
+      let stats, violationsByMonth, violationsByType;
+      try {
+        stats = await dbStorage.getViolationStats(filters);
+        console.log('[REPORTS/STATS] Stats:', stats);
+      } catch (err) {
+        console.error('[REPORTS/STATS] getViolationStats error:', err);
+        throw err;
+      }
+      try {
+        violationsByMonth = await dbStorage.getViolationsByMonth(filters);
+        console.log('[REPORTS/STATS] ViolationsByMonth:', violationsByMonth);
+      } catch (err) {
+        console.error('[REPORTS/STATS] getViolationsByMonth error:', err);
+        throw err;
+      }
+      try {
+        violationsByType = await dbStorage.getViolationsByType(filters);
+        console.log('[REPORTS/STATS] ViolationsByType:', violationsByType);
+      } catch (err) {
+        console.error('[REPORTS/STATS] getViolationsByType error:', err);
+        throw err;
+      }
       res.json({ stats, violationsByMonth, violationsByType });
     } catch (error) {
-      console.error("Failed to fetch report statistics:", error);
-      res.status(500).json({ message: "Failed to fetch report statistics" });
+      console.error("Failed to fetch report statistics (outer catch):", error);
+      const errorMessage = (error instanceof Error) ? error.stack || error.message : String(error);
+      res.status(500).json({ message: "Failed to fetch report statistics", error: errorMessage });
     }
   });
 
@@ -859,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- PUBLIC ENDPOINT: Add comment/evidence via access link ---
   app.post("/public/violation/:token/comment", upload.array("attachments", 5), async (req, res) => {
     const { token } = req.params;
-    const { comment } = req.body;
+    const { comment, commenterName } = req.body;
     try {
       // 1. Validate token
       const link = await dbStorage.getViolationAccessLinkByToken(token);
@@ -879,6 +897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: 1, // Use a special system/anonymous user ID, or null if allowed
         action: "public_comment",
         comment: comment || undefined,
+        commenterName: commenterName || "Anonymous",
         // Optionally, store attachments in a separate field or as part of comment text
       });
 

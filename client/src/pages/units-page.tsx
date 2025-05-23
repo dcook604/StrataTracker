@@ -118,7 +118,9 @@ export default function UnitsPage() {
       url.searchParams.set("sortBy", sortBy);
       url.searchParams.set("sortOrder", sortOrder);
       const res = await apiRequest("GET", url.pathname + url.search);
-      return res.json();
+      const jsonData = await res.json();
+      console.log('Fetched /api/units data:', jsonData);
+      return jsonData;
     },
   });
 

@@ -3,6 +3,7 @@ import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 
 interface ViolationDetails {
   unitNumber: string;
@@ -14,6 +15,7 @@ export default function PublicViolationCommentPage() {
   const [match, params] = useRoute("/violation/comment/:token");
   const token = params?.token;
   const { toast } = useToast();
+  const [commenterName, setCommenterName] = useState("");
   const [comment, setComment] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -61,6 +63,7 @@ export default function PublicViolationCommentPage() {
     setError(null);
     try {
       const formData = new FormData();
+      formData.append("commenterName", commenterName);
       formData.append("comment", comment);
       attachments.forEach((file) => {
         formData.append("attachments", file);
@@ -136,8 +139,19 @@ export default function PublicViolationCommentPage() {
         </div>
       )}
       <form onSubmit={handleSubmit}>
-        <label className="block mb-2 font-medium">Comment</label>
+        <label htmlFor="commenterName" className="block mb-2 font-medium">Your Name *</label>
+        <Input
+          id="commenterName"
+          type="text"
+          placeholder="Enter your full name"
+          value={commenterName}
+          onChange={(e) => setCommenterName(e.target.value)}
+          required
+          className="mb-4"
+        />
+        <label htmlFor="comment" className="block mb-2 font-medium">Comment *</label>
         <Textarea
+          id="comment"
           rows={4}
           placeholder="Add your comment or explanation"
           value={comment}
@@ -153,7 +167,7 @@ export default function PublicViolationCommentPage() {
           className="mb-4"
         />
         {error && <div className="text-red-600 mb-2">{error}</div>}
-        <Button type="submit" disabled={submitting || !comment.trim()} className="w-full">
+        <Button type="submit" disabled={submitting || !comment.trim() || !commenterName.trim()} className="w-full">
           {submitting ? "Submitting..." : "Submit"}
         </Button>
       </form>

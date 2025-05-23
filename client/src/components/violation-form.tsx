@@ -45,7 +45,7 @@ const violationFormSchema = z.object({
   violationTime: z.string().optional(),
   description: z.string().min(10, "Description must be at least 10 characters"),
   bylawReference: z.string().optional(),
-  status: z.string().default("new"),
+  status: z.string().default("pending_approval"),
   attachments: z.array(z.any()).optional(),
   unitNumber: z.string().optional(),
   floor: z.string().optional(),
@@ -89,7 +89,7 @@ export function ViolationForm() {
       violationTime: "",
       description: "",
       bylawReference: "",
-      status: "new",
+      status: "pending_approval",
       attachments: [],
       unitNumber: '',
       floor: '',
@@ -433,39 +433,6 @@ export function ViolationForm() {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Category Selection */}
-            <div>
-              <h3 className="text-lg font-medium text-neutral-800 mb-4">Category</h3>
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Select Category *</FormLabel>
-                    <Select
-                      disabled={categoriesLoading}
-                      onValueChange={field.onChange}
-                      value={field.value.toString()}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {safeCategories.map((cat: any) => (
-                          <SelectItem key={cat.id} value={cat.id.toString()}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* Violation Details */}
