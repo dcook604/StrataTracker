@@ -8,6 +8,8 @@ import { storage as dbStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { sendViolationNotification, sendViolationApprovedNotification } from "./email";
 import { z } from "zod";
+import { format } from 'date-fns'; // Added for CSV date formatting
+import { generateViolationsPdf } from "./pdfGenerator"; // Corrected PDF generator import path
 import { 
   insertViolationSchema, 
   insertPropertyUnitSchema, 
@@ -34,10 +36,10 @@ const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
 
 // Ensure user is council member middleware
 const ensureCouncilMember = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated() && req.user && ((req.user as any).is_council_member || (req.user as any).is_admin)) {
+  if (req.isAuthenticated() && req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
     return next();
   }
-  res.status(403).json({ message: "Forbidden - Council access required" });
+  res.status(403).json({ message: "Forbidden - Admin or Council access required" });
 };
 
 // Helper to ensure userId is present
@@ -1037,7 +1039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For now, just returning all pending_approval.
       // The UI can decide what to show based on user role (e.g. council member vs admin)
       res.json(pendingViolations);
-    } catch (error) {
+    } catch (error: any) {
       console.error("------------------------------------------------------------");
       console.error("ERROR in /api/violations/pending-approval route:");
       if (error instanceof Error) {
@@ -1048,20 +1050,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Non-Error Object Thrown:", error);
       }
       console.error("------------------------------------------------------------");
-      res.status(500).json({ message: "Failed to fetch violation", details: error instanceof Error ? error.message : String(error) });
+      // Provide a more specific message if possible
+      const detailMessage = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ 
+        message: "Failed to fetch pending violations. Potential database issue.", 
+        details: detailMessage,
+        errorContext: error // Sending more context, be cautious with sensitive info in production
+      });
+    }
+  });
+
+  // --- API: Export Report as CSV ---
+  app.get("/api/reports/export/csv", ensureAuthenticated, async (req, res) => {
+    try {
+      const { from, to, categoryId: categoryIdStr } = req.query;
+      const filters: { from?: Date, to?: Date, categoryId?: number } = {};
+
+      if (from && typeof from === 'string') {
+        const fromDate = new Date(from);
+        if (!isNaN(fromDate.getTime())) filters.from = fromDate;
+      }
+      if (to && typeof to === 'string') {
+        const toDate = new Date(to);
+        if (!isNaN(toDate.getTime())) {
+          toDate.setHours(23, 59, 59, 999);
+          filters.to = toDate;
+        }
+      }
+      if (categoryIdStr && typeof categoryIdStr === 'string' && categoryIdStr !== 'all') {
+        const catId = parseInt(categoryIdStr, 10);
+        if (!isNaN(catId)) filters.categoryId = catId;
+      }
+
+      const violationsData = await dbStorage.getFilteredViolationsForReport(filters);
+
+      // Define CSV headers
+      const headers = [
+        "ID", "ReferenceNumber", "UnitNumber", "Floor", "ViolationType", "CategoryName",
+        "ViolationDate", "ViolationTime", "Description", "BylawReference", "Status",
+        "FineAmount", "ReportedBy(ID)", "CreatedAt", "UpdatedAt", "AttachmentsCount"
+      ];
+
+      // Helper to escape CSV data
+      const escapeCsv = (data: any) => {
+        if (data === null || data === undefined) return '';
+        const str = String(data);
+        if (str.includes(',') || str.includes('\"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      // Convert data to CSV rows
+      const csvRows = violationsData.map(v => [
+        escapeCsv(v.id),
+        escapeCsv(v.referenceNumber),
+        escapeCsv(v.unit.unitNumber),
+        escapeCsv(v.unit.floor),
+        escapeCsv(v.violationType),
+        escapeCsv(v.category?.name),
+        escapeCsv(v.violationDate ? format(new Date(v.violationDate), 'yyyy-MM-dd') : ''),
+        escapeCsv(v.violationTime),
+        escapeCsv(v.description),
+        escapeCsv(v.bylawReference),
+        escapeCsv(v.status),
+        escapeCsv(v.fineAmount),
+        escapeCsv(v.reportedById),
+        escapeCsv(v.createdAt ? format(new Date(v.createdAt), 'yyyy-MM-dd HH:mm:ss') : ''),
+        escapeCsv(v.updatedAt ? format(new Date(v.updatedAt), 'yyyy-MM-dd HH:mm:ss') : ''),
+        escapeCsv(Array.isArray(v.attachments) ? v.attachments.length : 0)
+      ].join(','));
+
+      const csvString = [headers.join(','), ...csvRows].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="violations_report.csv"');
+      res.status(200).send(csvString);
+
+    } catch (error) {
+      console.error("Failed to export CSV report:", error);
+      res.status(500).json({ message: "Failed to export CSV report", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
   // --- API: Export Report as PDF ---
-  app.get("/api/reports/export-pdf", ensureAuthenticated, async (req, res) => {
+  app.get("/api/reports/export/pdf", ensureAuthenticated, async (req, res) => {
     try {
-      const { from, to, categoryId } = req.query;
-      // TODO: Implement PDF generation logic using these filters
-      console.log("PDF Export Request Filters:", { from, to, categoryId });
-      res.status(501).contentType("application/json").json({ message: "PDF export not implemented yet." });
+      const { from, to, categoryId: categoryIdStr } = req.query;
+      const filters: { from?: Date, to?: Date, categoryId?: number } = {};
+      const reportFilters: { fromDate?: Date, toDate?: Date, categoryName?: string } = {};
+
+      if (from && typeof from === 'string') {
+        const fromDate = new Date(from);
+        if (!isNaN(fromDate.getTime())) {
+          filters.from = fromDate;
+          reportFilters.fromDate = fromDate;
+        }
+      }
+      if (to && typeof to === 'string') {
+        const toDate = new Date(to);
+        if (!isNaN(toDate.getTime())) {
+          toDate.setHours(23, 59, 59, 999);
+          filters.to = toDate;
+          reportFilters.toDate = toDate;
+        }
+      }
+      if (categoryIdStr && typeof categoryIdStr === 'string' && categoryIdStr !== 'all') {
+        const catId = parseInt(categoryIdStr, 10);
+        if (!isNaN(catId)) {
+          filters.categoryId = catId;
+          // Fetch category name for the PDF report
+          const category = await dbStorage.getViolationCategory(catId);
+          if (category) {
+            reportFilters.categoryName = category.name;
+          }
+        }
+      } else {
+        reportFilters.categoryName = "All Categories";
+      }
+
+      const violationsData = await dbStorage.getFilteredViolationsForReport(filters);
+      const statsData = await dbStorage.getViolationStats(filters); // Fetching full stats object
+
+      // Extract only the stats needed by generateViolationsPdf
+      const reportStats = {
+        totalViolations: statsData.totalViolations,
+        resolvedViolations: statsData.resolvedViolations,
+        averageResolutionTimeDays: statsData.averageResolutionTimeDays
+      };
+      
+      generateViolationsPdf(reportStats, violationsData, reportFilters, res);
+
     } catch (error) {
       console.error("Failed to export PDF report:", error);
-      res.status(500).json({ message: "Failed to export PDF report" });
+      res.status(500).json({ message: "Failed to export PDF report", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
