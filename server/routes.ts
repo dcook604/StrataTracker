@@ -60,6 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     'https://strata-tracker-dcook5.replit.app',
     // 'http://localhost:3000', // Uncomment if you use local dev
   ];
+  /*
   app.use(cors({
     origin: function(origin, callback) {
       // If there's no origin (e.g. same-origin requests or server-to-server),
@@ -72,6 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
     credentials: true,
   }));
+  */
 
   // Add rate limiting (100 requests per 15 minutes per IP)
   app.use(rateLimit({
