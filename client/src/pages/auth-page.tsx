@@ -51,6 +51,9 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check for session expired param
+  const expired = typeof window !== 'undefined' && window.location.search.includes('expired=1');
+
   // Login form
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -103,6 +106,11 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
+      {expired && (
+        <div className="bg-yellow-50 text-yellow-800 p-3 rounded mb-4 text-sm">
+          Your session has expired. Please log in again.
+        </div>
+      )}
       <Card className="w-full max-w-md">
         {/* Logo Placement */}
         <div className="pt-8 pb-4">
