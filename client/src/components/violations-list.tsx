@@ -93,6 +93,15 @@ export function ViolationsList() {
 
   const columns: ColumnDef<Violation>[] = [
     {
+      accessorKey: "id",
+      header: () => (
+        <span className="cursor-pointer" onClick={() => handleSort('id')}>
+          Violation ID {sortBy === 'id' && (sortOrder === 'asc' ? '▲' : '▼')}
+        </span>
+      ),
+      cell: ({ row }) => <div className="font-semibold">VIO-{row.original.id}</div>,
+    },
+    {
       accessorKey: "unit.unitNumber",
       header: () => (
         <span className="cursor-pointer" onClick={() => handleSort('unitNumber')}>
@@ -205,7 +214,11 @@ export function ViolationsList() {
         <Button onClick={() => navigate("/violations/new")}> <PlusCircle className="h-4 w-4 mr-2" /> New Violation </Button>
       </div>
       <Card>
-        {violations && violations.length > 0 ? (
+        {isLoading ? (
+          <div className="p-6 flex justify-center items-center">
+            <span className="animate-spin mr-2">⏳</span> Loading violations...
+          </div>
+        ) : violations && violations.length > 0 ? (
           <>
             <DataTable 
               columns={columns} 

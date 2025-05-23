@@ -27,11 +27,17 @@ import {
   type UnitPersonRole
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, not, gte, lt, asc, SQL, Name } from "drizzle-orm";
+import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
 import memorystore from "memorystore";
+import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
+import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { drizzle, NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
+import { PgTransaction } from 'drizzle-orm/pg-core';
+import { Pool } from 'pg';
+import connectPgSimple from 'connect-pg-simple';
 
 const scryptAsync = promisify(scrypt);
 
@@ -99,16 +105,19 @@ export interface IStorage {
   
   // Reporting operations
   getRepeatViolations(minCount: number): Promise<{ unitId: number, unitNumber: string, count: number, lastViolationDate: Date }[]>;
-  getViolationStats(): Promise<{ 
+  getViolationStats(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{
     totalViolations: number,
     newViolations: number,
     pendingViolations: number,
     approvedViolations: number,
     disputedViolations: number,
-    rejectedViolations: number
+    rejectedViolations: number,
+    resolvedViolations: number,
+    averageResolutionTimeDays: number | null
   }>;
-  getViolationsByMonth(year: number): Promise<{ month: number, count: number }[]>;
-  getViolationsByType(): Promise<{ type: string, count: number }[]>;
+  getViolationsByMonth(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, count: number }[]>;
+  getViolationsByType(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ type: string, count: number }[]>;
+  getFilteredViolationsForReport(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<(Violation & { unit: PropertyUnit, category?: ViolationCategory })[]>;
   
   // Password management
   hashPassword(password: string): Promise<string>;
@@ -721,69 +730,188 @@ export class DatabaseStorage implements IStorage {
     })).sort((a, b) => b.count - a.count);
   }
   
-  async getViolationStats(): Promise<{ 
+  async getViolationStats(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{
     totalViolations: number,
     newViolations: number,
     pendingViolations: number,
     approvedViolations: number,
     disputedViolations: number,
-    rejectedViolations: number
+    rejectedViolations: number,
+    resolvedViolations: number,
+    averageResolutionTimeDays: number | null
   }> {
+    const { from, to, categoryId } = filters;
+    const conditions: SQL[] = [];
+    if (from) conditions.push(gte(violations.createdAt, from));
+    if (to) conditions.push(lte(violations.createdAt, to));
+    if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     const [counts] = await db
       .select({
-        total: sql<number>`count(*)`,
-        new: sql<number>`count(*) filter (where ${violations.status} = 'new')`,
-        pending: sql<number>`count(*) filter (where ${violations.status} = 'pending_approval')`,
-        approved: sql<number>`count(*) filter (where ${violations.status} = 'approved')`,
-        disputed: sql<number>`count(*) filter (where ${violations.status} = 'disputed')`,
-        rejected: sql<number>`count(*) filter (where ${violations.status} = 'rejected')`
+        total: drizzleCount().$cast<number>(),
+        new: drizzleCount().filter(eq(violations.status, 'new')).$cast<number>(),
+        pending: drizzleCount().filter(eq(violations.status, 'pending_approval')).$cast<number>(),
+        approved: drizzleCount().filter(eq(violations.status, 'approved')).$cast<number>(),
+        disputed: drizzleCount().filter(eq(violations.status, 'disputed')).$cast<number>(),
+        rejected: drizzleCount().filter(eq(violations.status, 'rejected')).$cast<number>(),
+        resolved: drizzleCount().filter(eq(violations.status, 'resolved')).$cast<number>()
       })
-      .from(violations);
-      
+      .from(violations)
+      .where(whereClause);
+
+    // Calculate average resolution time
+    // This requires violations that have a 'resolvedAt' and 'createdAt'
+    // We consider 'resolved' status as the indicator for resolution.
+    // 'resolvedAt' would ideally be a specific column, but we'll use 'updatedAt' for 'resolved' status for now.
+    const resolvedViolationsData = await db
+      .select({
+        createdAt: violations.createdAt,
+        updatedAt: violations.updatedAt 
+      })
+      .from(violations)
+      .where(whereClause ? and(whereClause, eq(violations.status, 'resolved')) : eq(violations.status, 'resolved'));
+
+    let totalResolutionTimeMs = 0;
+    resolvedViolationsData.forEach(v => {
+      if (v.createdAt && v.updatedAt) {
+        totalResolutionTimeMs += v.updatedAt.getTime() - v.createdAt.getTime();
+      }
+    });
+    
+    const averageResolutionTimeDays = resolvedViolationsData.length > 0 
+      ? (totalResolutionTimeMs / resolvedViolationsData.length) / (1000 * 60 * 60 * 24) 
+      : null;
+
     return {
-      totalViolations: Number(counts.total) || 0,
-      newViolations: Number(counts.new) || 0,
-      pendingViolations: Number(counts.pending) || 0,
-      approvedViolations: Number(counts.approved) || 0,
-      disputedViolations: Number(counts.disputed) || 0,
-      rejectedViolations: Number(counts.rejected) || 0
+      totalViolations: Number(counts?.total) || 0,
+      newViolations: Number(counts?.new) || 0,
+      pendingViolations: Number(counts?.pending) || 0,
+      approvedViolations: Number(counts?.approved) || 0,
+      disputedViolations: Number(counts?.disputed) || 0,
+      rejectedViolations: Number(counts?.rejected) || 0,
+      resolvedViolations: Number(counts?.resolved) || 0,
+      averageResolutionTimeDays: averageResolutionTimeDays !== null ? parseFloat(averageResolutionTimeDays.toFixed(1)) : null
     };
   }
   
-  async getViolationsByMonth(year: number): Promise<{ month: number, count: number }[]> {
-    const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year + 1, 0, 1);
+  async getViolationsByMonth(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{ month: string, count: number }[]> {
+    const { from, to, categoryId } = filters;
+    const conditions = [];
     
-    const violationsInYear = await db.select({
-      month: sql<number>`EXTRACT(MONTH FROM ${violations.createdAt})`,
-      count: sql<number>`count(*)`
+    // Date range for query
+    let queryFromDate = from;
+    let queryToDate = to;
+
+    if (!queryFromDate && !queryToDate) {
+      // Default to current year if no dates are provided
+      const now = new Date();
+      queryFromDate = new Date(now.getFullYear(), 0, 1); // Start of current year
+      queryToDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999); // End of current year
+    } else if (queryFromDate && !queryToDate) {
+      // If only from is provided, set to to end of that year or sensible default
+      queryToDate = new Date(queryFromDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (!queryFromDate && queryToDate) {
+      // If only to is provided, set from to start of that year or sensible default
+      queryFromDate = new Date(queryToDate.getFullYear(), 0, 1);
+    }
+
+
+    if (queryFromDate) conditions.push(gte(violations.createdAt, queryFromDate));
+    if (queryToDate) conditions.push(lte(violations.createdAt, queryToDate));
+    if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Group by YYYY-MM
+    const violationsByMonthRaw = await db.select({
+      yearMonth: sql<string>`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`,
+      count: drizzleCount(sql`*`)
     })
     .from(violations)
-    .where(and(
-      gte(violations.createdAt, startDate),
-      lt(violations.createdAt, endDate)
-    ))
-    .groupBy(sql`EXTRACT(MONTH FROM ${violations.createdAt})`)
-    .orderBy(sql`EXTRACT(MONTH FROM ${violations.createdAt})`);
-    
-    // Ensure all months are represented
-    const result: { month: number, count: number }[] = [];
-    for (let i = 1; i <= 12; i++) {
-      const monthData = violationsInYear.find(v => v.month === i);
-      result.push({ month: i, count: monthData ? monthData.count : 0 });
+    .where(whereClause)
+    .groupBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`)
+    .orderBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`);
+
+    // Ensure all months within the range are represented, even if count is 0
+    const result: { month: string, count: number }[] = [];
+    if (queryFromDate && queryToDate) {
+      let currentDate = new Date(queryFromDate.getFullYear(), queryFromDate.getMonth(), 1);
+      const finalDate = new Date(queryToDate.getFullYear(), queryToDate.getMonth(), 1);
+
+      while (currentDate <= finalDate) {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+        const yearMonthStr = `${year}-${month.toString().padStart(2, '0')}`;
+        
+        const monthData = violationsByMonthRaw.find(v => v.yearMonth === yearMonthStr);
+        result.push({ month: yearMonthStr, count: monthData ? Number(monthData.count) : 0 });
+        
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      }
+    } else {
+       // Fallback for cases where date range might not be perfectly defined (should ideally not happen with new defaults)
+       violationsByMonthRaw.forEach(item => {
+        result.push({ month: item.yearMonth, count: Number(item.count) });
+       });
     }
     
     return result;
   }
 
-  async getViolationsByType(): Promise<{ type: string, count: number }[]> {
-    return db.select({
-      type: violations.violationType,
-      count: sql<number>`count(*)`
+  async getViolationsByType(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{ type: string, count: number }[]> {
+    const { from, to, categoryId } = filters;
+    const conditions: SQL[] = [];
+    if (from) conditions.push(gte(violations.createdAt, from));
+    if (to) conditions.push(lte(violations.createdAt, to));
+    if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const result = await db.select({
+      type: violationCategories.name,
+      count: drizzleCount(sql`*`)
     })
     .from(violations)
-    .groupBy(violations.violationType)
-    .orderBy(desc(sql<number>`count(*)`));
+    .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
+    .where(whereClause)
+    .groupBy(violationCategories.name)
+    .orderBy(desc(drizzleCount(sql`*`)));
+
+    return result.map(r => ({ 
+      type: r.type ?? 'Unknown', // Use nullish coalescing for default type
+      count: Number(r.count) 
+    }));
+  }
+  
+  async getFilteredViolationsForReport(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<(Violation & { unit: PropertyUnit, category?: ViolationCategory })[]> {
+    const { from, to, categoryId } = filters;
+    const conditions: SQL[] = [];
+
+    if (from) conditions.push(gte(violations.createdAt, from));
+    if (to) conditions.push(lte(violations.createdAt, to));
+    if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const result = await db
+      .select({
+        violation: violations,
+        unit: propertyUnits,
+        category: violationCategories
+      })
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
+      .where(whereClause)
+      .orderBy(desc(violations.createdAt)); // Or any other order suitable for the report
+    
+    return result.map(r => ({
+      ...r.violation,
+      unit: r.unit,
+      category: r.category || undefined // Handle cases where category might be null
+    }));
   }
   
   // Implement password management methods

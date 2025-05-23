@@ -372,10 +372,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports API
   app.get("/api/reports/stats", ensureAuthenticated, async (req, res) => {
     try {
-      const stats = await dbStorage.getViolationStats();
-      res.json(stats);
+      const { from, to, categoryId } = req.query;
+      
+      const filters: { from?: Date, to?: Date, categoryId?: number } = {};
+      
+      if (from && typeof from === 'string') {
+        const fromDate = new Date(from);
+        if (!isNaN(fromDate.getTime())) {
+          filters.from = fromDate;
+        }
+      }
+      if (to && typeof to === 'string') {
+        const toDate = new Date(to);
+        if (!isNaN(toDate.getTime())) {
+          // Ensure the 'to' date includes the whole day
+          toDate.setHours(23, 59, 59, 999);
+          filters.to = toDate;
+        }
+      }
+      if (categoryId && typeof categoryId === 'string') {
+        const catId = parseInt(categoryId, 10);
+        if (!isNaN(catId)) {
+          filters.categoryId = catId;
+        }
+      }
+      
+      const stats = await dbStorage.getViolationStats(filters);
+      const violationsByMonth = await dbStorage.getViolationsByMonth(filters);
+      const violationsByType = await dbStorage.getViolationsByType(filters);
+      
+      res.json({ stats, violationsByMonth, violationsByType });
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch violation statistics" });
+      console.error("Failed to fetch report statistics:", error);
+      res.status(500).json({ message: "Failed to fetch report statistics" });
     }
   });
 
@@ -571,19 +600,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/reports/violations-by-month", ensureAuthenticated, async (req, res) => {
     try {
-      const year = parseInt(req.query.year as string) || new Date().getFullYear();
-      const violationsByMonth = await dbStorage.getViolationsByMonth(year);
+      const { from, to, categoryId } = req.query;
+      const filters: { from?: Date, to?: Date, categoryId?: number } = {};
+
+      if (from && typeof from === 'string') {
+        const fromDate = new Date(from);
+        if (!isNaN(fromDate.getTime())) filters.from = fromDate;
+      }
+      if (to && typeof to === 'string') {
+        const toDate = new Date(to);
+        if (!isNaN(toDate.getTime())) {
+            toDate.setHours(23, 59, 59, 999);
+            filters.to = toDate;
+        }
+      }
+      if (categoryId && typeof categoryId === 'string' && categoryId !== 'all') {
+        const catId = parseInt(categoryId, 10);
+        if (!isNaN(catId)) filters.categoryId = catId;
+      }
+      const violationsByMonth = await dbStorage.getViolationsByMonth(filters); 
       res.json(violationsByMonth);
     } catch (error) {
+      console.error("Failed to fetch violations by month:", error);
       res.status(500).json({ message: "Failed to fetch violations by month" });
     }
   });
 
   app.get("/api/reports/violations-by-type", ensureAuthenticated, async (req, res) => {
     try {
-      const violationsByType = await dbStorage.getViolationsByType();
+      const { from, to, categoryId } = req.query;
+      const filters: { from?: Date, to?: Date, categoryId?: number } = {};
+
+      if (from && typeof from === 'string') {
+        const fromDate = new Date(from);
+        if (!isNaN(fromDate.getTime())) filters.from = fromDate;
+      }
+      if (to && typeof to === 'string') {
+        const toDate = new Date(to);
+        if (!isNaN(toDate.getTime())) {
+            toDate.setHours(23, 59, 59, 999);
+            filters.to = toDate;
+        }
+      }
+      if (categoryId && typeof categoryId === 'string' && categoryId !== 'all') {
+        const catId = parseInt(categoryId, 10);
+        if (!isNaN(catId)) filters.categoryId = catId;
+      }
+      const violationsByType = await dbStorage.getViolationsByType(filters);
       res.json(violationsByType);
     } catch (error) {
+      console.error("Failed to fetch violations by type:", error);
       res.status(500).json({ message: "Failed to fetch violations by type" });
     }
   });
