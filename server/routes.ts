@@ -56,9 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(helmet());
 
   // Add CORS
-  const allowedOrigin = process.env.NODE_ENV === 'production'
-    ? process.env.CORS_ORIGIN || 'https://your-production-domain.com'
-    : '*';
+  const allowedOrigin = 'https://strata-tracker-dcook5.replit.app';
   app.use(cors({
     origin: allowedOrigin,
     credentials: true,
