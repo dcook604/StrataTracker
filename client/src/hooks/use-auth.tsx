@@ -3,11 +3,13 @@ import {
   useQuery,
   useMutation,
   UseMutationResult,
-  useQueryClient,
 } from "@tanstack/react-query";
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
-import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
+import { apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+// Define the query key as a const for type safety and consistency
+const authQueryKey = ["/api/auth/me"] as const;
 
 // Omit the password from the user type for client-side usage
 // SelectUser (imported as User from schema) already includes optional snake_case variants.
@@ -46,11 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user, // This is SafeUser | null (original from useQuery)
     error,
     isLoading,
-  } = useQuery<SafeUser | null, Error, SafeUser | null, readonly ["/api/auth/me"]>({
-    queryKey: ["/api/auth/me"],
+  } = useQuery<SafeUser | null, Error, SafeUser | null, typeof authQueryKey>({ // Use typeof authQueryKey for the key type
+    queryKey: authQueryKey,
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", "/api/auth/me");
+        const response = await apiRequest("GET", authQueryKey[0]); // Use authQueryKey[0] for URL
         return await response.json() as SafeUser;
       } catch (err: any) {
         if (err.message === 'Session expired') {
@@ -67,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return failureCount < 3;
     },
     refetchOnWindowFocus: false,
+    refetchOnMount: false,       // Prevent refetch on mount
+    refetchOnReconnect: false,   // Prevent refetch on reconnect
   });
 
   const loginMutation = useMutation({
@@ -75,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json() as SafeUser;
     },
     onSuccess: (loggedInUser: SafeUser) => {
-      queryClient.setQueryData<SafeUser | null>(["/api/auth/me"], loggedInUser); // Ensure type for setQueryData
+      queryClient.setQueryData<SafeUser | null>(authQueryKey, loggedInUser);
       toast({
         title: "Login successful",
         description: `Welcome back, ${loggedInUser.fullName}`,
@@ -96,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json() as SafeUser;
     },
     onSuccess: (registeredUser: SafeUser) => {
-      queryClient.setQueryData<SafeUser | null>(["/api/auth/me"], registeredUser); // Ensure type for setQueryData
+      queryClient.setQueryData<SafeUser | null>(authQueryKey, registeredUser);
       toast({
         title: "Registration successful",
         description: `Welcome to StrataGuard, ${registeredUser.fullName}`,
@@ -116,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData(["/api/auth/me"], null);
+      queryClient.setQueryData<SafeUser | null>(authQueryKey, null); // Use SafeUser | null for consistency
       toast({
         title: "Logged out",
         description: "You have been successfully logged out",
