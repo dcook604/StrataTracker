@@ -10,7 +10,8 @@ import {
   insertViolationHistorySchema,
   insertViolationCategorySchema,
   insertCustomerSchema,
-  insertSystemSettingSchema
+  insertSystemSettingSchema,
+  insertUnitFacilitySchema
 } from "@shared/schema";
 import userManagementRoutes from "./routes/user-management";
 import emailConfigRoutes from "./routes/email-config";
@@ -246,11 +247,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           violationId: violation.id,
           unitNumber: unit.unitNumber,
           violationType: violation.violationType,
-          ownerEmail: unit.ownerEmail ?? undefined,
-          ownerName: unit.ownerName ?? undefined,
+          ownerEmail: unit.ownerEmail ?? "",
+          ownerName: unit.ownerName ?? "",
           tenantEmail: unit.tenantEmail ?? undefined,
           tenantName: unit.tenantName ?? undefined,
-          reporterName: req.user?.fullName ?? "Unknown Reporter",
+          reporterName: (req.user as any)?.fullName ?? "System",
           unitId: unit.id,
           accessLinks,
         });
@@ -301,8 +302,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             violationId: String(violation.id),
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail ?? undefined,
-            ownerName: unit.ownerName ?? undefined,
+            ownerEmail: unit.ownerEmail ?? "",
+            ownerName: unit.ownerName ?? "",
             fineAmount: violation.fineAmount ?? 0,
             unitId: unit.id,
             tenantEmail: unit.tenantEmail ?? undefined,
@@ -350,8 +351,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             violationId: String(violation.id),
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail ?? undefined,
-            ownerName: unit.ownerName ?? undefined,
+            ownerEmail: unit.ownerEmail ?? "",
+            ownerName: unit.ownerName ?? "",
             fineAmount: amount ?? 0,
             unitId: unit.id,
             tenantEmail: unit.tenantEmail ?? undefined,
@@ -717,34 +718,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create Unit with Persons (owners/tenants)
+  // Create Unit with Persons (owners/tenants) and Facilities
   app.post("/api/units-with-persons", ensureAuthenticated, async (req, res) => {
     try {
       // Validate input
-      const unitSchema = insertPropertyUnitSchema;
+      const unitSchema = insertPropertyUnitSchema.pick({ unitNumber: true, floor: true }); // Only unitNumber and floor from unit
+      
+      const facilitiesSchema = insertUnitFacilitySchema.pick({
+        parkingSpots: true,
+        storageLockers: true,
+        bikeLockers: true
+      });
+
       const personSchema = z.object({
         fullName: z.string().min(1),
         email: z.string().email(),
         phone: z.string().optional(),
         role: z.enum(["owner", "tenant"]),
-        receiveEmailNotifications: z.boolean()
+        receiveEmailNotifications: z.boolean(),
+        hasCat: z.boolean().optional(),
+        hasDog: z.boolean().optional(),
       });
+      
       const bodySchema = z.object({
         unit: unitSchema,
+        facilities: facilitiesSchema,
         persons: z.array(personSchema).min(1)
       });
+      
       const parsed = bodySchema.parse(req.body);
+      // The dbStorage.createUnitWithPersons function expects facilities without id, unitId, createdAt, updatedAt
+      // Our facilitiesSchema already aligns with this for the pick.
       const result = await dbStorage.createUnitWithPersons(parsed);
       res.status(201).json(result);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create unit with persons", error: error.message });
+      console.error("Failed to create unit with persons and facilities:", error);
+      res.status(500).json({ message: "Failed to create unit with persons and facilities", error: error.message });
     }
   });
 
-  // Unit Management API
+  // Unit Management API (Older - consider for deprecation or refactor if /api/units-with-persons covers all cases)
   app.post("/api/units", ensureAuthenticated, async (req, res) => {
     try {
       const { 
@@ -756,16 +772,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenantName, 
         tenantEmail, 
         tenantReceiveNotifications,
-        phone, 
-        notes 
+        // Assuming facilities are not part of this older endpoint's direct body, add defaults
+        // parkingSpots, storageLockers, bikeLockers 
       } = req.body;
 
-      // Create unit
-      const unitPayload = {
-        unitNumber,
-        floor,
-        ownerName,
-        ownerEmail
+      // Create unit payload for createUnitWithPersons
+      const unitPayload = { unitNumber, floor };
+
+      // Create default facilities payload
+      const facilitiesPayload = {
+        parkingSpots: req.body.parkingSpots || 0,
+        storageLockers: req.body.storageLockers || 0,
+        bikeLockers: req.body.bikeLockers || 0,
       };
 
       // Create persons array
@@ -775,27 +793,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone?: string;
         role: 'owner' | 'tenant';
         receiveEmailNotifications: boolean;
-      }> = [
-        {
+        hasCat?: boolean;
+        hasDog?: boolean;
+      }> = [];
+
+      if (ownerName && ownerEmail) {
+        personsPayload.push({
           fullName: ownerName,
           email: ownerEmail,
           role: 'owner',
-          receiveEmailNotifications: ownerReceiveNotifications
-        }
-      ];
+          receiveEmailNotifications: ownerReceiveNotifications ?? true,
+          hasCat: req.body.ownerHasCat ?? false,
+          hasDog: req.body.ownerHasDog ?? false,
+        });
+      }
 
       if (tenantName && tenantEmail) {
         personsPayload.push({
           fullName: tenantName,
           email: tenantEmail,
           role: 'tenant',
-          receiveEmailNotifications: tenantReceiveNotifications
+          receiveEmailNotifications: tenantReceiveNotifications ?? true,
+          hasCat: req.body.tenantHasCat ?? false,
+          hasDog: req.body.tenantHasDog ?? false,
         });
       }
+      
+      if (personsPayload.length === 0) {
+        return res.status(400).json({ message: "At least one owner or tenant must be provided for the unit." });
+      }
 
-      // Create the unit with persons
       const result = await dbStorage.createUnitWithPersons({
         unit: unitPayload,
+        facilities: facilitiesPayload, // Pass facilities payload
         persons: personsPayload
       });
 
@@ -804,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
-      console.error("Failed to create unit:", error);
+      console.error("Failed to create unit (legacy endpoint):", error);
       res.status(500).json({ message: "Failed to create unit", details: error.message });
     }
   });
@@ -812,56 +842,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/units/:id", ensureAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { 
-        unitNumber, 
-        floor, 
-        ownerName, 
-        ownerEmail, 
-        ownerReceiveNotifications,
-        tenantName, 
-        tenantEmail, 
-        tenantReceiveNotifications,
-        phone, 
-        notes 
-      } = req.body;
+      // TODO: This PATCH route currently calls createUnitWithPersons which is not ideal for an update.
+      // It should ideally call a dedicated updateUnitWithPersons function in dbStorage.
+      // For now, we will adapt its payload to match createUnitWithPersons, but this needs review.
 
-      // Update unit
-      const unitPayload = {
-        unitNumber,
-        floor,
-        ownerName,
-        ownerEmail
-      };
+      const unitSchema = insertPropertyUnitSchema.pick({ unitNumber: true, floor: true });
+      const facilitiesSchema = insertUnitFacilitySchema.pick({
+        parkingSpots: true,
+        storageLockers: true,
+        bikeLockers: true
+      });
+      const personSchema = z.object({
+        fullName: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        role: z.enum(["owner", "tenant"]),
+        receiveEmailNotifications: z.boolean(),
+        hasCat: z.boolean().optional(),
+        hasDog: z.boolean().optional(),
+      });
+      const bodySchema = z.object({
+        unit: unitSchema,
+        facilities: facilitiesSchema, 
+        persons: z.array(personSchema).min(1)
+      });
 
-      // Create persons array
-      const personsPayload: Array<{
-        fullName: string;
-        email: string;
-        phone?: string;
-        role: 'owner' | 'tenant';
-        receiveEmailNotifications: boolean;
-      }> = [
-        {
-          fullName: ownerName,
-          email: ownerEmail,
-          role: 'owner',
-          receiveEmailNotifications: ownerReceiveNotifications
-        }
-      ];
+      const parsedBody = bodySchema.parse(req.body);
 
-      if (tenantName && tenantEmail) {
-        personsPayload.push({
-          fullName: tenantName,
-          email: tenantEmail,
-          role: 'tenant',
-          receiveEmailNotifications: tenantReceiveNotifications
-        });
-      }
-
-      // Update the unit with persons
       const result = await dbStorage.createUnitWithPersons({
-        unit: unitPayload,
-        persons: personsPayload
+        unit: parsedBody.unit, 
+        facilities: parsedBody.facilities,
+        persons: parsedBody.persons
       });
 
       res.json(result);
@@ -869,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
-      console.error("Failed to update unit:", error);
+      console.error("Failed to update unit (via createUnitWithPersons logic):", error);
       res.status(500).json({ message: "Failed to update unit", details: error.message });
     }
   });
