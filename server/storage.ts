@@ -1067,72 +1067,72 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
-    // Only allow sorting by known columns
-    // Adjust sortMap for propertyUnits table columns
-    const sortMap: Record<string, any> = {
+    
+    const sortableColumns: Record<string, SQL<unknown> | undefined> = {
       unitNumber: propertyUnits.unitNumber,
       floor: propertyUnits.floor,
-      ownerName: propertyUnits.ownerName,
-      ownerEmail: propertyUnits.ownerEmail,
-      tenantName: propertyUnits.tenantName,
-      tenantEmail: propertyUnits.tenantEmail,
+      // Add other sortable base fields of propertyUnits if needed
       createdAt: propertyUnits.createdAt,
       updatedAt: propertyUnits.updatedAt,
       id: propertyUnits.id
     };
-
-    let orderField = sortMap[sortBy as string] || propertyUnits.unitNumber; // Default sort by unitNumber
-    const orderFn = sortOrder === 'asc' ? asc(orderField) : desc(orderField);
-
-    // Fetch paginated units
-    const results = await db
-      .select()
-      .from(propertyUnits)
-      .orderBy(orderFn)
-      .limit(limit)
-      .offset(offset);
-
-    // Fetch all unit IDs in this page
-    const unitIds = results.map(u => u.id);
-    let ownersByUnit: Record<number, any[]> = {};
-    let tenantsByUnit: Record<number, any[]> = {};
-    if (unitIds.length > 0) {
-      // Get all roles for these units
-      const roles = await db.select().from(unitPersonRoles).where(inArray(unitPersonRoles.unitId, unitIds));
-      const personIds = roles.map(r => r.personId);
-      // Get all persons
-      const persons: Person[] = personIds.length > 0 ? await db.select().from(personsTable).where(inArray(personsTable.id, personIds)) : [];
-      // Map persons by id
-      const personsMap = Object.fromEntries(persons.map(p => [p.id, p]));
-      // Group by unit and role
-      for (const role of roles) {
-        const person = personsMap[role.personId];
-        if (!person) continue;
-        if (role.role === 'owner') {
-          if (!ownersByUnit[role.unitId]) ownersByUnit[role.unitId] = [];
-          ownersByUnit[role.unitId].push({ ...person, receiveEmailNotifications: role.receiveEmailNotifications });
-        } else if (role.role === 'tenant') {
-          if (!tenantsByUnit[role.unitId]) tenantsByUnit[role.unitId] = [];
-          tenantsByUnit[role.unitId].push({ ...person, receiveEmailNotifications: role.receiveEmailNotifications });
-        }
-      }
+    
+    let orderByClause: SQL<unknown> | undefined = sortableColumns[sortBy || 'unitNumber'] || propertyUnits.unitNumber;
+    if (orderByClause) {
+      orderByClause = sortOrder === 'asc' ? asc(orderByClause) : desc(orderByClause);
     }
 
-    // Count query
+    const paginatedUnits = await db.query.propertyUnits.findMany({
+      orderBy: orderByClause,
+      limit: limit,
+      offset: offset,
+      with: {
+        unitRoles: { // This must match the relation name in propertyUnitsRelations
+          with: {
+            person: true // This must match the relation name in unitPersonRolesRelations
+          }
+        },
+        facilities: true // This must match the relation name in propertyUnitsRelations
+      }
+    });
+
+    // Process units to structure owners and tenants
+    const unitsWithPeopleAndFacilities = paginatedUnits.map(unit => {
+      const owners: Person[] = [];
+      const tenants: Person[] = [];
+      if (unit.unitRoles) {
+        unit.unitRoles.forEach(role => {
+          if (role.person) { // Ensure person data is loaded
+            const personWithNotificationPref = {
+                ...role.person,
+                receiveEmailNotifications: role.receiveEmailNotifications
+            };
+            if (role.role === 'owner') {
+              owners.push(personWithNotificationPref as Person);
+            } else if (role.role === 'tenant') {
+              tenants.push(personWithNotificationPref as Person);
+            }
+          }
+        });
+      }
+      // Remove unitRoles from the final unit object if it's not needed directly by frontend
+      const { unitRoles, ...restOfUnit } = unit;
+      return {
+        ...restOfUnit,
+        facilities: unit.facilities || undefined, // Ensure facilities is there or undefined
+        owners,
+        tenants,
+      };
+    });
+
+    // Count query remains the same for now
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` }) // Ensure count is a number
+      .select({ count: sql<number>`count(*)::int` })
       .from(propertyUnits);
 
-    // Attach owners/tenants arrays to each unit
-    const unitsWithPeople = results.map(u => ({
-      ...u,
-      owners: ownersByUnit[u.id] || [],
-      tenants: tenantsByUnit[u.id] || []
-    }));
-
     return {
-      units: unitsWithPeople,
-      total: Number(count) // Ensure total is a number
+      units: unitsWithPeopleAndFacilities as (PropertyUnit & { owners: Person[], tenants: Person[], facilities?: UnitFacility })[],
+      total: Number(count)
     };
   }
 

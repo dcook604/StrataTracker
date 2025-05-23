@@ -1,5 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
@@ -229,11 +229,16 @@ export const insertViolationHistorySchema = createInsertSchema(violationHistorie
 
 // Types
 // Define relationships for property units
-export const propertyUnitsRelations = relations(propertyUnits, ({ one }) => ({
+export const propertyUnitsRelations = relations(propertyUnits, ({ one, many }) => ({
   customer: one(customers, {
     fields: [propertyUnits.customerId],
     references: [customers.id],
   }),
+  unitRoles: many(unitPersonRoles),
+  facilities: one(unitFacilities, {
+    fields: [propertyUnits.id],
+    references: [unitFacilities.unitId],
+  })
 }));
 
 // Define relationships for system settings
@@ -243,6 +248,7 @@ export const systemSettingsRelations = relations(systemSettings, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
 // Persons table (for owners/tenants)
 export const persons = pgTable("persons", {
   id: serial("id").primaryKey(),
@@ -322,4 +328,29 @@ export const insertViolationAccessLinkSchema = createInsertSchema(violationAcces
 
 export type ViolationAccessLink = typeof violationAccessLinks.$inferSelect;
 export type InsertViolationAccessLink = z.infer<typeof insertViolationAccessLinkSchema>;
+
+// Define relationships for persons
+export const personsRelations = relations(persons, ({ many }) => ({
+  unitRoles: many(unitPersonRoles),
+}));
+
+// Define relationships for unitPersonRoles
+export const unitPersonRolesRelations = relations(unitPersonRoles, ({ one }) => ({
+  propertyUnit: one(propertyUnits, {
+    fields: [unitPersonRoles.unitId],
+    references: [propertyUnits.id],
+  }),
+  person: one(persons, {
+    fields: [unitPersonRoles.personId],
+    references: [persons.id],
+  }),
+}));
+
+// Define relationships for unitFacilities
+export const unitFacilitiesRelations = relations(unitFacilities, ({ one }) => ({
+  propertyUnit: one(propertyUnits, {
+    fields: [unitFacilities.unitId],
+    references: [propertyUnits.id],
+  }),
+}));
 
