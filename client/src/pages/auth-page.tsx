@@ -103,82 +103,90 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="space-y-1 text-center">
+      <Card className="w-full max-w-md">
+        {/* Logo Placement */}
+        <div className="pt-8 pb-4">
+          <img 
+            src="/spectrum4-small.jpeg" 
+            alt="Spectrum 4 Logo" 
+            className="h-16 w-auto mx-auto" // Height 64px, auto width, centered
+          />
+        </div>
+        <CardHeader className="space-y-1 text-center pt-0"> {/* Adjusted pt-0 as logo div has padding */}
           <CardTitle>Sign In</CardTitle>
-              <CardDescription>
+          <CardDescription>
             Enter your credentials to access the system
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Form {...loginForm}>
-                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-              {error && (
-                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-                  {error}
-                </div>
-              )}
-              
-                    <FormField
-                      control={loginForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="Enter your email" 
-                        disabled={isLoading}
-                        {...field} 
-                      />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Form {...loginForm}>
+              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+        {error && (
+          <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+            {error}
+          </div>
+        )}
+        
+                <FormField
+                  control={loginForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                    <Input 
+                      type="email" 
+                      placeholder="Enter your email" 
+                      disabled={isLoading}
+                      {...field} 
                     />
-                    
-                    <FormField
-                      control={loginForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="Enter your password" 
-                        disabled={isLoading}
-                        {...field} 
-                      />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={loginForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                    <Input 
+                      type="password" 
+                      placeholder="Enter your password" 
+                      disabled={isLoading}
+                      {...field} 
                     />
-                    
-                      <FormField
-                        control={loginForm.control}
-                        name="rememberMe"
-                        render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-2">
-                            <FormControl>
-                              <Checkbox 
-                                checked={field.value} 
-                                onCheckedChange={field.onChange}
-                        disabled={isLoading}
-                              />
-                            </FormControl>
-                    <FormLabel className="text-sm font-normal">Remember me</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
-                disabled={isLoading}
-                    >
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                  <FormField
+                    control={loginForm.control}
+                    name="rememberMe"
+                    render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value} 
+                            onCheckedChange={field.onChange}
+                    disabled={isLoading}
+                          />
+                        </FormControl>
+                <FormLabel className="text-sm font-normal">Remember me</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+          disabled={isLoading}
+                >
                 {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -187,16 +195,16 @@ export default function AuthPage() {
                       ) : (
                         "Sign in"
                       )}
-                    </Button>
-                  </form>
-                </Form>
-                
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  <p>Only administrators can add new users to the system.</p>
-                  <p>Contact your administrator if you need access.</p>
-              </div>
-            </CardContent>
-          </Card>
+                </Button>
+              </form>
+            </Form>
+            
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <p>Only administrators can add new users to the system.</p>
+              <p>Contact your administrator if you need access.</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

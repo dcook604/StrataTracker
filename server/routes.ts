@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import express from 'express';
 import { createServer, type Server } from "http";
 import { storage as dbStorage } from "./storage";
 import { setupAuth } from "./auth";
@@ -62,6 +63,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register email configuration routes
   app.use("/api/email-config", emailConfigRoutes);
+
+  // Serve uploaded files statically
+  app.use('/api/uploads', express.static(uploadsDir));
 
   // Unit Management API (New)
   app.get("/api/units", ensureAuthenticated, async (req, res) => {
