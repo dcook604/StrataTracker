@@ -18,12 +18,21 @@ interface ReportStatsData {
   // Add other fields if necessary, like rejectedViolations, resolvedViolations, averageResolutionTimeDays
 }
 
+const initialStatsData: ReportStatsData = {
+  totalViolations: 0,
+  newViolations: 0,
+  pendingViolations: 0,
+  approvedViolations: 0,
+  disputedViolations: 0,
+};
+
 export function DashboardStats() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<ReportStatsData>({
     queryKey: ["/api/reports/stats"],
+    placeholderData: initialStatsData,
   });
 
-  if (isLoading) {
+  if (isLoading && !stats) {
     return (
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5 mb-6">
         {Array.from({ length: 5 }).map((_, index) => (
@@ -44,31 +53,31 @@ export function DashboardStats() {
   const statCards = [
     {
       title: "Total Violations",
-      value: stats.totalViolations,
+      value: stats.totalViolations ?? 0,
       icon: <FileText className="h-6 w-6 text-primary-600" />,
       bgColor: "bg-primary-100",
     },
     {
       title: "New",
-      value: stats.newViolations,
+      value: stats.newViolations ?? 0,
       icon: <FileText className="h-6 w-6 text-blue-600" />,
       bgColor: "bg-blue-100",
     },
     {
       title: "Pending",
-      value: stats.pendingViolations,
+      value: stats.pendingViolations ?? 0,
       icon: <Clock className="h-6 w-6 text-yellow-600" />,
       bgColor: "bg-yellow-100",
     },
     {
       title: "Approved",
-      value: stats.approvedViolations,
+      value: stats.approvedViolations ?? 0,
       icon: <CheckCircle className="h-6 w-6 text-green-600" />,
       bgColor: "bg-green-100",
     },
     {
       title: "Disputed",
-      value: stats.disputedViolations,
+      value: stats.disputedViolations ?? 0,
       icon: <AlertTriangle className="h-6 w-6 text-orange-600" />,
       bgColor: "bg-orange-100",
     },

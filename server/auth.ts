@@ -25,9 +25,11 @@ export function setupAuth(app: Express) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://replit.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"], // Allow fonts from fonts.gstatic.com
         imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"], // Add connectSrc for API calls if needed
       },
     },
     xssFilter: true,
@@ -68,6 +70,17 @@ export function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Route to get current authenticated user
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+      // Remove sensitive fields before sending the user object
+      const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
+      res.status(200).json(safeUser);
+    } else {
+      res.status(401).json({ message: "Unauthorized" });
+    }
+  });
 
   // Configure Passport to use email as the username field
   passport.use(
@@ -297,14 +310,6 @@ export function setupAuth(app: Express) {
       if (err) return next(err);
       res.sendStatus(200);
     });
-  });
-
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    // Remove sensitive fields before sending the user object
-    const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
-    res.json(safeUser);
   });
 
   // Change password for the currently authenticated user

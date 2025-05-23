@@ -3,6 +3,7 @@ import {
   useQuery,
   useMutation,
   UseMutationResult,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
@@ -39,8 +40,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     isLoading,
   } = useQuery<SafeUser | undefined, Error>({
-    queryKey: ["/api/user"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("GET", "/api/auth/me");
+        return response as SafeUser;
+      } catch (err) {
+        return null;
+      }
+    },
   });
 
   const loginMutation = useMutation({
@@ -49,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (user: SafeUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+      queryClient.setQueryData(["/api/auth/me"], user);
       toast({
         title: "Login successful",
         description: `Welcome back, ${user.fullName}`,
@@ -70,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (user: SafeUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+      queryClient.setQueryData(["/api/auth/me"], user);
       toast({
         title: "Registration successful",
         description: `Welcome to StrataGuard, ${user.fullName}`,
@@ -90,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData(["/api/user"], null);
+      queryClient.setQueryData(["/api/auth/me"], null);
       toast({
         title: "Logged out",
         description: "You have been successfully logged out",

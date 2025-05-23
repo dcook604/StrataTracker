@@ -389,14 +389,23 @@ export default function SettingsPage() {
 
   // In useEffect, when settings are loaded, populate systemForm and logoUrl
   useEffect(() => {
-    if (settings && settings.settings) {
+    if (settings) { 
       const sys = {
+        strataName: "", // Initialize all properties
         propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
+        adminFirstName: "",
+        adminLastName: "",
+        adminEmail: "",
+        adminPhone: "",
         propertyManagers: [],
         caretakers: [],
         councilMembers: [],
-      } as any;
-      settings.settings.forEach((s: SystemSetting) => {
+        defaultTimezone: "",
+        defaultLanguage: "",
+        strataLogo: null, // Initialize as null
+      } as any; // Keep as any for flexibility during population, or define a strict local type
+
+      settings.forEach((s: SystemSetting) => { 
         if (s.settingKey === 'strata_name') sys.strataName = s.settingValue;
         if (s.settingKey === 'property_address') {
           try {
@@ -435,17 +444,26 @@ export default function SettingsPage() {
         if (s.settingKey === 'default_timezone') sys.defaultTimezone = s.settingValue;
         if (s.settingKey === 'default_language') sys.defaultLanguage = s.settingValue;
         if (s.settingKey === 'strata_logo') {
-          sys.strataLogo = s.settingValue;
-          if (settings.logoUrl && s.settingValue) {
-             setLogoUrl(settings.logoUrl);
-          } else if (!s.settingValue) {
-             setLogoUrl(null);
-          }
+          sys.strataLogo = s.settingValue; // Store the logo filename/path
         }
       });
+      
       setSystemForm((prev: any) => ({ ...prev, ...sys }));
+
+      // Handle logoUrl separately after populating sys
+      const logoUrlSetting = settings.find(s => s.settingKey === 'strata_logo_url');
+      if (logoUrlSetting && logoUrlSetting.settingValue) {
+        setLogoUrl(logoUrlSetting.settingValue);
+      } else if (sys.strataLogo) { 
+        // If strata_logo_url is not found, use strataLogo (which might be a full URL or relative path)
+        // This assumes sys.strataLogo holds a usable URL or path.
+        // If it's just a filename, the <FileUpload/> or image display logic needs to handle it.
+        setLogoUrl(sys.strataLogo);
+      } else {
+        setLogoUrl(null);
+      }
     }
-  }, [settings]);
+  }, [settings, setLogoUrl, setSystemForm]); // Added setLogoUrl and setSystemForm to dependencies
 
   // Add handler for logo upload
   const handleLogoUpload = async (files: File[]) => {

@@ -54,6 +54,15 @@ async function startServer() {
     // Create HTTP server
     server = createServer(app);
 
+    // Check database connection before registering routes
+    try {
+      await pool.query('SELECT 1');
+      logger.info('Database connection successful.');
+    } catch (dbError) {
+      logger.error('Failed to connect to the database. Server not started.', dbError);
+      process.exit(1);
+    }
+
     // Register API routes BEFORE Vite/static serving setup
     await registerRoutes(app);
 
