@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Unit, PropertyUnit } from "@shared/schema";
+import { PropertyUnit } from "@shared/schema";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,21 +58,58 @@ const PAGE_KEY = "unitsPage";
 const SORT_KEY = "unitsSort";
 const SORT_ORDER_KEY = "unitsSortOrder";
 
+type PersonForm = {
+  fullName: string;
+  email: string;
+  phone: string;
+  receiveEmailNotifications: boolean;
+};
+
+type UnitWithPeople = PropertyUnit & {
+  owners: PersonForm[];
+  tenants: PersonForm[];
+};
+
 export default function UnitsPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [editingUnit, setEditingUnit] = useState<UnitWithPeople | null>(null);
   const { toast } = useToast();
   const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [owners, setOwners] = useState([{ fullName: "", email: "", phone: "", receiveEmailNotifications: true }]);
+  const [tenants, setTenants] = useState([{ fullName: "", email: "", phone: "", receiveEmailNotifications: true }]);
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
+  useEffect(() => {
+    if (editingUnit) {
+      setOwners(
+        editingUnit.owners && editingUnit.owners.length > 0
+          ? editingUnit.owners.map((o: PersonForm) => ({
+              ...o,
+              phone: typeof o.phone === 'string' ? o.phone : ""
+            }))
+          : [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true }]
+      );
+      setTenants(
+        editingUnit.tenants && editingUnit.tenants.length > 0
+          ? editingUnit.tenants.map((t: PersonForm) => ({
+              ...t,
+              phone: typeof t.phone === 'string' ? t.phone : ""
+            }))
+          : [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true }]
+      );
+    } else {
+      setOwners([{ fullName: "", email: "", phone: "", receiveEmailNotifications: true }]);
+      setTenants([{ fullName: "", email: "", phone: "", receiveEmailNotifications: true }]);
+    }
+  }, [editingUnit, isAddDialogOpen]);
 
-  const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: Unit[], total: number }>({
+  const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeople[], total: number }>({
     queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder }],
     queryFn: async () => {
       const url = new URL("/api/units", window.location.origin);
@@ -112,8 +149,8 @@ export default function UnitsPage() {
   });
   
   const createMutation = useMutation({
-    mutationFn: async (data: FormValues) => {
-      const res = await apiRequest("POST", "/api/units", data);
+    mutationFn: async (data: { unit: any; persons: PersonForm[] }) => {
+      const res = await apiRequest("POST", "/api/units-with-persons", data);
       return res;
     },
     onSuccess: () => {
@@ -135,9 +172,9 @@ export default function UnitsPage() {
   });
   
   const updateMutation = useMutation({
-    mutationFn: async (data: FormValues & { id: number }) => {
-      const { id, ...unitData } = data;
-      const res = await apiRequest("PATCH", `/api/units/${id}`, unitData);
+    mutationFn: async (data: { id: number; unit: any; persons: PersonForm[] }) => {
+      const { id, ...rest } = data;
+      const res = await apiRequest("PATCH", `/api/units-with-persons/${id}`, rest);
       return res;
     },
     onSuccess: () => {
@@ -158,27 +195,63 @@ export default function UnitsPage() {
     }
   });
   
-  const onSubmit = (values: FormValues) => {
-    if (editingUnit) {
-      updateMutation.mutate({ ...values, id: editingUnit.id });
-    } else {
-      createMutation.mutate(values);
+  const addOwner = useCallback(() => setOwners((prev) => [...prev, { fullName: "", email: "", phone: "", receiveEmailNotifications: true }]), []);
+  const removeOwner = useCallback((idx: number) => setOwners((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev), []);
+  const updateOwner = useCallback((idx: number, field: string, value: any) => setOwners((prev) => prev.map((o, i) => i === idx ? { ...o, [field]: value } : o)), []);
+
+  const addTenant = useCallback(() => setTenants((prev) => [...prev, { fullName: "", email: "", phone: "", receiveEmailNotifications: true }]), []);
+  const removeTenant = useCallback((idx: number) => setTenants((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev), []);
+  const updateTenant = useCallback((idx: number, field: string, value: any) => setTenants((prev) => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t)), []);
+
+  const onSubmitMulti = async (values: any) => {
+    // Validate at least one owner
+    const validOwners = owners.filter(o => o.fullName.trim() && o.email.trim());
+    if (validOwners.length === 0) {
+      toast({ title: "Missing required fields", description: "At least one owner with name and email is required.", variant: "destructive" });
+      return;
     }
+    // Validate all owners/tenants have name and email if present
+    for (const o of owners) {
+      if ((o.fullName && !o.email) || (!o.fullName && o.email)) {
+        toast({ title: "Incomplete owner", description: "Each owner must have both name and email.", variant: "destructive" });
+        return;
+      }
+    }
+    for (const t of tenants) {
+      if ((t.fullName && !t.email) || (!t.fullName && t.email)) {
+        toast({ title: "Incomplete tenant", description: "Each tenant must have both name and email.", variant: "destructive" });
+        return;
+      }
+    }
+    const payload = {
+      unit: {
+        unitNumber: values.unitNumber,
+        floor: values.floor || null,
+        phone: values.phone || null,
+        notes: values.notes || null,
+      },
+      persons: [
+        ...owners.filter(o => o.fullName && o.email).map(o => ({ ...o, role: 'owner' })),
+        ...tenants.filter(t => t.fullName && t.email).map(t => ({ ...t, role: 'tenant' })),
+      ]
+    };
+    if (editingUnit) {
+      await updateMutation.mutateAsync({ ...payload, id: editingUnit.id });
+      setEditingUnit(null);
+    } else {
+      await createMutation.mutateAsync(payload);
+      setIsAddDialogOpen(false);
+    }
+    form.reset();
   };
   
-  const handleEdit = (unit: Unit) => {
+  const handleEdit = (unit: UnitWithPeople) => {
     setEditingUnit(unit);
     form.reset({
       unitNumber: unit.unitNumber,
       floor: unit.floor || "",
-      ownerName: unit.ownerName,
-      ownerEmail: unit.ownerEmail,
-      ownerReceiveNotifications: unit.ownerReceiveNotifications,
-      tenantName: unit.tenantName || "",
-      tenantEmail: unit.tenantEmail || "",
-      tenantReceiveNotifications: unit.tenantReceiveNotifications,
-      phone: unit.phone || "",
-      notes: unit.notes || "",
+      phone: (unit as any).phone || "",
+      notes: (unit as any).notes || "",
     });
   };
   
@@ -188,7 +261,7 @@ export default function UnitsPage() {
     setPage(1);
   };
   
-  const columns: ColumnDef<Unit>[] = [
+  const columns: ColumnDef<UnitWithPeople>[] = [
     {
       accessorKey: "unitNumber",
       header: () => (
@@ -277,7 +350,7 @@ export default function UnitsPage() {
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ row }) => row.original.phone,
+      cell: ({ row }) => (row.original as any).phone || "",
     },
     {
       id: "actions",
@@ -393,55 +466,7 @@ export default function UnitsPage() {
           </DialogHeader>
           <Form {...form}>
             <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const values = form.getValues();
-                // Required fields
-                const requiredFields = ["unitNumber", "ownerName", "ownerEmail"];
-                const missingFields = requiredFields.filter(field => !(values[field as keyof typeof values]));
-                if (missingFields.length > 0) {
-                  toast({
-                    title: "Missing required fields",
-                    description: `Please fill in: ${missingFields.join(", ")}`,
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                setIsCheckingDuplicate(true);
-                // Check for duplicate unit
-                const res = await apiRequest("GET", `/api/property-units`);
-                const units = await res.json();
-                const existing = Array.isArray(units) ? units.find((u: any) => u.unitNumber === values.unitNumber) : null;
-                setIsCheckingDuplicate(false);
-                if (existing) {
-                  if (confirm("This unit already exists. Do you want to update its information?")) {
-                    // Update existing unit (and unit)
-                    const payload = {
-                      unitNumber: values.unitNumber,
-                      ownerName: values.ownerName,
-                      ownerEmail: values.ownerEmail,
-                      floor: values.floor || null,
-                      tenantName: values.tenantName || null,
-                      tenantEmail: values.tenantEmail || null,
-                      phone: values.phone || null,
-                      notes: values.notes || null,
-                    };
-                    await apiRequest("PUT", `/api/property-units/${existing.id}`, payload);
-                    createMutation.mutate(values); // Also create/update unit record
-                    toast({
-                      title: "Unit updated",
-                      description: `Unit ${values.unitNumber} has been updated. Unit record will be created/updated as well.`,
-                    });
-                    setIsAddDialogOpen(false);
-                    form.reset();
-                    return;
-                  } else {
-                    return;
-                  }
-                }
-                // No duplicate, proceed to create
-                createMutation.mutate(values);
-              }}
+              onSubmit={form.handleSubmit(onSubmitMulti)}
               className="overflow-y-auto px-6 py-4"
             >
               <div className="space-y-4 pb-4">
@@ -473,130 +498,62 @@ export default function UnitsPage() {
                     )}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="ownerName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Owner Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Full name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="ownerEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Owner Email *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="john.doe@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Owners*</FormLabel>
+                    <Button type="button" size="sm" onClick={addOwner}>Add Owner</Button>
+                  </div>
+                  {owners.map((owner, idx) => (
+                    <div key={idx} className="grid grid-cols-5 gap-2 items-center">
+                      <Input placeholder="Full name" value={owner.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
+                      <Input placeholder="Email" value={owner.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
+                      <Input placeholder="Phone" value={owner.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />
+                      <Checkbox checked={owner.receiveEmailNotifications} onCheckedChange={v => updateOwner(idx, 'receiveEmailNotifications', v as boolean)} />
+                      {owners.length > 1 && <Button type="button" size="icon" variant="ghost" onClick={() => removeOwner(idx)}>-</Button>}
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Tenants*</FormLabel>
+                    <Button type="button" size="sm" onClick={addTenant}>Add Tenant</Button>
+                  </div>
+                  {tenants.map((tenant, idx) => (
+                    <div key={idx} className="grid grid-cols-5 gap-2 items-center">
+                      <Input placeholder="Full name" value={tenant.fullName} onChange={e => updateTenant(idx, 'fullName', e.target.value)} />
+                      <Input placeholder="Email" value={tenant.email} onChange={e => updateTenant(idx, 'email', e.target.value)} />
+                      <Input placeholder="Phone" value={tenant.phone} onChange={e => updateTenant(idx, 'phone', e.target.value)} />
+                      <Checkbox checked={tenant.receiveEmailNotifications} onCheckedChange={v => updateTenant(idx, 'receiveEmailNotifications', v as boolean)} />
+                      {tenants.length > 1 && <Button type="button" size="icon" variant="ghost" onClick={() => removeTenant(idx)}>-</Button>}
+                    </div>
+                  ))}
                 </div>
                 <FormField
                   control={form.control}
-                  name="ownerReceiveNotifications"
+                  name="phone"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Input placeholder="+1234567890" {...field} />
                       </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Receive email notifications</FormLabel>
-                        <FormDescription>
-                          Owner will receive email notifications for violations
-                        </FormDescription>
-                      </div>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="tenantName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tenant Name (if applicable)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Full name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="tenantEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tenant Email (if applicable)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="jane.smith@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
                 <FormField
                   control={form.control}
-                  name="tenantReceiveNotifications"
+                  name="notes"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Input placeholder="Additional information" {...field} />
                       </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Receive email notifications</FormLabel>
-                        <FormDescription>
-                          Tenant will receive email notifications for violations
-                        </FormDescription>
-                      </div>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+1234567890" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Additional information" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
               <DialogFooter className="px-6 py-4">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -620,7 +577,7 @@ export default function UnitsPage() {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmitMulti)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="unitNumber"
@@ -644,98 +601,6 @@ export default function UnitsPage() {
                       <Input placeholder="3" {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="ownerName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Owner Name*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="ownerEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Owner Email*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="john.doe@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="ownerReceiveNotifications"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Receive email notifications</FormLabel>
-                      <FormDescription>
-                        Owner will receive email notifications for violations
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tenantName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tenant Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Jane Smith" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tenantEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tenant Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="jane.smith@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tenantReceiveNotifications"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Receive email notifications</FormLabel>
-                      <FormDescription>
-                        Tenant will receive email notifications for violations
-                      </FormDescription>
-                    </div>
                   </FormItem>
                 )}
               />
