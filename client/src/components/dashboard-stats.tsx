@@ -5,24 +5,10 @@ import {
   FileText, 
   Clock, 
   CheckCircle, 
-  AlertTriangle, 
-  XCircle 
+  AlertTriangle 
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 
-// Updated and comprehensive interface for the stats data
-interface DashboardStatsData {
-  totalViolations: number;
-  newViolations: number;
-  pendingViolations: number;
-  approvedViolations: number;
-  disputedViolations: number;
-  rejectedViolations: number;       // Added
-  resolvedViolations: number;       // Added
-  averageResolutionTimeDays: number | null; // Added
-}
-
-// Basic interface for the expected stats object
+// Interface for the expected stats object
 interface ReportStatsData {
   totalViolations: number;
   newViolations: number;
@@ -33,7 +19,8 @@ interface ReportStatsData {
 }
 
 export function DashboardStats() {
-
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["/api/reports/stats"],
   });
 
   if (isLoading) {
@@ -50,48 +37,41 @@ export function DashboardStats() {
     );
   }
 
+  if (!stats) {
+    return null;
   }
-
-  const stats = data.stats;
 
   const statCards = [
     {
       title: "Total Violations",
-      value: statsData?.totalViolations ?? 0,
+      value: stats.totalViolations,
       icon: <FileText className="h-6 w-6 text-primary-600" />,
       bgColor: "bg-primary-100",
     },
     {
       title: "New",
-      value: statsData?.newViolations ?? 0,
+      value: stats.newViolations,
       icon: <FileText className="h-6 w-6 text-blue-600" />,
       bgColor: "bg-blue-100",
     },
     {
       title: "Pending",
-      value: statsData?.pendingViolations ?? 0,
+      value: stats.pendingViolations,
       icon: <Clock className="h-6 w-6 text-yellow-600" />,
       bgColor: "bg-yellow-100",
     },
     {
       title: "Approved",
-      value: statsData?.approvedViolations ?? 0,
+      value: stats.approvedViolations,
       icon: <CheckCircle className="h-6 w-6 text-green-600" />,
       bgColor: "bg-green-100",
     },
     {
       title: "Disputed",
-      value: statsData?.disputedViolations ?? 0,
+      value: stats.disputedViolations,
       icon: <AlertTriangle className="h-6 w-6 text-orange-600" />,
       bgColor: "bg-orange-100",
     },
-    // Example for a new card if you use more data:
-    // {
-    //   title: "Rejected",
-    //   value: statsData?.rejectedViolations ?? 0,
-    //   icon: <XCircle className="h-6 w-6 text-red-600" />,
-    //   bgColor: "bg-red-100",
-    // },
   ];
 
   return (
