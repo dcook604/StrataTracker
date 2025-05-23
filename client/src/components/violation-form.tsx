@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { insertViolationSchema, insertPropertyUnitSchema } from "@shared/schema";
@@ -84,8 +84,8 @@ export function ViolationForm() {
     );
   }, [safeUnits, unitSearchTerm]);
 
-  // Form setup
-  const form = useForm<any>({
+  // Auto-select unit if search term leads to a single partial match
+  const form = useForm<z.infer<typeof violationFormSchema>>({
     resolver: zodResolver(violationFormSchema),
     defaultValues: {
       unitId: "",
@@ -101,6 +101,17 @@ export function ViolationForm() {
       floor: '',
     },
   });
+
+  useEffect(() => {
+    if (unitSearchTerm.trim() && filteredUnits.length === 1) {
+      const singleUnit = filteredUnits[0];
+      if (String(form.getValues("unitId")) !== String(singleUnit.id)) {
+        form.setValue("unitId", String(singleUnit.id));
+      }
+    }
+  }, [unitSearchTerm, filteredUnits, form]);
+
+  const watchUnitId = form.watch("unitId");
 
   // Submit violation mutation
   const submitViolationMutation = useMutation({

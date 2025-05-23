@@ -26,7 +26,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle, Users as UsersIconLucide } from "lucide-react";
+import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle, Users as UsersIconLucide, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
@@ -94,14 +94,36 @@ const mapSettingsToForm = (settings: SystemSetting[]): EmailSettingsFormValues =
 
 const systemSettingsSchema = z.object({
   strataName: z.string().min(1, "Strata name is required"),
-  propertyAddress: z.string().min(1, "Property address is required"),
+  propertyAddress: z.object({
+    streetLine1: z.string().min(1, "Street address is required"),
+    streetLine2: z.string().optional(),
+    city: z.string().min(1, "City is required"),
+    province: z.string().min(1, "Province is required"),
+    postalCode: z.string().min(1, "Postal code is required").regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, "Invalid Canadian postal code format"),
+    country: z.string().default("Canada"),
+  }),
   adminFirstName: z.string().min(1, "First name required"),
   adminLastName: z.string().min(1, "Last name required"),
   adminEmail: z.string().email("Invalid email").min(1, "Email required"),
   adminPhone: z.string().min(1, "Phone required"),
-  propertyManagers: z.array(z.object({ name: z.string(), phone: z.string(), email: z.string().email() })).min(1),
-  caretakers: z.array(z.object({ name: z.string(), phone: z.string(), email: z.string().email() })).min(0),
-  councilMembers: z.array(z.object({ name: z.string(), phone: z.string(), email: z.string().email() })).min(0),
+  propertyManagers: z.array(z.object({
+    name: z.string().min(1, "Name is required"),
+    phone: z.string().optional(),
+    email: z.string().email("Invalid email").min(1, "Email is required"),
+    receiveAllViolationEmails: z.boolean().default(false),
+  })).optional(),
+  caretakers: z.array(z.object({
+    name: z.string().min(1, "Name is required"),
+    phone: z.string().optional(),
+    email: z.string().email("Invalid email").min(1, "Email is required"),
+    receiveAllViolationEmails: z.boolean().default(false),
+  })).optional(),
+  councilMembers: z.array(z.object({
+    name: z.string().min(1, "Name is required"),
+    phone: z.string().optional(),
+    email: z.string().email("Invalid email").min(1, "Email is required"),
+    receiveAllViolationEmails: z.boolean().default(false),
+  })).optional(),
   defaultTimezone: z.string().min(1),
   defaultLanguage: z.string().min(1),
   strataLogo: z.string().optional(),
@@ -344,12 +366,19 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [systemForm, setSystemForm] = useState<any>({
     strataName: "",
-    propertyAddress: "",
+    propertyAddress: {
+      streetLine1: "",
+      streetLine2: "",
+      city: "",
+      province: "",
+      postalCode: "",
+      country: "Canada",
+    },
     adminFirstName: "",
     adminLastName: "",
     adminEmail: "",
     adminPhone: "",
-    propertyManagers: [{ name: "", phone: "", email: "" }],
+    propertyManagers: [],
     caretakers: [],
     councilMembers: [],
     defaultTimezone: "America/Vancouver",
@@ -360,17 +389,48 @@ export default function SettingsPage() {
   // In useEffect, when settings are loaded, populate systemForm and logoUrl
   useEffect(() => {
     if (settings) {
-      const sys = {} as any;
+      const sys = {
+        propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
+        propertyManagers: [],
+        caretakers: [],
+        councilMembers: [],
+      } as any;
       settings.forEach(s => {
         if (s.settingKey === 'strata_name') sys.strataName = s.settingValue;
-        if (s.settingKey === 'property_address') sys.propertyAddress = s.settingValue;
+        if (s.settingKey === 'property_address') {
+          try {
+            const parsedAddress = JSON.parse(s.settingValue || '{}');
+            sys.propertyAddress = {
+              streetLine1: parsedAddress.streetLine1 || "",
+              streetLine2: parsedAddress.streetLine2 || "",
+              city: parsedAddress.city || "",
+              province: parsedAddress.province || "",
+              postalCode: parsedAddress.postalCode || "",
+              country: parsedAddress.country || "Canada",
+            };
+          } catch (e) {
+            console.error("Failed to parse property_address:", e);
+          }
+        }
         if (s.settingKey === 'admin_first_name') sys.adminFirstName = s.settingValue;
         if (s.settingKey === 'admin_last_name') sys.adminLastName = s.settingValue;
         if (s.settingKey === 'admin_email') sys.adminEmail = s.settingValue;
         if (s.settingKey === 'admin_phone') sys.adminPhone = s.settingValue;
-        if (s.settingKey === 'property_managers') sys.propertyManagers = JSON.parse(s.settingValue || '[]');
-        if (s.settingKey === 'caretakers') sys.caretakers = JSON.parse(s.settingValue || '[]');
-        if (s.settingKey === 'council_members') sys.councilMembers = JSON.parse(s.settingValue || '[]');
+        if (s.settingKey === 'property_managers') {
+          try {
+            sys.propertyManagers = JSON.parse(s.settingValue || '[]').map((pm: any) => ({ ...pm, receiveAllViolationEmails: !!pm.receiveAllViolationEmails }));
+          } catch (e) { console.error("Failed to parse property_managers", e); sys.propertyManagers = []; }
+        }
+        if (s.settingKey === 'caretakers') {
+          try {
+            sys.caretakers = JSON.parse(s.settingValue || '[]').map((ct: any) => ({ ...ct, receiveAllViolationEmails: !!ct.receiveAllViolationEmails }));
+          } catch (e) { console.error("Failed to parse caretakers", e); sys.caretakers = []; }
+        }
+        if (s.settingKey === 'council_members') {
+          try {
+            sys.councilMembers = JSON.parse(s.settingValue || '[]').map((cm: any) => ({ ...cm, receiveAllViolationEmails: !!cm.receiveAllViolationEmails }));
+          } catch (e) { console.error("Failed to parse council_members", e); sys.councilMembers = []; }
+        }
         if (s.settingKey === 'default_timezone') sys.defaultTimezone = s.settingValue;
         if (s.settingKey === 'default_language') sys.defaultLanguage = s.settingValue;
         if (s.settingKey === 'strata_logo') sys.strataLogo = s.settingValue;
@@ -732,8 +792,57 @@ export default function SettingsPage() {
                 <form className="space-y-4">
                   <label className="font-medium">Strata Name</label>
                   <Input value={systemForm.strataName} onChange={e => setSystemForm((prev: any) => ({ ...prev, strataName: e.target.value }))} />
-                  <label className="font-medium">Property Address (Canada)</label>
-                  <Input value={systemForm.propertyAddress} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: e.target.value }))} />
+                  
+                  {/* Property Address Section */}
+                  <div>
+                    <label className="font-medium block mb-1">Property Address (Canada)</label>
+                    <div className="space-y-2">
+                      <div>
+                        <label htmlFor="streetLine1" className="text-sm font-medium">Street Address Line 1</label>
+                        <Input id="streetLine1" placeholder="e.g., 123 Main St" value={systemForm.propertyAddress.streetLine1} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine1: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label htmlFor="streetLine2" className="text-sm font-medium">Street Address Line 2 (Optional)</label>
+                        <Input id="streetLine2" placeholder="e.g., Apt/Suite 100" value={systemForm.propertyAddress.streetLine2} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine2: e.target.value } }))} />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="city" className="text-sm font-medium">City</label>
+                          <Input id="city" placeholder="e.g., Vancouver" value={systemForm.propertyAddress.city} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, city: e.target.value } }))} />
+                        </div>
+                        <div>
+                          <label htmlFor="province" className="text-sm font-medium">Province</label>
+                          <select id="province" value={systemForm.propertyAddress.province} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, province: e.target.value } }))} className="w-full border rounded-md px-2 py-2 h-[38px] bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            <option value="">Select Province</option>
+                            <option value="AB">Alberta</option>
+                            <option value="BC">British Columbia</option>
+                            <option value="MB">Manitoba</option>
+                            <option value="NB">New Brunswick</option>
+                            <option value="NL">Newfoundland and Labrador</option>
+                            <option value="NS">Nova Scotia</option>
+                            <option value="ON">Ontario</option>
+                            <option value="PE">Prince Edward Island</option>
+                            <option value="QC">Quebec</option>
+                            <option value="SK">Saskatchewan</option>
+                            <option value="NT">Northwest Territories</option>
+                            <option value="NU">Nunavut</option>
+                            <option value="YT">Yukon</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="postalCode" className="text-sm font-medium">Postal Code</label>
+                          <Input id="postalCode" placeholder="e.g., A1B 2C3" value={systemForm.propertyAddress.postalCode} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, postalCode: e.target.value } }))} />
+                        </div>
+                        <div>
+                          <label htmlFor="country" className="text-sm font-medium">Country</label>
+                          <Input id="country" value={systemForm.propertyAddress.country} readOnly disabled className="bg-neutral-100" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="font-medium">Admin First Name</label>
@@ -754,8 +863,175 @@ export default function SettingsPage() {
                       <Input value={systemForm.adminPhone} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminPhone: e.target.value }))} />
                     </div>
                   </div>
-                  {/* Property Managers, Caretakers, Council Members: map over arrays for multi-entry */}
-                  {/* ... similar UI for propertyManagers, caretakers, councilMembers ... */}
+
+                  {/* Property Managers Section */}
+                  <div className="space-y-3 pt-4 border-t mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-base font-semibold">Property Managers</h4>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, propertyManagers: [...(prev.propertyManagers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                        Add Manager
+                      </Button>
+                    </div>
+                    {(systemForm.propertyManagers && systemForm.propertyManagers.length > 0) ? systemForm.propertyManagers.map((pm: any, index: number) => (
+                      <div key={`pm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label htmlFor={`pm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
+                            <Input id={`pm-name-${index}`} placeholder="Full Name" value={pm.name} onChange={e => {
+                              const updated = [...systemForm.propertyManagers];
+                              updated[index].name = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                            }} />
+                          </div>
+                          <div>
+                            <label htmlFor={`pm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
+                            <Input id={`pm-email-${index}`} type="email" placeholder="Email Address" value={pm.email} onChange={e => {
+                              const updated = [...systemForm.propertyManagers];
+                              updated[index].email = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                            }} />
+                          </div>
+                          <div>
+                            <label htmlFor={`pm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
+                            <Input id={`pm-phone-${index}`} placeholder="Phone Number" value={pm.phone} onChange={e => {
+                              const updated = [...systemForm.propertyManagers];
+                              updated[index].phone = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                            }} />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex items-center space-x-2">
+                            <Switch id={`pm-notify-${index}`} checked={pm.receiveAllViolationEmails} onCheckedChange={checked => {
+                              const updated = [...systemForm.propertyManagers];
+                              updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
+                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                            }} />
+                            <label htmlFor={`pm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                            const updated = systemForm.propertyManagers.filter((_: any, i: number) => i !== index);
+                            setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                          }}>
+                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                          </Button>
+                        </div>
+                      </div>
+                    )) : <p className="text-xs text-neutral-500 italic">No property managers added.</p>}
+                  </div>
+
+                  {/* Caretakers Section */}
+                  <div className="space-y-3 pt-4 border-t mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-base font-semibold">Caretakers</h4>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, caretakers: [...(prev.caretakers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                        Add Caretaker
+                      </Button>
+                    </div>
+                    {(systemForm.caretakers && systemForm.caretakers.length > 0) ? systemForm.caretakers.map((ct: any, index: number) => (
+                      <div key={`ct-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                           <div>
+                            <label htmlFor={`ct-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
+                            <Input id={`ct-name-${index}`} placeholder="Full Name" value={ct.name} onChange={e => {
+                              const updated = [...systemForm.caretakers];
+                              updated[index].name = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                            }} />
+                          </div>
+                          <div>
+                            <label htmlFor={`ct-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
+                            <Input id={`ct-email-${index}`} type="email" placeholder="Email Address" value={ct.email} onChange={e => {
+                              const updated = [...systemForm.caretakers];
+                              updated[index].email = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                            }} />
+                          </div>
+                          <div>
+                            <label htmlFor={`ct-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
+                            <Input id={`ct-phone-${index}`} placeholder="Phone Number" value={ct.phone} onChange={e => {
+                              const updated = [...systemForm.caretakers];
+                              updated[index].phone = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                            }} />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex items-center space-x-2">
+                            <Switch id={`ct-notify-${index}`} checked={ct.receiveAllViolationEmails} onCheckedChange={checked => {
+                              const updated = [...systemForm.caretakers];
+                              updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
+                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                            }} />
+                            <label htmlFor={`ct-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                            const updated = systemForm.caretakers.filter((_: any, i: number) => i !== index);
+                            setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                          }}>
+                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                          </Button>
+                        </div>
+                      </div>
+                    )) : <p className="text-xs text-neutral-500 italic">No caretakers added.</p>}
+                  </div>
+
+                  {/* Council Members Section */}
+                  <div className="space-y-3 pt-4 border-t mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-base font-semibold">Council Members</h4>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, councilMembers: [...(prev.councilMembers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                        Add Council Member
+                      </Button>
+                    </div>
+                    {(systemForm.councilMembers && systemForm.councilMembers.length > 0) ? systemForm.councilMembers.map((cm: any, index: number) => (
+                      <div key={`cm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label htmlFor={`cm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
+                            <Input id={`cm-name-${index}`} placeholder="Full Name" value={cm.name} onChange={e => {
+                              const updated = [...systemForm.councilMembers];
+                              updated[index].name = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                            }} />
+                          </div>
+                          <div>
+                            <label htmlFor={`cm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
+                            <Input id={`cm-email-${index}`} type="email" placeholder="Email Address" value={cm.email} onChange={e => {
+                              const updated = [...systemForm.councilMembers];
+                              updated[index].email = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                            }} />
+                          </div>
+                          <div>
+                            <label htmlFor={`cm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
+                            <Input id={`cm-phone-${index}`} placeholder="Phone Number" value={cm.phone} onChange={e => {
+                              const updated = [...systemForm.councilMembers];
+                              updated[index].phone = e.target.value;
+                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                            }} />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex items-center space-x-2">
+                            <Switch id={`cm-notify-${index}`} checked={cm.receiveAllViolationEmails} onCheckedChange={checked => {
+                              const updated = [...systemForm.councilMembers];
+                              updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
+                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                            }} />
+                            <label htmlFor={`cm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                            const updated = systemForm.councilMembers.filter((_: any, i: number) => i !== index);
+                            setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                          }}>
+                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                          </Button>
+                        </div>
+                      </div>
+                    )) : <p className="text-xs text-neutral-500 italic">No council members added.</p>}
+                  </div>
+
                   <div>
                     <label className="font-medium">Strata Logo</label>
                     <FileUpload maxFiles={1} acceptedTypes={["image/png", "image/jpeg", "image/svg+xml"]} onChange={handleLogoUpload} />
@@ -783,7 +1059,7 @@ export default function SettingsPage() {
                     // Save all system settings fields
                     const updates = [
                       { settingKey: 'strata_name', settingValue: systemForm.strataName },
-                      { settingKey: 'property_address', settingValue: systemForm.propertyAddress },
+                      { settingKey: 'property_address', settingValue: JSON.stringify(systemForm.propertyAddress) },
                       { settingKey: 'admin_first_name', settingValue: systemForm.adminFirstName },
                       { settingKey: 'admin_last_name', settingValue: systemForm.adminLastName },
                       { settingKey: 'admin_email', settingValue: systemForm.adminEmail },
@@ -796,9 +1072,10 @@ export default function SettingsPage() {
                       { settingKey: 'strata_logo', settingValue: systemForm.strataLogo },
                     ];
                     for (const update of updates) {
-                      await apiRequest("POST", `/api/settings/${update.settingKey}`, { value: update.settingValue });
+                      await apiRequest("PUT", `/api/settings/${update.settingKey}`, { settingValue: update.settingValue });
                     }
                     toast({ title: "Settings Updated", description: "General system settings updated." });
+                    queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
                   }}>Save General Settings</Button>
                 </form>
               </CardContent>

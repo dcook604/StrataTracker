@@ -29,7 +29,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, TrashIcon, BuildingIcon } from "lucide-react";
+import { PencilIcon, TrashIcon as DeleteIcon, BuildingIcon, Trash2 } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,9 +49,9 @@ const formSchema = z.object({
   tenantReceiveNotifications: z.boolean().default(true).optional(),
   phone: z.string().optional(),
   notes: z.string().optional(),
-  parkingSpots: z.coerce.number().int().min(0).optional(),
-  storageLockers: z.coerce.number().int().min(0).optional(),
-  bikeLockers: z.coerce.number().int().min(0).optional(),
+  parkingSpots: z.string().optional(),
+  storageLockers: z.string().optional(),
+  bikeLockers: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -97,9 +97,9 @@ export default function UnitsPage() {
       floor: "",
       phone: "",
       notes: "",
-      parkingSpots: 0,
-      storageLockers: 0,
-      bikeLockers: 0,
+      parkingSpots: "",
+      storageLockers: "",
+      bikeLockers: "",
     }
   });
 
@@ -115,9 +115,9 @@ export default function UnitsPage() {
         floor: "",
         phone: "",
         notes: "",
-        parkingSpots: 0,
-        storageLockers: 0,
-        bikeLockers: 0,
+        parkingSpots: "",
+        storageLockers: "",
+        bikeLockers: "",
       });
       setOwners([{ ...defaultPerson }]);
       setTenants([{ ...defaultPerson }]);
@@ -127,9 +127,9 @@ export default function UnitsPage() {
         floor: editingUnit.floor || "",
         phone: (editingUnit as any).phone || "", 
         notes: (editingUnit as any).notes || "", 
-        parkingSpots: editingUnit.facilities?.parkingSpots ?? 0,
-        storageLockers: editingUnit.facilities?.storageLockers ?? 0,
-        bikeLockers: editingUnit.facilities?.bikeLockers ?? 0,
+        parkingSpots: Array.isArray(editingUnit.facilities?.parkingSpots) ? editingUnit.facilities.parkingSpots.join(', ') : String(editingUnit.facilities?.parkingSpots ?? ''),
+        storageLockers: Array.isArray(editingUnit.facilities?.storageLockers) ? editingUnit.facilities.storageLockers.join(', ') : String(editingUnit.facilities?.storageLockers ?? ''),
+        bikeLockers: Array.isArray(editingUnit.facilities?.bikeLockers) ? editingUnit.facilities.bikeLockers.join(', ') : String(editingUnit.facilities?.bikeLockers ?? ''),
       });
       setOwners(
         editingUnit.owners && editingUnit.owners.length > 0
@@ -188,6 +188,7 @@ export default function UnitsPage() {
         description: "Unit added successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
       setIsAddDialogOpen(false);
       form.reset();
     },
@@ -212,6 +213,7 @@ export default function UnitsPage() {
         description: "Unit updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
       setEditingUnit(null);
       form.reset();
     },
@@ -224,11 +226,11 @@ export default function UnitsPage() {
     }
   });
   
-  const addOwner = useCallback(() => setOwners((prev) => [...prev, { ...defaultPerson }]), []);
+  const addOwner = useCallback(() => setOwners((prev) => [...prev, { ...defaultPerson }]), [defaultPerson]);
   const removeOwner = useCallback((idx: number) => setOwners((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev), []);
   const updateOwner = useCallback((idx: number, field: keyof PersonForm, value: any) => setOwners((prev) => prev.map((o, i) => i === idx ? { ...o, [field]: value } : o)), []);
 
-  const addTenant = useCallback(() => setTenants((prev) => [...prev, { ...defaultPerson }]), []);
+  const addTenant = useCallback(() => setTenants((prev) => [...prev, { ...defaultPerson }]), [defaultPerson]);
   const removeTenant = useCallback((idx: number) => setTenants((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev), []);
   const updateTenant = useCallback((idx: number, field: keyof PersonForm, value: any) => setTenants((prev) => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t)), []);
 
@@ -260,9 +262,9 @@ export default function UnitsPage() {
     };
 
     const facilitiesPayload = {
-      parkingSpots: values.parkingSpots || 0,
-      storageLockers: values.storageLockers || 0,
-      bikeLockers: values.bikeLockers || 0,
+      parkingSpots: values.parkingSpots || "",
+      storageLockers: values.storageLockers || "",
+      bikeLockers: values.bikeLockers || "",
     };
 
     const personsPayload = [
@@ -320,9 +322,9 @@ export default function UnitsPage() {
       floor: unit.floor || "",
       phone: (unit as any).phone || "",
       notes: (unit as any).notes || "",
-      parkingSpots: unit.facilities?.parkingSpots ?? 0,
-      storageLockers: unit.facilities?.storageLockers ?? 0,
-      bikeLockers: unit.facilities?.bikeLockers ?? 0,
+      parkingSpots: Array.isArray(unit.facilities?.parkingSpots) ? unit.facilities.parkingSpots.join(', ') : String(unit.facilities?.parkingSpots ?? ''),
+      storageLockers: Array.isArray(unit.facilities?.storageLockers) ? unit.facilities.storageLockers.join(', ') : String(unit.facilities?.storageLockers ?? ''),
+      bikeLockers: Array.isArray(unit.facilities?.bikeLockers) ? unit.facilities.bikeLockers.join(', ') : String(unit.facilities?.bikeLockers ?? ''),
     });
   };
   
@@ -548,20 +550,21 @@ export default function UnitsPage() {
       </div>
       
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] p-0">
-          <DialogHeader className="p-6 pb-0">
-            <DialogTitle>Add Unit</DialogTitle>
+        <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle>Add New Unit</DialogTitle>
             <DialogDescription>
-              Enter the details for the new unit. If the unit already exists, you can update its information.
+              Enter the details for the new unit, including facilities, owners, and tenants.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(onSubmitMulti)}
-              className="overflow-y-auto px-6 py-4"
+              className="flex-grow overflow-y-auto px-6 py-4 space-y-6"
             >
-              <div className="space-y-4 pb-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-neutral-800">Unit Details</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="unitNumber"
@@ -590,17 +593,16 @@ export default function UnitsPage() {
                   />
                 </div>
 
-                {/* Facilities Section */}
-                <h4 className="text-md font-medium pt-4">Facilities</h4>
-                <div className="grid grid-cols-3 gap-4">
+                <h4 className="text-lg font-semibold text-neutral-800 pt-4 pb-2">Facilities</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="parkingSpots"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Parking</FormLabel>
+                        <FormLabel>Parking Spots</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                          <Input placeholder="e.g., 101, 102" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -611,9 +613,9 @@ export default function UnitsPage() {
                     name="storageLockers"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Storage</FormLabel>
+                        <FormLabel>Storage Lockers</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                          <Input placeholder="e.g., S1, S2" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -626,7 +628,7 @@ export default function UnitsPage() {
                       <FormItem>
                         <FormLabel>Bike Lockers</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                          <Input placeholder="e.g., B1, B2" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -634,65 +636,85 @@ export default function UnitsPage() {
                   />
                 </div>
 
-                {/* Owners Section */}
-                <h4 className="text-md font-medium pt-4">Owners</h4>
-                {owners.map((owner, idx) => (
-                  <div key={idx} className="p-4 border rounded-md space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input placeholder="Full Name *" value={owner.fullName} onChange={(e) => updateOwner(idx, 'fullName', e.target.value)} />
-                      <Input placeholder="Email *" type="email" value={owner.email} onChange={(e) => updateOwner(idx, 'email', e.target.value)} />
-                    </div>
-                    <Input placeholder="Phone" value={owner.phone} onChange={(e) => updateOwner(idx, 'phone', e.target.value)} />
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id={`ownerNotif${idx}`} checked={owner.receiveEmailNotifications} onCheckedChange={(checked) => updateOwner(idx, 'receiveEmailNotifications', checked)} />
-                      <label htmlFor={`ownerNotif${idx}`} className="text-sm">Receive Email Notifications</label>
-                    </div>
-                    {/* Pet Checkboxes for Owner */}
-                    <div className="flex items-center space-x-4 pt-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`ownerHasCat${idx}`} checked={owner.hasCat} onCheckedChange={(checked) => updateOwner(idx, 'hasCat', checked)} />
-                        <label htmlFor={`ownerHasCat${idx}`} className="text-sm">Has Cat</label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`ownerHasDog${idx}`} checked={owner.hasDog} onCheckedChange={(checked) => updateOwner(idx, 'hasDog', checked)} />
-                        <label htmlFor={`ownerHasDog${idx}`} className="text-sm">Has Dog</label>
-                      </div>
-                    </div>
-                    {owners.length > 1 && <Button type="button" variant="destructive" size="sm" onClick={() => removeOwner(idx)}>Remove Owner</Button>}
+                <h4 className="text-lg font-semibold text-neutral-800 pt-4 space-y-3">Owners</h4>
+                <div className="pt-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-lg font-semibold text-neutral-800">Owners</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={addOwner}>Add Owner</Button>
                   </div>
-                ))}
-                <Button type="button" variant="outline" onClick={addOwner}>Add Owner</Button>
+                  {owners.map((owner, idx) => (
+                    <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Input placeholder="Full Name *" aria-label={`Owner ${idx + 1} Full Name`} value={owner.fullName} onChange={(e) => updateOwner(idx, 'fullName', e.target.value)} />
+                        <Input placeholder="Email *" aria-label={`Owner ${idx + 1} Email`} type="email" value={owner.email} onChange={(e) => updateOwner(idx, 'email', e.target.value)} />
+                      </div>
+                      <Input placeholder="Phone (Optional)" aria-label={`Owner ${idx + 1} Phone`} value={owner.phone} onChange={(e) => updateOwner(idx, 'phone', e.target.value)} />
+                      <div className="flex items-center space-x-2 pt-1">
+                        <Checkbox id={`ownerNotif${idx}`} checked={owner.receiveEmailNotifications} onCheckedChange={(checked) => updateOwner(idx, 'receiveEmailNotifications', Boolean(checked))} />
+                        <label htmlFor={`ownerNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Receive Email Notifications</label>
+                      </div>
+                      <div className="flex items-center space-x-4 pt-1">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id={`ownerHasCat${idx}`} checked={!!owner.hasCat} onCheckedChange={(checked) => updateOwner(idx, 'hasCat', Boolean(checked))} />
+                          <label htmlFor={`ownerHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Cat 🐱</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id={`ownerHasDog${idx}`} checked={!!owner.hasDog} onCheckedChange={(checked) => updateOwner(idx, 'hasDog', Boolean(checked))} />
+                          <label htmlFor={`ownerHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Dog 🐶</label>
+                        </div>
+                      </div>
+                      {owners.length > 1 && 
+                        <div className="flex justify-end pt-2">
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOwner(idx)}>
+                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                          </Button>
+                        </div>
+                      }
+                    </div>
+                  ))}
+                </div>
 
-                {/* Tenants Section */}
-                <h4 className="text-md font-medium pt-4">Tenants</h4>
-                {tenants.map((tenant, idx) => (
-                  <div key={idx} className="p-4 border rounded-md space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input placeholder="Full Name" value={tenant.fullName} onChange={(e) => updateTenant(idx, 'fullName', e.target.value)} />
-                      <Input placeholder="Email" type="email" value={tenant.email} onChange={(e) => updateTenant(idx, 'email', e.target.value)} />
+                <h4 className="text-lg font-semibold text-neutral-800 pt-4 space-y-3">Tenants</h4>
+                <div className="pt-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                        <h4 className="text-lg font-semibold text-neutral-800">Tenants (Optional)</h4>
+                        <Button type="button" variant="outline" size="sm" onClick={addTenant}>Add Tenant</Button>
                     </div>
-                    <Input placeholder="Phone" value={tenant.phone} onChange={(e) => updateTenant(idx, 'phone', e.target.value)} />
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id={`tenantNotif${idx}`} checked={tenant.receiveEmailNotifications} onCheckedChange={(checked) => updateTenant(idx, 'receiveEmailNotifications', checked)} />
-                      <label htmlFor={`tenantNotif${idx}`} className="text-sm">Receive Email Notifications</label>
-                    </div>
-                    {/* Pet Checkboxes for Tenant */}
-                    <div className="flex items-center space-x-4 pt-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`tenantHasCat${idx}`} checked={tenant.hasCat} onCheckedChange={(checked) => updateTenant(idx, 'hasCat', checked)} />
-                        <label htmlFor={`tenantHasCat${idx}`} className="text-sm">Has Cat</label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`tenantHasDog${idx}`} checked={tenant.hasDog} onCheckedChange={(checked) => updateTenant(idx, 'hasDog', checked)} />
-                        <label htmlFor={`tenantHasDog${idx}`} className="text-sm">Has Dog</label>
-                      </div>
-                    </div>
-                    {tenants.length > 1 && <Button type="button" variant="destructive" size="sm" onClick={() => removeTenant(idx)}>Remove Tenant</Button>}
-                  </div>
-                ))}
-                <Button type="button" variant="outline" onClick={addTenant}>Add Tenant (Optional)</Button>
+                    {tenants.map((tenant, idx) => (
+                        <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Input placeholder="Full Name" aria-label={`Tenant ${idx + 1} Full Name`} value={tenant.fullName} onChange={(e) => updateTenant(idx, 'fullName', e.target.value)} />
+                                <Input placeholder="Email" aria-label={`Tenant ${idx + 1} Email`} type="email" value={tenant.email} onChange={(e) => updateTenant(idx, 'email', e.target.value)} />
+                            </div>
+                            <Input placeholder="Phone (Optional)" aria-label={`Tenant ${idx + 1} Phone`} value={tenant.phone} onChange={(e) => updateTenant(idx, 'phone', e.target.value)} />
+                            <div className="flex items-center space-x-2 pt-1">
+                                <Checkbox id={`tenantNotif${idx}`} checked={tenant.receiveEmailNotifications} onCheckedChange={(checked) => updateTenant(idx, 'receiveEmailNotifications', Boolean(checked))} />
+                                <label htmlFor={`tenantNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Receive Email Notifications</label>
+                            </div>
+                            <div className="flex items-center space-x-4 pt-1">
+                                <div className="flex items-center space-x-2">
+                                <Checkbox id={`tenantHasCat${idx}`} checked={!!tenant.hasCat} onCheckedChange={(checked) => updateTenant(idx, 'hasCat', Boolean(checked))} />
+                                <label htmlFor={`tenantHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Cat 🐱</label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                <Checkbox id={`tenantHasDog${idx}`} checked={!!tenant.hasDog} onCheckedChange={(checked) => updateTenant(idx, 'hasDog', Boolean(checked))} />
+                                <label htmlFor={`tenantHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Dog 🐶</label>
+                                </div>
+                            </div>
+                            {tenants.length > 1 && (
+                                <div className="flex justify-end pt-2">
+                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTenant(idx)}>
+                                        <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {tenants.length === 1 && !tenants[0].fullName && !tenants[0].email && (
+                        <p className="text-xs text-neutral-500 italic">No tenants added. Click 'Add Tenant' to include tenant details.</p>
+                    )}
+                </div>
                 
-                {/* Other unit details like phone, notes can remain if they are general */}
                 <FormField
                   control={form.control}
                   name="phone"
@@ -720,7 +742,7 @@ export default function UnitsPage() {
                   )}
                 />
               </div>
-              <DialogFooter className="px-6 py-4">
+              <DialogFooter className="px-6 py-4 border-t sticky bottom-0 bg-white z-10">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
@@ -734,17 +756,18 @@ export default function UnitsPage() {
       </Dialog>
       
       <Dialog open={!!editingUnit} onOpenChange={(open) => !open && setEditingUnit(null)}>
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] p-0">
-          <DialogHeader className="p-6 pb-0">
+        <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-6 pb-4 border-b">
             <DialogTitle>Edit Unit</DialogTitle>
             <DialogDescription>
               Update the unit details, facilities, owners, and tenants.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmitMulti)} className="overflow-y-auto px-6 py-4">
+            <form onSubmit={form.handleSubmit(onSubmitMulti)} className="flex-grow overflow-y-auto px-6 py-4 space-y-6">
               <div className="space-y-4 pb-4">
-                <div className="grid grid-cols-2 gap-4">
+                <h4 className="text-lg font-semibold text-neutral-800">Unit Details</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="unitNumber"
@@ -773,16 +796,16 @@ export default function UnitsPage() {
                   />
                 </div>
 
-                <h4 className="text-md font-medium pt-4">Facilities</h4>
-                <div className="grid grid-cols-3 gap-4">
+                <h4 className="text-lg font-semibold text-neutral-800 pt-4 pb-2">Facilities</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="parkingSpots"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Parking</FormLabel>
+                        <FormLabel>Parking Spots</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                          <Input placeholder="e.g., 101, 102" {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -793,9 +816,9 @@ export default function UnitsPage() {
                     name="storageLockers"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Storage</FormLabel>
+                        <FormLabel>Storage Lockers</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                          <Input placeholder="e.g., S1, S2" {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -808,7 +831,7 @@ export default function UnitsPage() {
                       <FormItem>
                         <FormLabel>Bike Lockers</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                          <Input placeholder="e.g., B1, B2" {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -816,60 +839,85 @@ export default function UnitsPage() {
                   />
                 </div>
 
-                <h4 className="text-md font-medium pt-4">Owners</h4>
-                {owners.map((owner, idx) => (
-                  <div key={idx} className="p-4 border rounded-md space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input placeholder="Full Name *" value={owner.fullName} onChange={(e) => updateOwner(idx, 'fullName', e.target.value)} />
-                      <Input placeholder="Email *" type="email" value={owner.email} onChange={(e) => updateOwner(idx, 'email', e.target.value)} />
-                    </div>
-                    <Input placeholder="Phone" value={owner.phone ?? ''} onChange={(e) => updateOwner(idx, 'phone', e.target.value)} />
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id={`editOwnerNotif${idx}`} checked={owner.receiveEmailNotifications} onCheckedChange={(checked) => updateOwner(idx, 'receiveEmailNotifications', checked)} />
-                      <label htmlFor={`editOwnerNotif${idx}`} className="text-sm">Receive Email Notifications</label>
-                    </div>
-                    <div className="flex items-center space-x-4 pt-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`editOwnerHasCat${idx}`} checked={!!owner.hasCat} onCheckedChange={(checked) => updateOwner(idx, 'hasCat', checked)} />
-                        <label htmlFor={`editOwnerHasCat${idx}`} className="text-sm">Has Cat</label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`editOwnerHasDog${idx}`} checked={!!owner.hasDog} onCheckedChange={(checked) => updateOwner(idx, 'hasDog', checked)} />
-                        <label htmlFor={`editOwnerHasDog${idx}`} className="text-sm">Has Dog</label>
-                      </div>
-                    </div>
-                    {owners.length > 1 && <Button type="button" variant="destructive" size="sm" onClick={() => removeOwner(idx)}>Remove Owner</Button>}
+                <h4 className="text-lg font-semibold text-neutral-800 pt-4 space-y-3">Owners</h4>
+                <div className="pt-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-lg font-semibold text-neutral-800">Owners</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={addOwner}>Add Owner</Button>
                   </div>
-                ))}
-                <Button type="button" variant="outline" onClick={addOwner}>Add Owner</Button>
+                  {owners.map((owner, idx) => (
+                    <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Input placeholder="Full Name *" aria-label={`Owner ${idx + 1} Full Name`} value={owner.fullName} onChange={(e) => updateOwner(idx, 'fullName', e.target.value)} />
+                        <Input placeholder="Email *" aria-label={`Owner ${idx + 1} Email`} type="email" value={owner.email} onChange={(e) => updateOwner(idx, 'email', e.target.value)} />
+                      </div>
+                      <Input placeholder="Phone (Optional)" aria-label={`Owner ${idx + 1} Phone`} value={owner.phone} onChange={(e) => updateOwner(idx, 'phone', e.target.value)} />
+                      <div className="flex items-center space-x-2 pt-1">
+                        <Checkbox id={`editOwnerNotif${idx}`} checked={owner.receiveEmailNotifications} onCheckedChange={(checked) => updateOwner(idx, 'receiveEmailNotifications', Boolean(checked))} />
+                        <label htmlFor={`editOwnerNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Receive Email Notifications</label>
+                      </div>
+                      <div className="flex items-center space-x-4 pt-1">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id={`editOwnerHasCat${idx}`} checked={!!owner.hasCat} onCheckedChange={(checked) => updateOwner(idx, 'hasCat', Boolean(checked))} />
+                          <label htmlFor={`editOwnerHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Cat 🐱</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id={`editOwnerHasDog${idx}`} checked={!!owner.hasDog} onCheckedChange={(checked) => updateOwner(idx, 'hasDog', Boolean(checked))} />
+                          <label htmlFor={`editOwnerHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Dog 🐶</label>
+                        </div>
+                      </div>
+                      {owners.length > 1 && 
+                        <div className="flex justify-end pt-2">
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOwner(idx)}>
+                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                          </Button>
+                        </div>
+                      }
+                    </div>
+                  ))}
+                </div>
 
-                <h4 className="text-md font-medium pt-4">Tenants</h4>
-                {tenants.map((tenant, idx) => (
-                  <div key={idx} className="p-4 border rounded-md space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input placeholder="Full Name" value={tenant.fullName} onChange={(e) => updateTenant(idx, 'fullName', e.target.value)} />
-                      <Input placeholder="Email" type="email" value={tenant.email} onChange={(e) => updateTenant(idx, 'email', e.target.value)} />
+                <h4 className="text-lg font-semibold text-neutral-800 pt-4 space-y-3">Tenants</h4>
+                <div className="pt-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                        <h4 className="text-lg font-semibold text-neutral-800">Tenants (Optional)</h4>
+                        <Button type="button" variant="outline" size="sm" onClick={addTenant}>Add Tenant</Button>
                     </div>
-                    <Input placeholder="Phone" value={tenant.phone ?? ''} onChange={(e) => updateTenant(idx, 'phone', e.target.value)} />
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id={`editTenantNotif${idx}`} checked={tenant.receiveEmailNotifications} onCheckedChange={(checked) => updateTenant(idx, 'receiveEmailNotifications', checked)} />
-                      <label htmlFor={`editTenantNotif${idx}`} className="text-sm">Receive Email Notifications</label>
-                    </div>
-                    <div className="flex items-center space-x-4 pt-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`editTenantHasCat${idx}`} checked={!!tenant.hasCat} onCheckedChange={(checked) => updateTenant(idx, 'hasCat', checked)} />
-                        <label htmlFor={`editTenantHasCat${idx}`} className="text-sm">Has Cat</label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`editTenantHasDog${idx}`} checked={!!tenant.hasDog} onCheckedChange={(checked) => updateTenant(idx, 'hasDog', checked)} />
-                        <label htmlFor={`editTenantHasDog${idx}`} className="text-sm">Has Dog</label>
-                      </div>
-                    </div>
-                    {tenants.length > 1 && <Button type="button" variant="destructive" size="sm" onClick={() => removeTenant(idx)}>Remove Tenant</Button>}
-                  </div>
-                ))}
-                <Button type="button" variant="outline" onClick={addTenant}>Add Tenant (Optional)</Button>
-                
+                    {tenants.map((tenant, idx) => (
+                        <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Input placeholder="Full Name" aria-label={`Tenant ${idx + 1} Full Name`} value={tenant.fullName} onChange={(e) => updateTenant(idx, 'fullName', e.target.value)} />
+                                <Input placeholder="Email" aria-label={`Tenant ${idx + 1} Email`} type="email" value={tenant.email} onChange={(e) => updateTenant(idx, 'email', e.target.value)} />
+                            </div>
+                            <Input placeholder="Phone (Optional)" aria-label={`Tenant ${idx + 1} Phone`} value={tenant.phone} onChange={(e) => updateTenant(idx, 'phone', e.target.value)} />
+                            <div className="flex items-center space-x-2 pt-1">
+                                <Checkbox id={`editTenantNotif${idx}`} checked={tenant.receiveEmailNotifications} onCheckedChange={(checked) => updateTenant(idx, 'receiveEmailNotifications', Boolean(checked))} />
+                                <label htmlFor={`editTenantNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Receive Email Notifications</label>
+                            </div>
+                            <div className="flex items-center space-x-4 pt-1">
+                                <div className="flex items-center space-x-2">
+                                <Checkbox id={`editTenantHasCat${idx}`} checked={!!tenant.hasCat} onCheckedChange={(checked) => updateTenant(idx, 'hasCat', Boolean(checked))} />
+                                <label htmlFor={`editTenantHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Cat 🐱</label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                <Checkbox id={`editTenantHasDog${idx}`} checked={!!tenant.hasDog} onCheckedChange={(checked) => updateTenant(idx, 'hasDog', Boolean(checked))} />
+                                <label htmlFor={`editTenantHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Dog 🐶</label>
+                                </div>
+                            </div>
+                            {tenants.length > 1 && (
+                                <div className="flex justify-end pt-2">
+                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTenant(idx)}>
+                                        <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                     {tenants.length === 1 && !tenants[0].fullName && !tenants[0].email && (
+                        <p className="text-xs text-neutral-500 italic">No tenants added. Click 'Add Tenant' to include tenant details.</p>
+                    )}
+                </div>
+
                 <FormField
                   control={form.control}
                   name="phone"
@@ -897,7 +945,7 @@ export default function UnitsPage() {
                   )}
                 />
               </div>
-              <DialogFooter className="px-6 py-4">
+              <DialogFooter className="px-6 py-4 border-t sticky bottom-0 bg-white z-10">
                 <Button type="button" variant="outline" onClick={() => setEditingUnit(null)}>
                   Cancel
                 </Button>
