@@ -35,6 +35,7 @@ import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { UserManagementTabContent } from "@/components/user-management-tab";
+import { FileUpload } from "@/components/file-upload";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -90,6 +91,21 @@ const mapSettingsToForm = (settings: SystemSetting[]): EmailSettingsFormValues =
     violationRejectedSubject: getValue('violation_rejected_subject', 'Violation Rejected'),
   };
 };
+
+const systemSettingsSchema = z.object({
+  strataName: z.string().min(1, "Strata name is required"),
+  propertyAddress: z.string().min(1, "Property address is required"),
+  adminFirstName: z.string().min(1, "First name required"),
+  adminLastName: z.string().min(1, "Last name required"),
+  adminEmail: z.string().email("Invalid email").min(1, "Email required"),
+  adminPhone: z.string().min(1, "Phone required"),
+  propertyManagers: z.array(z.object({ name: z.string(), phone: z.string(), email: z.string().email() })).min(1),
+  caretakers: z.array(z.object({ name: z.string(), phone: z.string(), email: z.string().email() })).min(0),
+  councilMembers: z.array(z.object({ name: z.string(), phone: z.string(), email: z.string().email() })).min(0),
+  defaultTimezone: z.string().min(1),
+  defaultLanguage: z.string().min(1),
+  strataLogo: z.string().optional(),
+});
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -321,6 +337,60 @@ export default function SettingsPage() {
   const onSmtpTestSubmit = (data: SmtpTestEmailFormData) => {
     const configData = smtpForm.getValues(); // Get current SMTP form values
     testSmtpEmailMutation.mutate({ testEmail: data.testEmail, config: configData });
+  };
+
+  // Add state for system settings form and logo
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [systemForm, setSystemForm] = useState<any>({
+    strataName: "",
+    propertyAddress: "",
+    adminFirstName: "",
+    adminLastName: "",
+    adminEmail: "",
+    adminPhone: "",
+    propertyManagers: [{ name: "", phone: "", email: "" }],
+    caretakers: [],
+    councilMembers: [],
+    defaultTimezone: "America/Vancouver",
+    defaultLanguage: "en",
+    strataLogo: "",
+  });
+
+  // In useEffect, when settings are loaded, populate systemForm and logoUrl
+  useEffect(() => {
+    if (settings) {
+      const sys = {} as any;
+      settings.forEach(s => {
+        if (s.settingKey === 'strata_name') sys.strataName = s.settingValue;
+        if (s.settingKey === 'property_address') sys.propertyAddress = s.settingValue;
+        if (s.settingKey === 'admin_first_name') sys.adminFirstName = s.settingValue;
+        if (s.settingKey === 'admin_last_name') sys.adminLastName = s.settingValue;
+        if (s.settingKey === 'admin_email') sys.adminEmail = s.settingValue;
+        if (s.settingKey === 'admin_phone') sys.adminPhone = s.settingValue;
+        if (s.settingKey === 'property_managers') sys.propertyManagers = JSON.parse(s.settingValue || '[]');
+        if (s.settingKey === 'caretakers') sys.caretakers = JSON.parse(s.settingValue || '[]');
+        if (s.settingKey === 'council_members') sys.councilMembers = JSON.parse(s.settingValue || '[]');
+        if (s.settingKey === 'default_timezone') sys.defaultTimezone = s.settingValue;
+        if (s.settingKey === 'default_language') sys.defaultLanguage = s.settingValue;
+        if (s.settingKey === 'strata_logo') sys.strataLogo = s.settingValue;
+      });
+      setSystemForm((prev: any) => ({ ...prev, ...sys }));
+      if (logoUrl) setLogoUrl(logoUrl);
+    }
+  }, [settings, logoUrl]);
+
+  // Add handler for logo upload
+  const handleLogoUpload = async (files: File[]) => {
+    if (!files || files.length === 0) return;
+    const formData = new FormData();
+    formData.append("logo", files[0]);
+    const res = await fetch("/api/settings/logo", { method: "POST", body: formData });
+    const data = await res.json();
+    if (res.ok && data.filename) {
+      setLogoUrl(data.url);
+      setSystemForm((prev: any) => ({ ...prev, strataLogo: data.filename }));
+    }
   };
 
   // Check if user is admin or council member
@@ -659,7 +729,78 @@ export default function SettingsPage() {
                 <CardDescription>Configure system-wide settings and preferences</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">General system settings will be added in a future update.</p>
+                <form className="space-y-4">
+                  <label className="font-medium">Strata Name</label>
+                  <Input value={systemForm.strataName} onChange={e => setSystemForm((prev: any) => ({ ...prev, strataName: e.target.value }))} />
+                  <label className="font-medium">Property Address (Canada)</label>
+                  <Input value={systemForm.propertyAddress} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: e.target.value }))} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-medium">Admin First Name</label>
+                      <Input value={systemForm.adminFirstName} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminFirstName: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="font-medium">Admin Last Name</label>
+                      <Input value={systemForm.adminLastName} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminLastName: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-medium">Admin Email</label>
+                      <Input value={systemForm.adminEmail} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminEmail: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="font-medium">Admin Phone</label>
+                      <Input value={systemForm.adminPhone} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminPhone: e.target.value }))} />
+                    </div>
+                  </div>
+                  {/* Property Managers, Caretakers, Council Members: map over arrays for multi-entry */}
+                  {/* ... similar UI for propertyManagers, caretakers, councilMembers ... */}
+                  <div>
+                    <label className="font-medium">Strata Logo</label>
+                    <FileUpload maxFiles={1} acceptedTypes={["image/png", "image/jpeg", "image/svg+xml"]} onChange={handleLogoUpload} />
+                    {logoUrl && <img src={logoUrl} alt="Strata Logo" className="mt-2 h-24" />}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-medium">Default Timezone</label>
+                      <select value={systemForm.defaultTimezone} onChange={e => setSystemForm((prev: any) => ({ ...prev, defaultTimezone: e.target.value }))} className="w-full border rounded-md px-2 py-2">
+                        <option value="America/Vancouver">America/Vancouver</option>
+                        <option value="America/Toronto">America/Toronto</option>
+                        {/* ...more... */}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-medium">Default Language</label>
+                      <select value={systemForm.defaultLanguage} onChange={e => setSystemForm((prev: any) => ({ ...prev, defaultLanguage: e.target.value }))} className="w-full border rounded-md px-2 py-2">
+                        <option value="en">English</option>
+                        <option value="fr">French</option>
+                        {/* ...more... */}
+                      </select>
+                    </div>
+                  </div>
+                  <Button type="button" onClick={async () => {
+                    // Save all system settings fields
+                    const updates = [
+                      { settingKey: 'strata_name', settingValue: systemForm.strataName },
+                      { settingKey: 'property_address', settingValue: systemForm.propertyAddress },
+                      { settingKey: 'admin_first_name', settingValue: systemForm.adminFirstName },
+                      { settingKey: 'admin_last_name', settingValue: systemForm.adminLastName },
+                      { settingKey: 'admin_email', settingValue: systemForm.adminEmail },
+                      { settingKey: 'admin_phone', settingValue: systemForm.adminPhone },
+                      { settingKey: 'property_managers', settingValue: JSON.stringify(systemForm.propertyManagers) },
+                      { settingKey: 'caretakers', settingValue: JSON.stringify(systemForm.caretakers) },
+                      { settingKey: 'council_members', settingValue: JSON.stringify(systemForm.councilMembers) },
+                      { settingKey: 'default_timezone', settingValue: systemForm.defaultTimezone },
+                      { settingKey: 'default_language', settingValue: systemForm.defaultLanguage },
+                      { settingKey: 'strata_logo', settingValue: systemForm.strataLogo },
+                    ];
+                    for (const update of updates) {
+                      await apiRequest("POST", `/api/settings/${update.settingKey}`, { value: update.settingValue });
+                    }
+                    toast({ title: "Settings Updated", description: "General system settings updated." });
+                  }}>Save General Settings</Button>
+                </form>
               </CardContent>
             </Card>
           </TabsContent>
