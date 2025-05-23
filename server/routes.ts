@@ -56,11 +56,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(helmet());
 
   // Add CORS
-  const allowedOrigin = process.env.NODE_ENV === 'production'
-    ? process.env.CORS_ORIGIN || 'https://your-production-domain.com'
-    : '*';
+  const allowedOrigins = [
+    'https://strata-tracker-dcook5.replit.app', // Your production domain
+  ];
+  if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push('http://localhost:3000'); // Common local dev
+    // You could add the replit development URL here if it's different and needed
+    // For example: allowedOrigins.push(process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.dev` : 'http://localhost:3001');
+  }
+
   app.use(cors({
-    origin: allowedOrigin,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = 'The CORS policy for this site does not allow access from the specified Origin (' + origin + ').';
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   }));
 
