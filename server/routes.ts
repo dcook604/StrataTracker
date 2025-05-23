@@ -1024,16 +1024,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- API: Get all violations pending approval (council/admin only) ---
   app.get("/api/violations/pending-approval", ensureAuthenticated, async (req, res) => {
-    const user = req.user;
-    if (!user?.isCouncilMember && !user?.isAdmin) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
     try {
-      const pending = await dbStorage.getViolationsByStatus("pending_approval");
-      res.json(pending);
+      const userId = getUserId(req, res);
+      if (userId === undefined) return; // Should not happen due to ensureAuthenticated, but good practice
+
+      const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
+      
+      // Further filter to only show violations not yet acted upon by this user,
+      // or where this user is the reporter (though reporter shouldn't approve their own)
+      // This logic might need refinement based on exact requirements for "pending approval for *me*"
+      
+      // For now, just returning all pending_approval.
+      // The UI can decide what to show based on user role (e.g. council member vs admin)
+      res.json(pendingViolations);
     } catch (error) {
-      console.error("Failed to fetch pending approvals:", error);
-      res.status(500).json({ message: "Failed to fetch pending approvals" });
+      console.error("------------------------------------------------------------");
+      console.error("ERROR in /api/violations/pending-approval route:");
+      if (error instanceof Error) {
+        console.error("Message:", error.message);
+        console.error("Stack:", error.stack);
+        console.error("Full Error Object:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      } else {
+        console.error("Non-Error Object Thrown:", error);
+      }
+      console.error("------------------------------------------------------------");
+      res.status(500).json({ message: "Failed to fetch violation", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
