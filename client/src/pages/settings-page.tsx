@@ -338,22 +338,14 @@ export default function SettingsPage() {
 
   return (
     <Layout title="System Settings">
-      <div className="space-y-6">
+      <div className="space-y-6 px-2 sm:px-4 md:px-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex items-center justify-between">
-            <TabsList className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <TabsTrigger value="email">
-                <MailIcon className="mr-2 h-4 w-4" /> Email Settings
-              </TabsTrigger>
-              <TabsTrigger value="system">
-                <Settings className="mr-2 h-4 w-4" /> System Settings
-              </TabsTrigger>
-              <TabsTrigger value="smtp">
-                <MailIcon className="mr-2 h-4 w-4" /> SMTP Settings
-              </TabsTrigger>
-              <TabsTrigger value="users">
-                <UsersIconLucide className="mr-2 h-4 w-4" /> User Management
-              </TabsTrigger>
+          <div className="flex items-center justify-between overflow-x-auto">
+            <TabsList className="flex gap-2 w-full overflow-x-auto scrollbar-thin scrollbar-thumb-rounded-md scrollbar-thumb-neutral-300">
+              <TabsTrigger value="email" className="min-w-[140px]"> <MailIcon className="mr-2 h-4 w-4" /> Email Settings </TabsTrigger>
+              <TabsTrigger value="system" className="min-w-[140px]"> <Settings className="mr-2 h-4 w-4" /> System Settings </TabsTrigger>
+              <TabsTrigger value="smtp" className="min-w-[140px]"> <MailIcon className="mr-2 h-4 w-4" /> SMTP Settings </TabsTrigger>
+              <TabsTrigger value="users" className="min-w-[140px]"> <UsersIconLucide className="mr-2 h-4 w-4" /> User Management </TabsTrigger>
             </TabsList>
           </div>
 
@@ -361,14 +353,12 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Email Notification Settings</CardTitle>
-                <CardDescription>
-                  Configure how email notifications are sent to residents
-                </CardDescription>
+                <CardDescription>Configure how email notifications are sent to residents</CardDescription>
               </CardHeader>
               <CardContent>
                 <Form {...emailForm}>
                   <form onSubmit={emailForm.handleSubmit(onEmailFormSubmit)} className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={emailForm.control}
                         name="emailSenderName"
@@ -404,7 +394,7 @@ export default function SettingsPage() {
                       />
                     </div>
                     
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={emailForm.control}
                         name="emailNotificationsEnabled"
@@ -455,17 +445,15 @@ export default function SettingsPage() {
                         <FormItem>
                           <FormLabel>Email Footer Text</FormLabel>
                           <FormControl>
-                            <Input placeholder="© Strata Management System" {...field} />
+                            <Input className="w-full" placeholder="© Strata Management System" {...field} />
                           </FormControl>
-                          <FormDescription>
-                            Text to appear at the bottom of all notification emails
-                          </FormDescription>
+                          <FormDescription>Text to appear at the bottom of all notification emails</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={emailForm.control}
                         name="violationSubmittedSubject"
@@ -495,7 +483,7 @@ export default function SettingsPage() {
                       />
                     </div>
                     
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={emailForm.control}
                         name="violationDisputedSubject"
@@ -525,39 +513,15 @@ export default function SettingsPage() {
                       />
                     </div>
                     
-                    <CardFooter className="flex justify-between border-t pt-6 px-0">
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          className="w-64"
-                          placeholder="Enter email for test"
-                          value={testEmailAddress}
-                          onChange={(e) => setTestEmailAddress(e.target.value)}
-                        />
-                        <Button 
-                          type="button"
-                          variant="outline"
-                          onClick={() => setIsSmtpTestDialogOpen(true)}
-                          disabled={sendingTestEmail}
-                        >
-                          {sendingTestEmail ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Sending...
-                            </>
-                          ) : "Test Email"}
+                    <CardFooter className="flex flex-col md:flex-row md:justify-between gap-4 border-t pt-6 px-0">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
+                        <Input className="w-full sm:w-64" placeholder="Enter email for test" value={testEmailAddress} onChange={(e) => setTestEmailAddress(e.target.value)} />
+                        <Button type="button" variant="outline" onClick={() => setIsSmtpTestDialogOpen(true)} disabled={sendingTestEmail} className="w-full sm:w-auto">
+                          {sendingTestEmail ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : "Test Email"}
                         </Button>
                       </div>
-                      
-                      <Button 
-                        type="submit" 
-                        disabled={updateSettingsMutation.isPending}
-                      >
-                        {updateSettingsMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Saving...
-                          </>
-                        ) : "Save Settings"}
+                      <Button type="submit" disabled={updateSettingsMutation.isPending} className="w-full md:w-auto">
+                        {updateSettingsMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : "Save Settings"}
                       </Button>
                     </CardFooter>
                   </form>
@@ -570,9 +534,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>SMTP Configuration</CardTitle>
-                <CardDescription>
-                  Configure your SMTP server settings for sending system emails.
-                </CardDescription>
+                <CardDescription>Configure your SMTP server settings for sending system emails.</CardDescription>
               </CardHeader>
               <CardContent>
                 {smtpConfigError ? (
@@ -600,7 +562,7 @@ export default function SettingsPage() {
                         <FormItem>
                           <FormLabel>SMTP Host</FormLabel>
                           <FormControl>
-                            <Input placeholder="smtp.example.com" {...field} />
+                            <Input className="w-full" placeholder="smtp.example.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -678,11 +640,9 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-                    <CardFooter className="flex justify-end px-0 pt-6 border-t">
-                      <Button type="submit" disabled={saveSmtpConfigMutation.isPending}>
-                        {saveSmtpConfigMutation.isPending ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving SMTP...</>
-                        ) : "Save SMTP Settings"}
+                    <CardFooter className="flex flex-col md:flex-row md:justify-end gap-4 px-0 pt-6 border-t">
+                      <Button type="submit" disabled={saveSmtpConfigMutation.isPending} className="w-full md:w-auto">
+                        {saveSmtpConfigMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving SMTP...</>) : "Save SMTP Settings"}
                       </Button>
                     </CardFooter>
                   </form>
@@ -696,9 +656,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>General Settings</CardTitle>
-                <CardDescription>
-                  Configure system-wide settings and preferences
-                </CardDescription>
+                <CardDescription>Configure system-wide settings and preferences</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">General system settings will be added in a future update.</p>
