@@ -32,7 +32,7 @@ export async function apiRequest(
         variant: 'destructive',
       });
       // Redirect to login
-      window.location.href = '/login?expired=1';
+      window.location.href = '/auth?expired=1';
       throw new Error('Session expired');
     }
 
