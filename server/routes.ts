@@ -967,7 +967,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pending = await dbStorage.getViolationsByStatus("pending_approval");
       res.json(pending);
     } catch (error) {
+      console.error("Failed to fetch pending approvals:", error);
       res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // --- API: Export Report as PDF ---
+  app.get("/api/reports/export-pdf", ensureAuthenticated, async (req, res) => {
+    try {
+      const { from, to, categoryId } = req.query;
+      // TODO: Implement PDF generation logic using these filters
+      console.log("PDF Export Request Filters:", { from, to, categoryId });
+      res.status(501).contentType("application/json").json({ message: "PDF export not implemented yet." });
+    } catch (error) {
+      console.error("Failed to export PDF report:", error);
+      res.status(500).json({ message: "Failed to export PDF report" });
     }
   });
 
