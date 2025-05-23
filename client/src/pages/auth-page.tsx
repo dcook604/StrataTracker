@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { z } from "zod";
@@ -24,6 +24,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
@@ -50,9 +59,15 @@ export default function AuthPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
 
-  // Check for session expired param
-  const expired = typeof window !== 'undefined' && window.location.search.includes('expired=1');
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('expired=1')) {
+      setShowExpiredModal(true);
+      // Optional: Clean the URL query parameter
+      // navigate(\"/auth\", { replace: true }); 
+    }
+  }, [location]);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -106,11 +121,20 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
-      {expired && (
-        <div className="bg-yellow-50 text-yellow-800 p-3 rounded mb-4 text-sm">
-          Your session has expired. Please log in again.
-        </div>
-      )}
+      <AlertDialog open={showExpiredModal} onOpenChange={setShowExpiredModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Session Expired</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your session has expired. Please log in again to continue.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowExpiredModal(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card className="w-full max-w-md">
         {/* Logo Placement */}
         <div className="pt-8 pb-4">
