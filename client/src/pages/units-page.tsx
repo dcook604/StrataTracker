@@ -49,9 +49,9 @@ const formSchema = z.object({
   tenantReceiveNotifications: z.boolean().default(true).optional(),
   phone: z.string().optional(),
   notes: z.string().optional(),
-  parkingSpots: z.string().optional(),
-  storageLockers: z.string().optional(),
-  bikeLockers: z.string().optional(),
+  parkingSpots: z.coerce.number().int("Must be a whole number").nonnegative("Must be non-negative").optional().or(z.literal("")),
+  storageLockers: z.coerce.number().int("Must be a whole number").nonnegative("Must be non-negative").optional().or(z.literal("")),
+  bikeLockers: z.coerce.number().int("Must be a whole number").nonnegative("Must be non-negative").optional().or(z.literal("")),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -97,9 +97,9 @@ export default function UnitsPage() {
       floor: "",
       phone: "",
       notes: "",
-      parkingSpots: "",
-      storageLockers: "",
-      bikeLockers: "",
+      parkingSpots: undefined,
+      storageLockers: undefined,
+      bikeLockers: undefined,
     }
   });
 
@@ -115,9 +115,9 @@ export default function UnitsPage() {
         floor: "",
         phone: "",
         notes: "",
-        parkingSpots: "",
-        storageLockers: "",
-        bikeLockers: "",
+        parkingSpots: undefined,
+        storageLockers: undefined,
+        bikeLockers: undefined,
       });
       setOwners([{ ...defaultPerson }]);
       setTenants([{ ...defaultPerson }]);
@@ -127,9 +127,9 @@ export default function UnitsPage() {
         floor: editingUnit.floor || "",
         phone: (editingUnit as any).phone || "", 
         notes: (editingUnit as any).notes || "", 
-        parkingSpots: Array.isArray(editingUnit.facilities?.parkingSpots) ? editingUnit.facilities.parkingSpots.join(', ') : String(editingUnit.facilities?.parkingSpots ?? ''),
-        storageLockers: Array.isArray(editingUnit.facilities?.storageLockers) ? editingUnit.facilities.storageLockers.join(', ') : String(editingUnit.facilities?.storageLockers ?? ''),
-        bikeLockers: Array.isArray(editingUnit.facilities?.bikeLockers) ? editingUnit.facilities.bikeLockers.join(', ') : String(editingUnit.facilities?.bikeLockers ?? ''),
+        parkingSpots: editingUnit.facilities?.parkingSpots ?? undefined,
+        storageLockers: editingUnit.facilities?.storageLockers ?? undefined,
+        bikeLockers: editingUnit.facilities?.bikeLockers ?? undefined,
       });
       setOwners(
         editingUnit.owners && editingUnit.owners.length > 0
@@ -262,9 +262,9 @@ export default function UnitsPage() {
     };
 
     const facilitiesPayload = {
-      parkingSpots: values.parkingSpots || "",
-      storageLockers: values.storageLockers || "",
-      bikeLockers: values.bikeLockers || "",
+      parkingSpots: values.parkingSpots === "" ? undefined : values.parkingSpots,
+      storageLockers: values.storageLockers === "" ? undefined : values.storageLockers,
+      bikeLockers: values.bikeLockers === "" ? undefined : values.bikeLockers,
     };
 
     const personsPayload = [
@@ -322,9 +322,9 @@ export default function UnitsPage() {
       floor: unit.floor || "",
       phone: (unit as any).phone || "",
       notes: (unit as any).notes || "",
-      parkingSpots: Array.isArray(unit.facilities?.parkingSpots) ? unit.facilities.parkingSpots.join(', ') : String(unit.facilities?.parkingSpots ?? ''),
-      storageLockers: Array.isArray(unit.facilities?.storageLockers) ? unit.facilities.storageLockers.join(', ') : String(unit.facilities?.storageLockers ?? ''),
-      bikeLockers: Array.isArray(unit.facilities?.bikeLockers) ? unit.facilities.bikeLockers.join(', ') : String(unit.facilities?.bikeLockers ?? ''),
+      parkingSpots: unit.facilities?.parkingSpots ?? undefined,
+      storageLockers: unit.facilities?.storageLockers ?? undefined,
+      bikeLockers: unit.facilities?.bikeLockers ?? undefined,
     });
   };
   
