@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -13,12 +14,27 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+    const res = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+
+    if (res.status === 401) {
+      // Clear session
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      // Show toast
+      toast({
+        title: 'Session Expired',
+        description: 'Your session has expired. Please log in again.',
+        variant: 'destructive',
+      });
+      // Redirect to login
+      window.location.href = '/login?expired=1';
+      throw new Error('Session expired');
+    }
 
     // Handle non-JSON responses
     const contentType = res.headers.get("content-type");
@@ -33,7 +49,7 @@ export async function apiRequest(
       }
     }
 
-  return res;
+    return res;
   } catch (error) {
     console.error("API request error:", error);
     throw error;

@@ -610,7 +610,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/settings", ensureCouncilMember, async (req, res) => {
     try {
       const settings = await dbStorage.getAllSystemSettings();
-      res.json(settings);
+      // Add logo URL if logo is set
+      const logoSetting = settings.find(s => s.settingKey === 'strata_logo');
+      let logoUrl = null;
+      if (logoSetting && logoSetting.settingValue) {
+        logoUrl = `/api/uploads/${logoSetting.settingValue}`;
+      }
+      res.json({ settings, logoUrl });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch system settings" });
     }
@@ -646,6 +652,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(setting);
     } catch (error) {
       res.status(500).json({ message: "Failed to update setting" });
+    }
+  });
+
+  // Logo upload endpoint
+  app.post("/api/settings/logo", ensureCouncilMember, upload.single("logo"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      // Only allow image types
+      if (!req.file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ message: "Only image files are allowed" });
+      }
+      const userId = getUserId(req, res);
+      if (userId === undefined) return;
+      // Save filename in system_settings
+      await dbStorage.updateSystemSetting('strata_logo', req.file.filename, userId);
+      res.json({ filename: req.file.filename, url: `/api/uploads/${req.file.filename}` });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to upload logo" });
     }
   });
 
