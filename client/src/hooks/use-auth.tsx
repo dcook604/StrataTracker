@@ -10,18 +10,25 @@ import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 // Omit the password from the user type for client-side usage
-type SafeUser = Omit<SelectUser, "password"> & {
-  // Add compatibility optional fields that may come from either format
-  isAdmin?: boolean;
-  is_admin?: boolean;
-  isCouncilMember?: boolean;
-  is_council_member?: boolean;
-  isUser?: boolean;
-  is_user?: boolean;
+// SelectUser (imported as User from schema) already includes optional snake_case variants.
+// So SafeUser primarily just omits password. The compatibility properties are handled during context value creation.
+type SafeUser = Omit<SelectUser, "password">;
+
+// AuthContextType's user property will be the fully processed user object with all boolean flags.
+// We might need a different type for what's stored in context vs. what useQuery returns,
+// or ensure useQuery's result is immediately transformed.
+// For simplicity, let's say AuthContextType.user is an object where all these flags are boolean.
+type AuthContextUser = SafeUser & {
+  isAdmin: boolean;
+  is_admin: boolean;
+  isCouncilMember: boolean;
+  is_council_member: boolean;
+  isUser: boolean;
+  is_user: boolean;
 };
 
 type AuthContextType = {
-  user: SafeUser | null;
+  user: AuthContextUser | null; // Use the refined type for context
   isLoading: boolean;
   error: Error | null;
   loginMutation: UseMutationResult<SafeUser, Error, LoginData>;
@@ -36,31 +43,42 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const {
-    data: user,
+    data: user, // This is SafeUser | null (original from useQuery)
     error,
     isLoading,
-  } = useQuery<SafeUser | undefined, Error>({
+  } = useQuery<SafeUser | null, Error, SafeUser | null, readonly ["/api/auth/me"]>({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
       try {
         const response = await apiRequest("GET", "/api/auth/me");
-        return response as SafeUser;
-      } catch (err) {
+        return await response.json() as SafeUser;
+      } catch (err: any) {
+        if (err.message === 'Session expired') {
+          // User is already being redirected by apiRequest.
+          // Query should not be 'loading' and data should be null.
+        }
         return null;
       }
     },
+    retry: (failureCount, error: any) => {
+      if (error.message === "Session expired" || error?.status === 401 || (error?.cause as Response)?.status === 401) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+    refetchOnWindowFocus: false,
   });
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
+      return await res.json() as SafeUser;
     },
-    onSuccess: (user: SafeUser) => {
-      queryClient.setQueryData(["/api/auth/me"], user);
+    onSuccess: (loggedInUser: SafeUser) => {
+      queryClient.setQueryData<SafeUser | null>(["/api/auth/me"], loggedInUser); // Ensure type for setQueryData
       toast({
         title: "Login successful",
-        description: `Welcome back, ${user.fullName}`,
+        description: `Welcome back, ${loggedInUser.fullName}`,
       });
     },
     onError: (error: Error) => {
@@ -75,13 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const registerMutation = useMutation({
     mutationFn: async (userData: InsertUser) => {
       const res = await apiRequest("POST", "/api/register", userData);
-      return await res.json();
+      return await res.json() as SafeUser;
     },
-    onSuccess: (user: SafeUser) => {
-      queryClient.setQueryData(["/api/auth/me"], user);
+    onSuccess: (registeredUser: SafeUser) => {
+      queryClient.setQueryData<SafeUser | null>(["/api/auth/me"], registeredUser); // Ensure type for setQueryData
       toast({
         title: "Registration successful",
-        description: `Welcome to StrataGuard, ${user.fullName}`,
+        description: `Welcome to StrataGuard, ${registeredUser.fullName}`,
       });
     },
     onError: (error: Error) => {
@@ -116,15 +134,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ? {
-          ...user,
-          // Add compatibility properties for client components that expect camelCase or snake_case
-          isAdmin: user.isAdmin || user.is_admin,
-          isCouncilMember: user.isCouncilMember || user.is_council_member,
-          isUser: user.isUser || user.is_user,
-          is_admin: user.is_admin || user.isAdmin,
-          is_council_member: user.is_council_member || user.isCouncilMember,
-          is_user: user.is_user || user.isUser
+        user: user ? { // user here is SafeUser | null
+          ...user, // Spread all properties from SafeUser (which includes non-optional camelCase from SelectUser)
+          // Ensure all six variants are definite booleans for the AuthContextUser type
+          isAdmin: !!(user.isAdmin || user.is_admin),
+          isCouncilMember: !!(user.isCouncilMember || user.is_council_member),
+          isUser: !!(user.isUser || user.is_user),
+          is_admin: !!(user.is_admin || user.isAdmin),
+          is_council_member: !!(user.is_council_member || user.isCouncilMember),
+          is_user: !!(user.is_user || user.isUser),
         } : null,
         isLoading,
         error,
