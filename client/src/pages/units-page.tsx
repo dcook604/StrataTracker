@@ -19,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -34,14 +35,18 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { FilterX } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   floor: z.string().optional(),
   ownerName: z.string().min(1, "Owner name is required"),
   ownerEmail: z.string().email("Invalid email").min(1, "Owner email is required"),
+  ownerReceiveNotifications: z.boolean().default(true),
   tenantName: z.string().optional(),
   tenantEmail: z.string().email("Invalid email").optional().or(z.literal("")),
+  tenantReceiveNotifications: z.boolean().default(true),
   phone: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -97,8 +102,10 @@ export default function UnitsPage() {
       floor: "",
       ownerName: "",
       ownerEmail: "",
+      ownerReceiveNotifications: true,
       tenantName: "",
       tenantEmail: "",
+      tenantReceiveNotifications: true,
       phone: "",
       notes: "",
     }
@@ -166,8 +173,10 @@ export default function UnitsPage() {
       floor: unit.floor || "",
       ownerName: unit.ownerName,
       ownerEmail: unit.ownerEmail,
+      ownerReceiveNotifications: unit.ownerReceiveNotifications,
       tenantName: unit.tenantName || "",
       tenantEmail: unit.tenantEmail || "",
+      tenantReceiveNotifications: unit.tenantReceiveNotifications,
       phone: unit.phone || "",
       notes: unit.notes || "",
     });
@@ -194,32 +203,76 @@ export default function UnitsPage() {
       header: "Floor",
     },
     {
-      accessorKey: "ownerName",
-      header: () => (
-        <span className="cursor-pointer" onClick={() => handleSort('ownerName')}>
-          Owner {sortBy === 'ownerName' && (sortOrder === 'asc' ? '▲' : '▼')}
-        </span>
-      ),
-      cell: ({ row }) => row.original.ownerName,
+      id: "owners",
+      header: "Owner(s)",
+      cell: ({ row }) => {
+        const owners = row.original.owners || [];
+        if (owners.length === 0) return <span className="text-muted-foreground">None</span>;
+        const first = owners[0];
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  {first.fullName} ({first.email})
+                  {owners.length > 1 && (
+                    <span className="ml-2 bg-blue-100 text-blue-800 rounded px-2 py-0.5 text-xs align-middle">
+                      +{owners.length - 1} more
+                    </span>
+                  )}
+                </span>
+              </TooltipTrigger>
+              {owners.length > 1 && (
+                <TooltipContent>
+                  <div className="text-xs">
+                    {owners.map((o: any, idx: number) => (
+                      <div key={o.email}>
+                        {idx + 1}. {o.fullName} ({o.email})
+                      </div>
+                    ))}
+                  </div>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
     },
     {
-      accessorKey: "ownerEmail",
-      header: "Owner Email",
-      cell: ({ row }) => row.original.ownerEmail,
-    },
-    {
-      accessorKey: "tenantName",
-      header: () => (
-        <span className="cursor-pointer" onClick={() => handleSort('tenantName')}>
-          Tenant {sortBy === 'tenantName' && (sortOrder === 'asc' ? '▲' : '▼')}
-        </span>
-      ),
-      cell: ({ row }) => row.original.tenantName,
-    },
-    {
-      accessorKey: "tenantEmail",
-      header: "Tenant Email",
-      cell: ({ row }) => row.original.tenantEmail,
+      id: "tenants",
+      header: "Tenant(s)",
+      cell: ({ row }) => {
+        const tenants = row.original.tenants || [];
+        if (tenants.length === 0) return <span className="text-muted-foreground">None</span>;
+        const first = tenants[0];
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  {first.fullName} ({first.email})
+                  {tenants.length > 1 && (
+                    <span className="ml-2 bg-green-100 text-green-800 rounded px-2 py-0.5 text-xs align-middle">
+                      +{tenants.length - 1} more
+                    </span>
+                  )}
+                </span>
+              </TooltipTrigger>
+              {tenants.length > 1 && (
+                <TooltipContent>
+                  <div className="text-xs">
+                    {tenants.map((t: any, idx: number) => (
+                      <div key={t.email}>
+                        {idx + 1}. {t.fullName} ({t.email})
+                      </div>
+                    ))}
+                  </div>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
     },
     {
       accessorKey: "phone",
@@ -441,13 +494,33 @@ export default function UnitsPage() {
                       <FormItem>
                         <FormLabel>Owner Email *</FormLabel>
                         <FormControl>
-                          <Input placeholder="email@example.com" {...field} />
+                          <Input placeholder="john.doe@example.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="ownerReceiveNotifications"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Receive email notifications</FormLabel>
+                        <FormDescription>
+                          Owner will receive email notifications for violations
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -469,13 +542,33 @@ export default function UnitsPage() {
                       <FormItem>
                         <FormLabel>Tenant Email (if applicable)</FormLabel>
                         <FormControl>
-                          <Input placeholder="email@example.com" {...field} />
+                          <Input placeholder="jane.smith@example.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="tenantReceiveNotifications"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Receive email notifications</FormLabel>
+                        <FormDescription>
+                          Tenant will receive email notifications for violations
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -582,6 +675,26 @@ export default function UnitsPage() {
               />
               <FormField
                 control={form.control}
+                name="ownerReceiveNotifications"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Receive email notifications</FormLabel>
+                      <FormDescription>
+                        Owner will receive email notifications for violations
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="tenantName"
                 render={({ field }) => (
                   <FormItem>
@@ -603,6 +716,26 @@ export default function UnitsPage() {
                       <Input placeholder="jane.smith@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="tenantReceiveNotifications"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Receive email notifications</FormLabel>
+                      <FormDescription>
+                        Tenant will receive email notifications for violations
+                      </FormDescription>
+                    </div>
                   </FormItem>
                 )}
               />

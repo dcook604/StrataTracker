@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Bell } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import { format } from "date-fns";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,6 +17,18 @@ interface LayoutProps {
 export function Layout({ children, title, leftContent }: LayoutProps) {
   const { user, logoutMutation } = useAuth();
   const [location, navigate] = useLocation();
+  const [pending, setPending] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user?.isCouncilMember || user?.isAdmin) {
+      setLoading(true);
+      fetch("/api/violations/pending-approval", { credentials: "include" })
+        .then(res => res.json())
+        .then(data => setPending(Array.isArray(data) ? data : []))
+        .finally(() => setLoading(false));
+    }
+  }, [user]);
 
   return (
     <div className="flex h-screen bg-neutral-50">
@@ -30,9 +44,33 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
             <h2 className="text-lg font-semibold text-neutral-800">{title}</h2>
           </div>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" className="text-neutral-600 hover:text-primary-600">
-              <Bell className="h-5 w-5" />
-            </Button>
+            {(user?.isAdmin || user?.isCouncilMember) ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative text-neutral-600 hover:text-primary-600">
+                    <Bell className="h-5 w-5" />
+                    {pending.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">{pending.length}</span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+                  <div className="font-semibold px-3 py-2 border-b">Pending Approvals</div>
+                  {loading ? (
+                    <div className="px-3 py-2 text-sm text-neutral-500">Loading...</div>
+                  ) : pending.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-neutral-500">No pending approvals</div>
+                  ) : (
+                    pending.map((v) => (
+                      <DropdownMenuItem key={v.id} onClick={() => navigate(`/violations/${v.id}`)} className="flex flex-col items-start cursor-pointer">
+                        <div className="font-medium">Unit: {v.unit?.unitNumber || v.unitId}</div>
+                        <div className="text-xs text-neutral-600">{v.violationType} &middot; {v.violationDate ? format(new Date(v.violationDate), "MMM dd, yyyy") : ""}</div>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <div className="flex items-center cursor-pointer select-none">

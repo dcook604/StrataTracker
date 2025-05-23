@@ -249,6 +249,7 @@ export const unitPersonRoles = pgTable("unit_person_roles", {
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
   personId: integer("person_id").notNull().references(() => persons.id),
   role: text("role").notNull(), // 'owner' or 'tenant'
+  receiveEmailNotifications: boolean("receive_email_notifications").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -275,3 +276,25 @@ export type Person = typeof persons.$inferSelect;
 export type InsertPerson = z.infer<typeof insertPersonSchema>;
 export type UnitPersonRole = typeof unitPersonRoles.$inferSelect;
 export type InsertUnitPersonRole = z.infer<typeof insertUnitPersonRoleSchema>;
+
+// Violation access links schema (for secure public comment/evidence links)
+export const violationAccessLinks = pgTable("violation_access_links", {
+  id: serial("id").primaryKey(),
+  violationId: integer("violation_id").notNull().references(() => violations.id),
+  recipientEmail: text("recipient_email").notNull(),
+  token: uuid("token").defaultRandom().notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertViolationAccessLinkSchema = createInsertSchema(violationAccessLinks).pick({
+  violationId: true,
+  recipientEmail: true,
+  token: true,
+  expiresAt: true,
+  usedAt: true,
+});
+
+export type ViolationAccessLink = typeof violationAccessLinks.$inferSelect;
+export type InsertViolationAccessLink = z.infer<typeof insertViolationAccessLinkSchema>;

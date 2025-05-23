@@ -1,0 +1,1 @@
+ALTER TABLE "unit_person_roles" ADD COLUMN "receive_email_notifications" boolean DEFAULT true NOT NULL; 
