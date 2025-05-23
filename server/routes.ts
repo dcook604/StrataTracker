@@ -213,9 +213,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fetch the unit details for email
       const unit = await dbStorage.getPropertyUnit(violation.unitId);
-      
+      const baseUrl = process.env.PUBLIC_BASE_URL || "http://localhost:3000";
+      const accessLinks: { owner?: string; tenant?: string } = {};
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
       if (unit) {
-        // Send email notification
+        // Generate and store access link for owner
+        if (unit.ownerEmail) {
+          const ownerLink = await dbStorage.createViolationAccessLink({
+            violationId: violation.id,
+            recipientEmail: unit.ownerEmail,
+            expiresAt,
+            token: undefined, // let DB default
+            usedAt: null,
+          });
+          accessLinks.owner = `${baseUrl}/violation/comment/${ownerLink.token}`;
+        }
+        // Generate and store access link for tenant
+        if (unit.tenantEmail) {
+          const tenantLink = await dbStorage.createViolationAccessLink({
+            violationId: violation.id,
+            recipientEmail: unit.tenantEmail,
+            expiresAt,
+            token: undefined, // let DB default
+            usedAt: null,
+          });
+          accessLinks.tenant = `${baseUrl}/violation/comment/${tenantLink.token}`;
+        }
+        // Send email notification, passing accessLinks
         await sendViolationNotification({
           violationId: violation.id,
           unitNumber: unit.unitNumber,
@@ -224,7 +248,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ownerName: unit.ownerName ?? undefined,
           tenantEmail: unit.tenantEmail ?? undefined,
           tenantName: unit.tenantName ?? undefined,
-          reporterName: req.user?.fullName ?? "Unknown Reporter"
+          reporterName: req.user?.fullName ?? "Unknown Reporter",
+          unitId: unit.id,
+          accessLinks,
         });
       }
       
@@ -270,12 +296,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const unit = await dbStorage.getPropertyUnit(violation.unitId);
         if (unit) {
           await sendViolationApprovedNotification({
-            violationId: violation.id,
+            violationId: String(violation.id),
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
             ownerEmail: unit.ownerEmail ?? undefined,
             ownerName: unit.ownerName ?? undefined,
-            fineAmount: violation.fineAmount ?? 0
+            fineAmount: violation.fineAmount ?? 0,
+            unitId: unit.id,
+            tenantEmail: unit.tenantEmail ?? undefined,
+            tenantName: unit.tenantName ?? undefined
           });
         }
       }
@@ -316,12 +345,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const unit = await dbStorage.getPropertyUnit(violation.unitId);
         if (unit) {
           await sendViolationApprovedNotification({
-            violationId: violation.id,
+            violationId: String(violation.id),
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
             ownerEmail: unit.ownerEmail ?? undefined,
             ownerName: unit.ownerName ?? undefined,
-            fineAmount: amount ?? 0
+            fineAmount: amount ?? 0,
+            unitId: unit.id,
+            tenantEmail: unit.tenantEmail ?? undefined,
+            tenantName: unit.tenantName ?? undefined
           });
         }
       }
@@ -676,7 +708,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fullName: z.string().min(1),
         email: z.string().email(),
         phone: z.string().optional(),
-        role: z.enum(["owner", "tenant"])
+        role: z.enum(["owner", "tenant"]),
+        receiveEmailNotifications: z.boolean()
       });
       const bodySchema = z.object({
         unit: unitSchema,
@@ -690,6 +723,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create unit with persons", error: error.message });
+    }
+  });
+
+  // Unit Management API
+  app.post("/api/units", ensureAuthenticated, async (req, res) => {
+    try {
+      const { 
+        unitNumber, 
+        floor, 
+        ownerName, 
+        ownerEmail, 
+        ownerReceiveNotifications,
+        tenantName, 
+        tenantEmail, 
+        tenantReceiveNotifications,
+        phone, 
+        notes 
+      } = req.body;
+
+      // Create unit
+      const unitPayload = {
+        unitNumber,
+        floor,
+        ownerName,
+        ownerEmail
+      };
+
+      // Create persons array
+      const personsPayload: Array<{
+        fullName: string;
+        email: string;
+        phone?: string;
+        role: 'owner' | 'tenant';
+        receiveEmailNotifications: boolean;
+      }> = [
+        {
+          fullName: ownerName,
+          email: ownerEmail,
+          role: 'owner',
+          receiveEmailNotifications: ownerReceiveNotifications
+        }
+      ];
+
+      if (tenantName && tenantEmail) {
+        personsPayload.push({
+          fullName: tenantName,
+          email: tenantEmail,
+          role: 'tenant',
+          receiveEmailNotifications: tenantReceiveNotifications
+        });
+      }
+
+      // Create the unit with persons
+      const result = await dbStorage.createUnitWithPersons({
+        unit: unitPayload,
+        persons: personsPayload
+      });
+
+      res.status(201).json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      console.error("Failed to create unit:", error);
+      res.status(500).json({ message: "Failed to create unit", details: error.message });
+    }
+  });
+
+  app.patch("/api/units/:id", ensureAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { 
+        unitNumber, 
+        floor, 
+        ownerName, 
+        ownerEmail, 
+        ownerReceiveNotifications,
+        tenantName, 
+        tenantEmail, 
+        tenantReceiveNotifications,
+        phone, 
+        notes 
+      } = req.body;
+
+      // Update unit
+      const unitPayload = {
+        unitNumber,
+        floor,
+        ownerName,
+        ownerEmail
+      };
+
+      // Create persons array
+      const personsPayload: Array<{
+        fullName: string;
+        email: string;
+        phone?: string;
+        role: 'owner' | 'tenant';
+        receiveEmailNotifications: boolean;
+      }> = [
+        {
+          fullName: ownerName,
+          email: ownerEmail,
+          role: 'owner',
+          receiveEmailNotifications: ownerReceiveNotifications
+        }
+      ];
+
+      if (tenantName && tenantEmail) {
+        personsPayload.push({
+          fullName: tenantName,
+          email: tenantEmail,
+          role: 'tenant',
+          receiveEmailNotifications: tenantReceiveNotifications
+        });
+      }
+
+      // Update the unit with persons
+      const result = await dbStorage.createUnitWithPersons({
+        unit: unitPayload,
+        persons: personsPayload
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      console.error("Failed to update unit:", error);
+      res.status(500).json({ message: "Failed to update unit", details: error.message });
+    }
+  });
+
+  // --- PUBLIC ENDPOINT: Add comment/evidence via access link ---
+  app.post("/public/violation/:token/comment", upload.array("attachments", 5), async (req, res) => {
+    const { token } = req.params;
+    const { comment } = req.body;
+    try {
+      // 1. Validate token
+      const link = await dbStorage.getViolationAccessLinkByToken(token);
+      if (!link) return res.status(404).json({ message: "Invalid or expired link" });
+      if (link.usedAt) return res.status(410).json({ message: "This link has already been used" });
+      if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
+        return res.status(410).json({ message: "This link has expired" });
+      }
+
+      // 2. Handle file uploads
+      const files = req.files as Express.Multer.File[];
+      const attachments = files ? files.map(file => file.filename) : [];
+
+      // 3. Store comment and evidence in violation history (as anonymous/public)
+      await dbStorage.addViolationHistory({
+        violationId: link.violationId,
+        userId: 1, // Use a special system/anonymous user ID, or null if allowed
+        action: "public_comment",
+        comment: comment || undefined,
+        // Optionally, store attachments in a separate field or as part of comment text
+      });
+
+      // Optionally, store attachments in violation record or a new table
+      if (attachments.length > 0) {
+        // Fetch current violation
+        const violation = await dbStorage.getViolation(link.violationId);
+        if (violation) {
+          const updatedAttachments = Array.isArray(violation.attachments) ? [...violation.attachments, ...attachments] : attachments;
+          await dbStorage.updateViolation(link.violationId, { attachments: updatedAttachments });
+        }
+      }
+
+      // 4. Mark link as used (single-use)
+      await dbStorage.markViolationAccessLinkUsed(link.id);
+
+      res.json({ message: "Your comment and evidence have been submitted successfully." });
+    } catch (error: any) {
+      console.error("Error in public comment endpoint:", error);
+      res.status(500).json({ message: "Failed to submit comment/evidence", details: error.message });
+    }
+  });
+
+  // --- PUBLIC ENDPOINT: Get link status and violation details ---
+  app.get("/public/violation/:token/status", async (req, res) => {
+    const { token } = req.params;
+    try {
+      const link = await dbStorage.getViolationAccessLinkByToken(token);
+      if (!link) return res.status(404).json({ message: "Invalid or expired link" });
+      if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
+        return res.status(410).json({ message: "This link has expired" });
+      }
+      if (link.usedAt) {
+        // Still return violation details, but mark as used
+        const violation = await dbStorage.getViolation(link.violationId);
+        return res.json({ status: "used", violation: violation ? {
+          unitNumber: violation.unitId, // will be replaced below
+          violationType: violation.violationType,
+          description: violation.description,
+        } : null });
+      }
+      // Valid link, fetch violation details
+      const violation = await dbStorage.getViolation(link.violationId);
+      if (!violation) return res.status(404).json({ message: "Violation not found" });
+      // Fetch unit number
+      const unit = await dbStorage.getPropertyUnit(violation.unitId);
+      res.json({
+        status: "valid",
+        violation: {
+          unitNumber: unit?.unitNumber || "",
+          violationType: violation.violationType,
+          description: violation.description,
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch link status" });
+    }
+  });
+
+  // --- API: Get all violations pending approval (council/admin only) ---
+  app.get("/api/violations/pending-approval", ensureAuthenticated, async (req, res) => {
+    const user = req.user;
+    if (!user?.isCouncilMember && !user?.isAdmin) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const pending = await dbStorage.getViolationsByStatus("pending_approval");
+      res.json(pending);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
     }
   });
 

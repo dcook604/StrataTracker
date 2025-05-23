@@ -18,6 +18,7 @@ import SettingsPage from "@/pages/settings-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import UserProfilePage from "@/pages/user-profile-page";
+import PublicViolationCommentPage from "@/pages/public-violation-comment-page";
 import { Route } from "wouter";
 import { ThemeProvider } from "next-themes";
 
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/violation/comment/:token" component={PublicViolationCommentPage} />
       <Route component={NotFound} />
     </Switch>
   );

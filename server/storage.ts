@@ -24,10 +24,13 @@ import {
   persons,
   unitPersonRoles,
   type Person,
-  type UnitPersonRole
+  type UnitPersonRole,
+  violationAccessLinks,
+  type ViolationAccessLink,
+  type InsertViolationAccessLink
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name } from "drizzle-orm";
+import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
@@ -133,13 +136,24 @@ export interface IStorage {
 
   /**
    * Create a unit with multiple persons/roles (owners/tenants) in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant' }> }
+   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean }> }
    * @returns The created unit and associated persons/roles.
    */
   createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
-    persons: Array<{ fullName: string; email: string; phone?: string; role: 'owner' | 'tenant' }>
+    persons: Array<{ 
+      fullName: string; 
+      email: string; 
+      phone?: string; 
+      role: 'owner' | 'tenant';
+      receiveEmailNotifications: boolean;
+    }>
   }): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[] }>;
+
+  // Violation access link operations
+  createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink>;
+  getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined>;
+  markViolationAccessLinkUsed(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1036,6 +1050,7 @@ export class DatabaseStorage implements IStorage {
     let orderField = sortMap[sortBy as string] || propertyUnits.unitNumber; // Default sort by unitNumber
     const orderFn = sortOrder === 'asc' ? asc(orderField) : desc(orderField);
 
+    // Fetch paginated units
     const results = await db
       .select()
       .from(propertyUnits)
@@ -1043,13 +1058,46 @@ export class DatabaseStorage implements IStorage {
       .limit(limit)
       .offset(offset);
 
+    // Fetch all unit IDs in this page
+    const unitIds = results.map(u => u.id);
+    let ownersByUnit: Record<number, any[]> = {};
+    let tenantsByUnit: Record<number, any[]> = {};
+    if (unitIds.length > 0) {
+      // Get all roles for these units
+      const roles = await db.select().from(unitPersonRoles).where(inArray(unitPersonRoles.unitId, unitIds));
+      const personIds = roles.map(r => r.personId);
+      // Get all persons
+      const persons: Person[] = personIds.length > 0 ? await db.select().from(persons).where(inArray(persons.id, personIds)) : [];
+      // Map persons by id
+      const personsMap = Object.fromEntries(persons.map(p => [p.id, p]));
+      // Group by unit and role
+      for (const role of roles) {
+        const person = personsMap[role.personId];
+        if (!person) continue;
+        if (role.role === 'owner') {
+          if (!ownersByUnit[role.unitId]) ownersByUnit[role.unitId] = [];
+          ownersByUnit[role.unitId].push({ ...person, receiveEmailNotifications: role.receiveEmailNotifications });
+        } else if (role.role === 'tenant') {
+          if (!tenantsByUnit[role.unitId]) tenantsByUnit[role.unitId] = [];
+          tenantsByUnit[role.unitId].push({ ...person, receiveEmailNotifications: role.receiveEmailNotifications });
+        }
+      }
+    }
+
     // Count query
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` }) // Ensure count is a number
       .from(propertyUnits);
 
+    // Attach owners/tenants arrays to each unit
+    const unitsWithPeople = results.map(u => ({
+      ...u,
+      owners: ownersByUnit[u.id] || [],
+      tenants: tenantsByUnit[u.id] || []
+    }));
+
     return {
-      units: results,
+      units: unitsWithPeople,
       total: Number(count) // Ensure total is a number
     };
   }
@@ -1069,12 +1117,18 @@ export class DatabaseStorage implements IStorage {
 
   /**
    * Create a unit with multiple persons/roles (owners/tenants) in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant' }> }
+   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean }> }
    * @returns The created unit and associated persons/roles.
    */
   async createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
-    persons: Array<{ fullName: string; email: string; phone?: string; role: 'owner' | 'tenant' }>
+    persons: Array<{ 
+      fullName: string; 
+      email: string; 
+      phone?: string; 
+      role: 'owner' | 'tenant';
+      receiveEmailNotifications: boolean;
+    }>
   }) {
     return await db.transaction(async (trx) => {
       // 1. Create or find the unit
@@ -1096,7 +1150,21 @@ export class DatabaseStorage implements IStorage {
         const existing = await trx.select().from(unitPersonRoles)
           .where(and(eq(unitPersonRoles.unitId, unit.id), eq(unitPersonRoles.personId, personIds[p.email]), eq(unitPersonRoles.role, p.role)));
         if (!existing.length) {
-          await trx.insert(unitPersonRoles).values({ unitId: unit.id, personId: personIds[p.email], role: p.role }).returning();
+          await trx.insert(unitPersonRoles).values({ 
+            unitId: unit.id, 
+            personId: personIds[p.email], 
+            role: p.role,
+            receiveEmailNotifications: p.receiveEmailNotifications 
+          }).returning();
+        } else {
+          // Update existing role with new notification preference
+          await trx.update(unitPersonRoles)
+            .set({ receiveEmailNotifications: p.receiveEmailNotifications })
+            .where(and(
+              eq(unitPersonRoles.unitId, unit.id),
+              eq(unitPersonRoles.personId, personIds[p.email]),
+              eq(unitPersonRoles.role, p.role)
+            ));
         }
       }
       // 4. Return the unit and all associated persons/roles
@@ -1108,6 +1176,20 @@ export class DatabaseStorage implements IStorage {
         roles
       };
     });
+  }
+
+  async createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink> {
+    const [newLink] = await db.insert(violationAccessLinks).values(link).returning();
+    return newLink;
+  }
+
+  async getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined> {
+    const [link] = await db.select().from(violationAccessLinks).where(eq(violationAccessLinks.token, token));
+    return link;
+  }
+
+  async markViolationAccessLinkUsed(id: number): Promise<void> {
+    await db.update(violationAccessLinks).set({ usedAt: new Date() }).where(eq(violationAccessLinks.id, id));
   }
 }
 

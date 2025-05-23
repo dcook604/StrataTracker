@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 import { loadEmailSettings } from './email-service';
+import { db } from './db';
+import { unitPersonRoles } from '../shared/schema';
+import { and, eq } from 'drizzle-orm';
 
 // Initialize with default local configuration
 let transporter = nodemailer.createTransport({
@@ -21,16 +24,21 @@ interface ViolationNotificationParams {
   tenantEmail?: string;
   tenantName?: string;
   reporterName: string;
+  unitId: number;
+  accessLinks?: { owner?: string; tenant?: string };
 }
 
 // Interface for violation approved notification
 interface ViolationApprovedParams {
-  violationId: number;
+  violationId: string;
   unitNumber: string;
   violationType: string;
   ownerEmail: string;
   ownerName: string;
   fineAmount: number;
+  unitId: number;
+  tenantEmail?: string;
+  tenantName?: string;
 }
 
 // Always try to send email with current SMTP settings
@@ -85,10 +93,13 @@ export const sendViolationNotification = async (params: ViolationNotificationPar
     tenantEmail,
     tenantName,
     reporterName,
+    unitId,
+    accessLinks,
   } = params;
 
   // Base email content
   const subject = `[StrataGuard] New Violation Report for Unit ${unitNumber}`;
+  const ownerLinkText = accessLinks?.owner ? `\nYou may respond directly using this secure link: ${accessLinks.owner}\n` : "";
   const text = `
     Dear ${ownerName},
 
@@ -99,32 +110,52 @@ export const sendViolationNotification = async (params: ViolationNotificationPar
     - Type: ${violationType}
     - Reported by: ${reporterName}
 
-    You have 30 days to respond to this violation. If you would like to dispute this violation, 
-    please log in to the StrataGuard system and submit your response.
+    You have 30 days to respond to this violation. If you would like to dispute this violation, you may:\n
+    1. Log in to the StrataGuard system and submit your response, OR
+    2. Use the secure link below to add a comment and upload evidence (photos, PDFs):
+    ${ownerLinkText}
 
-    If no response is received within 30 days, this violation will be automatically approved by the strata council
-    and a fine may be levied as per the strata bylaws.
+    If no response is received within 30 days, this violation will be automatically approved by the strata council and a fine may be levied as per the strata bylaws.
 
     Thank you,
     StrataGuard System
   `;
 
-  // Send to owner
-  await sendEmail({
-    from: '"StrataGuard System" <notifications@strataguard.com>',
-    to: ownerEmail,
-    subject,
-    text,
-  });
+  // Get notification preferences
+  const [ownerRole] = await db.select().from(unitPersonRoles)
+    .where(and(
+      eq(unitPersonRoles.unitId, unitId),
+      eq(unitPersonRoles.role, 'owner')
+    ));
 
-  // Send to tenant if provided
-  if (tenantEmail && tenantName) {
+  // Send to owner if they want notifications
+  if (ownerRole?.receiveEmailNotifications) {
     await sendEmail({
       from: '"StrataGuard System" <notifications@strataguard.com>',
-      to: tenantEmail,
+      to: ownerEmail,
       subject,
-      text: text.replace(ownerName, tenantName),
+      text,
     });
+  }
+
+  // Get tenant notification preferences if tenant exists
+  if (tenantEmail && tenantName) {
+    const [tenantRole] = await db.select().from(unitPersonRoles)
+      .where(and(
+        eq(unitPersonRoles.unitId, unitId),
+        eq(unitPersonRoles.role, 'tenant')
+      ));
+
+    // Send to tenant if they want notifications
+    if (tenantRole?.receiveEmailNotifications) {
+      const tenantLinkText = accessLinks?.tenant ? `\nYou may respond directly using this secure link: ${accessLinks.tenant}\n` : "";
+      await sendEmail({
+        from: '"StrataGuard System" <notifications@strataguard.com>',
+        to: tenantEmail,
+        subject,
+        text: text.replace(ownerName, tenantName) + tenantLinkText,
+      });
+    }
   }
 };
 
@@ -137,6 +168,9 @@ export const sendViolationApprovedNotification = async (params: ViolationApprove
     ownerEmail,
     ownerName,
     fineAmount,
+    unitId,
+    tenantEmail,
+    tenantName,
   } = params;
 
   const subject = `[StrataGuard] Violation Approved for Unit ${unitNumber}`;
@@ -151,18 +185,45 @@ export const sendViolationApprovedNotification = async (params: ViolationApprove
     - Fine Amount: $${fineAmount.toFixed(2)}
 
     This fine will be added to your strata fee account. Please ensure that the payment is made
-    with your next strata fee payment.
-
-    If you have any questions, please contact the strata council.
+    within 30 days to avoid additional penalties.
 
     Thank you,
     StrataGuard System
   `;
 
-  await sendEmail({
-    from: '"StrataGuard System" <notifications@strataguard.com>',
-    to: ownerEmail,
-    subject,
-    text,
-  });
+  // Get notification preferences
+  const [ownerRole] = await db.select().from(unitPersonRoles)
+    .where(and(
+      eq(unitPersonRoles.unitId, unitId),
+      eq(unitPersonRoles.role, 'owner')
+    ));
+
+  // Send to owner if they want notifications
+  if (ownerRole?.receiveEmailNotifications) {
+    await sendEmail({
+      from: '"StrataGuard System" <notifications@strataguard.com>',
+      to: ownerEmail,
+      subject,
+      text,
+    });
+  }
+
+  // Get tenant notification preferences if tenant exists
+  if (tenantEmail && tenantName) {
+    const [tenantRole] = await db.select().from(unitPersonRoles)
+      .where(and(
+        eq(unitPersonRoles.unitId, unitId),
+        eq(unitPersonRoles.role, 'tenant')
+      ));
+
+    // Send to tenant if they want notifications
+    if (tenantRole?.receiveEmailNotifications) {
+      await sendEmail({
+        from: '"StrataGuard System" <notifications@strataguard.com>',
+        to: tenantEmail,
+        subject,
+        text: text.replace(ownerName, tenantName),
+      });
+    }
+  }
 };
