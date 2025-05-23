@@ -21,41 +21,36 @@ import UserProfilePage from "@/pages/user-profile-page";
 import PublicViolationCommentPage from "@/pages/public-violation-comment-page";
 import { Route } from "wouter";
 import { ThemeProvider } from "next-themes";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-function Router() {
+export default function App() {
   return (
-    <Switch>
-      <ProtectedRoute path="/" component={DashboardPage} />
-      <ProtectedRoute path="/violations/new" component={NewViolationPage} />
-      <ProtectedRoute path="/violations" component={AllViolationsPage} />
-      <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
-      <ProtectedRoute path="/reports" component={ReportsPage} />
-      <ProtectedRoute path="/units" component={UnitsPage} />
-      <ProtectedRoute path="/categories" component={CategoriesPage} />
-      <ProtectedRoute path="/settings" component={SettingsPage} />
-      <ProtectedRoute path="/user-profile" component={UserProfilePage} />
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/forgot-password" component={ForgotPasswordPage} />
-      <Route path="/reset-password" component={ResetPasswordPage} />
-      <Route path="/violation/comment/:token" component={PublicViolationCommentPage} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light">
-        <AuthProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
-            <Toaster />
-            <Router />
+            <AuthProvider>
+              <Switch>
+                <Route path="/auth" component={AuthPage} />
+                <Route path="/forgot-password" component={ForgotPasswordPage} />
+                <Route path="/reset-password" component={ResetPasswordPage} />
+                <Route path="/violation/comment/:token" component={PublicViolationCommentPage} />
+                <ProtectedRoute path="/" component={DashboardPage} />
+                <ProtectedRoute path="/violations" component={AllViolationsPage} />
+                <ProtectedRoute path="/violations/new" component={NewViolationPage} />
+                <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
+                <ProtectedRoute path="/reports" component={ReportsPage} />
+                <ProtectedRoute path="/units" component={UnitsPage} />
+                <ProtectedRoute path="/categories" component={CategoriesPage} />
+                <ProtectedRoute path="/settings" component={SettingsPage} />
+                <ProtectedRoute path="/profile" component={UserProfilePage} />
+                <Route component={NotFound} />
+              </Switch>
+              <Toaster />
+            </AuthProvider>
           </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
-
-export default App;

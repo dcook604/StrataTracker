@@ -1,5 +1,8 @@
 import type { Express, Request, Response } from "express";
 import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { createServer, type Server } from "http";
 import { storage as dbStorage } from "./storage";
 import { setupAuth } from "./auth";
@@ -47,6 +50,27 @@ function getUserId(req: Request, res: Response): number | undefined {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add helmet for security headers
+  app.use(helmet());
+
+  // Add CORS
+  const allowedOrigin = process.env.NODE_ENV === 'production'
+    ? process.env.CORS_ORIGIN || 'https://your-production-domain.com'
+    : '*';
+  app.use(cors({
+    origin: allowedOrigin,
+    credentials: true,
+  }));
+
+  // Add rate limiting (100 requests per 15 minutes per IP)
+  app.use(rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many requests, please try again later.'
+  }));
+
   // Create uploads directory if it doesn't exist
   const uploadsDir = path.join(process.cwd(), "uploads");
   try {
