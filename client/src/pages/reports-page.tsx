@@ -16,7 +16,8 @@ import {
   DownloadCloud, 
   FileSpreadsheet,
   File,
-  Mail
+  Mail,
+  Loader2
 } from "lucide-react";
 import {
   PieChart,
@@ -122,6 +123,7 @@ export default function ReportsPage() {
 
   const [dateRange, setDateRange] = useState({ from: priorDate, to: today });
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all"); // Store ID
+  const [isExporting, setIsExporting] = useState<boolean>(false); // New state for export loading
 
   // Fetch violation categories for the dropdown
   const { data: categories, isLoading: categoriesLoading } = useQuery<ViolationCategory[]>({
@@ -235,16 +237,50 @@ export default function ReportsPage() {
     refetchReportData();
   }, [dateRange, selectedCategoryId, refetchReportData]);
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async (reportType: 'csv' | 'pdf') => {
+    setIsExporting(true);
     const params = new URLSearchParams();
     params.append('from', dateRange.from.toISOString());
     params.append('to', dateRange.to.toISOString());
     if (selectedCategoryId !== "all") {
       params.append('categoryId', selectedCategoryId);
     }
+
+    const endpoint = reportType === 'csv' ? `/api/reports/export/csv` : `/api/reports/export/pdf`;
+    const filename = reportType === 'csv' ? "violations_report.csv" : "violations_report.pdf";
     
-    // Open the PDF export URL in a new tab
-    window.open(`/api/reports/export-pdf?${params.toString()}`, '_blank');
+    try {
+      const response = await apiRequest("GET", `${endpoint}?${params.toString()}`);
+
+      if (!response.ok) {
+        // Try to parse error message from backend if it's JSON
+        let errorDetail = `Failed to generate ${reportType} report. Status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.message || errorData.details || errorDetail;
+        } catch (e) {
+          // Ignore if error response is not JSON
+        }
+        throw new Error(errorDetail);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+    } catch (error: any) {
+      console.error(`Error generating ${reportType} report:`, error);
+      // TODO: Add toast notification for error, e.g., using useToast()
+      // Example: toast({ variant: "destructive", title: "Export Error", description: error.message });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const isLoading = reportDataLoading || categoriesLoading; // Overall loading state
@@ -267,7 +303,7 @@ export default function ReportsPage() {
               <Select
                 value={selectedCategoryId}
                 onValueChange={handleCategoryChange} // Updated handler
-                disabled={categoriesLoading}
+                disabled={categoriesLoading || isExporting}
               >
                 <SelectTrigger className="h-12 md:h-10">
                   <SelectValue placeholder="Select category" />
@@ -279,6 +315,29 @@ export default function ReportsPage() {
                       {category.name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Export Dropdown */}
+            <div className="w-full md:w-auto">
+              <Select onValueChange={(value: 'csv' | 'pdf') => handleGenerateReport(value)} disabled={isExporting}>
+                <SelectTrigger className="h-12 md:h-10 w-full md:w-[180px]">
+                  {isExporting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <DownloadCloud className="mr-2 h-4 w-4" />
+                  )}
+                  <SelectValue placeholder="Export Report" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Export to CSV
+                  </SelectItem>
+                  <SelectItem value="pdf">
+                    <File className="mr-2 h-4 w-4" />
+                    Export to PDF
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

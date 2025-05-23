@@ -142,6 +142,7 @@ export default function SettingsPage() {
   const [isSmtpTestDialogOpen, setIsSmtpTestDialogOpen] = useState(false);
   const [smtpTestStatus, setSmtpTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [smtpTestMessage, setSmtpTestMessage] = useState('');
+  const [isSavingSystemSettings, setIsSavingSystemSettings] = useState<boolean>(false);
 
   const { data: settings, isLoading: isLoadingEmailNotificationSettings } = useQuery<SystemSetting[]>({
     queryKey: ["/api/settings"],
@@ -388,14 +389,14 @@ export default function SettingsPage() {
 
   // In useEffect, when settings are loaded, populate systemForm and logoUrl
   useEffect(() => {
-    if (settings) {
+    if (settings && settings.settings) {
       const sys = {
         propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
         propertyManagers: [],
         caretakers: [],
         councilMembers: [],
       } as any;
-      settings.forEach(s => {
+      settings.settings.forEach((s: SystemSetting) => {
         if (s.settingKey === 'strata_name') sys.strataName = s.settingValue;
         if (s.settingKey === 'property_address') {
           try {
@@ -433,12 +434,18 @@ export default function SettingsPage() {
         }
         if (s.settingKey === 'default_timezone') sys.defaultTimezone = s.settingValue;
         if (s.settingKey === 'default_language') sys.defaultLanguage = s.settingValue;
-        if (s.settingKey === 'strata_logo') sys.strataLogo = s.settingValue;
+        if (s.settingKey === 'strata_logo') {
+          sys.strataLogo = s.settingValue;
+          if (settings.logoUrl && s.settingValue) {
+             setLogoUrl(settings.logoUrl);
+          } else if (!s.settingValue) {
+             setLogoUrl(null);
+          }
+        }
       });
       setSystemForm((prev: any) => ({ ...prev, ...sys }));
-      if (logoUrl) setLogoUrl(logoUrl);
     }
-  }, [settings, logoUrl]);
+  }, [settings]);
 
   // Add handler for logo upload
   const handleLogoUpload = async (files: File[]) => {
@@ -1055,28 +1062,53 @@ export default function SettingsPage() {
                       </select>
                     </div>
                   </div>
-                  <Button type="button" onClick={async () => {
-                    // Save all system settings fields
-                    const updates = [
-                      { settingKey: 'strata_name', settingValue: systemForm.strataName },
-                      { settingKey: 'property_address', settingValue: JSON.stringify(systemForm.propertyAddress) },
-                      { settingKey: 'admin_first_name', settingValue: systemForm.adminFirstName },
-                      { settingKey: 'admin_last_name', settingValue: systemForm.adminLastName },
-                      { settingKey: 'admin_email', settingValue: systemForm.adminEmail },
-                      { settingKey: 'admin_phone', settingValue: systemForm.adminPhone },
-                      { settingKey: 'property_managers', settingValue: JSON.stringify(systemForm.propertyManagers) },
-                      { settingKey: 'caretakers', settingValue: JSON.stringify(systemForm.caretakers) },
-                      { settingKey: 'council_members', settingValue: JSON.stringify(systemForm.councilMembers) },
-                      { settingKey: 'default_timezone', settingValue: systemForm.defaultTimezone },
-                      { settingKey: 'default_language', settingValue: systemForm.defaultLanguage },
-                      { settingKey: 'strata_logo', settingValue: systemForm.strataLogo },
-                    ];
-                    for (const update of updates) {
-                      await apiRequest("PUT", `/api/settings/${update.settingKey}`, { settingValue: update.settingValue });
-                    }
-                    toast({ title: "Settings Updated", description: "General system settings updated." });
-                    queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-                  }}>Save General Settings</Button>
+                  <Button
+                    type="button"
+                    disabled={isSavingSystemSettings}
+                    onClick={async () => {
+                      setIsSavingSystemSettings(true);
+                      try {
+                        // Save all system settings fields
+                        const updates = [
+                          { settingKey: 'strata_name', settingValue: systemForm.strataName },
+                          { settingKey: 'property_address', settingValue: JSON.stringify(systemForm.propertyAddress) },
+                          { settingKey: 'admin_first_name', settingValue: systemForm.adminFirstName },
+                          { settingKey: 'admin_last_name', settingValue: systemForm.adminLastName },
+                          { settingKey: 'admin_email', settingValue: systemForm.adminEmail },
+                          { settingKey: 'admin_phone', settingValue: systemForm.adminPhone },
+                          { settingKey: 'property_managers', settingValue: JSON.stringify(systemForm.propertyManagers) },
+                          { settingKey: 'caretakers', settingValue: JSON.stringify(systemForm.caretakers) },
+                          { settingKey: 'council_members', settingValue: JSON.stringify(systemForm.councilMembers) },
+                          { settingKey: 'default_timezone', settingValue: systemForm.defaultTimezone },
+                          { settingKey: 'default_language', settingValue: systemForm.defaultLanguage },
+                          { settingKey: 'strata_logo', settingValue: systemForm.strataLogo || "" },
+                        ];
+                        for (const update of updates) {
+                          await apiRequest("POST", `/api/settings/${update.settingKey}`, { value: update.settingValue });
+                        }
+                        toast({ title: "Settings Updated", description: "General system settings updated." });
+                        queryClientHook.invalidateQueries({ queryKey: ["/api/settings"] });
+                      } catch (error) {
+                        console.error("Failed to save system settings:", error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to save system settings. Please try again.",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsSavingSystemSettings(false);
+                      }
+                    }}
+                  >
+                    {isSavingSystemSettings ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save General Settings"
+                    )}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
