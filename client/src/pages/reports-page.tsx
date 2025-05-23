@@ -282,14 +282,6 @@ export default function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button 
-              onClick={handleGenerateReport}
-              className="w-full md:w-auto h-12 md:h-10"
-              disabled={isLoading} // Disable button while loading
-            >
-              {isLoading ? <span className="animate-spin mr-2">⏳</span> : <DownloadCloud className="h-5 w-5 mr-2" />}
-              Generate Report
-            </Button>
           </div>
         
           {/* Stats Cards */}

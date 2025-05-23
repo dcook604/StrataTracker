@@ -6,6 +6,7 @@ import {
   systemSettings,
   violations,
   violationHistories,
+  persons as personsTable,
   type User, 
   type InsertUser,
   type Customer,
@@ -21,13 +22,17 @@ import {
   type ViolationHistory,
   type InsertViolationHistory,
   type ViolationStatus,
-  persons,
   unitPersonRoles,
   type Person,
   type UnitPersonRole,
+  type InsertPerson,
+  type InsertUnitPersonRole,
   violationAccessLinks,
   type ViolationAccessLink,
-  type InsertViolationAccessLink
+  type InsertViolationAccessLink,
+  unitFacilities,
+  type InsertUnitFacility,
+  type UnitFacility
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray } from "drizzle-orm";
@@ -103,7 +108,7 @@ export interface IStorage {
   generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined>;
   
   // Violation history operations
-  getViolationHistory(violationId: number): Promise<ViolationHistory[]>;
+  getViolationHistory(violationId: number): Promise<ViolationHistoryWithUser[]>;
   addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory>;
   
   // Reporting operations
@@ -135,25 +140,32 @@ export interface IStorage {
   setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
 
   /**
-   * Create a unit with multiple persons/roles (owners/tenants) in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean }> }
-   * @returns The created unit and associated persons/roles.
+   * Create a unit with multiple persons/roles (owners/tenants) and facilities in a single transaction.
+   * @param unitData - { unit: InsertPropertyUnit, facilities: InsertUnitFacility, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
+   * @returns The created unit, facilities, and associated persons/roles.
    */
   createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
-    persons: Array<{ 
-      fullName: string; 
-      email: string; 
-      phone?: string; 
+    facilities: Omit<InsertUnitFacility, 'unitId' | 'id' | 'createdAt' | 'updatedAt'>,
+    persons: Array<{
+      fullName: string;
+      email: string;
+      phone?: string;
       role: 'owner' | 'tenant';
       receiveEmailNotifications: boolean;
+      hasCat?: boolean;
+      hasDog?: boolean;
     }>
-  }): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[] }>;
+  }): Promise<{ unit: PropertyUnit; facilities: UnitFacility; persons: Person[]; roles: UnitPersonRole[] }>;
 
   // Violation access link operations
   createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink>;
   getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined>;
   markViolationAccessLinkUsed(id: number): Promise<void>;
+}
+
+export interface ViolationHistoryWithUser extends ViolationHistory {
+  userFullName?: string | null;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -610,6 +622,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createViolation(violation: InsertViolation): Promise<Violation> {
+    console.log("[DB] createViolation called with attachments:", violation.attachments);
     const [newViolation] = await db
       .insert(violations)
       .values({
@@ -619,7 +632,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .returning();
-      
+    console.log("[DB] createViolation inserted attachments:", newViolation.attachments);
     return newViolation;
   }
   
@@ -683,12 +696,33 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Violation history operations
-  async getViolationHistory(violationId: number): Promise<ViolationHistory[]> {
-    return db
-      .select()
+  async getViolationHistory(violationId: number): Promise<ViolationHistoryWithUser[]> {
+    const historyItems = await db
+      .select({
+        id: violationHistories.id,
+        violationId: violationHistories.violationId,
+        userId: violationHistories.userId,
+        action: violationHistories.action,
+        comment: violationHistories.comment,
+        commenterName: violationHistories.commenterName,
+        createdAt: violationHistories.createdAt,
+        userFullName: users.fullName,
+      })
       .from(violationHistories)
+      .leftJoin(users, eq(violationHistories.userId, users.id))
       .where(eq(violationHistories.violationId, violationId))
       .orderBy(desc(violationHistories.createdAt));
+
+    return historyItems.map(item => ({
+      id: item.id,
+      violationId: item.violationId,
+      userId: item.userId,
+      action: item.action,
+      comment: item.comment,
+      commenterName: item.commenterName,
+      createdAt: item.createdAt,
+      userFullName: item.userFullName,
+    }));
   }
   
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
@@ -764,13 +798,13 @@ export class DatabaseStorage implements IStorage {
 
     const [counts] = await db
       .select({
-        total: drizzleCount().$cast<number>(),
-        new: drizzleCount().filter(eq(violations.status, 'new')).$cast<number>(),
-        pending: drizzleCount().filter(eq(violations.status, 'pending_approval')).$cast<number>(),
-        approved: drizzleCount().filter(eq(violations.status, 'approved')).$cast<number>(),
-        disputed: drizzleCount().filter(eq(violations.status, 'disputed')).$cast<number>(),
-        rejected: drizzleCount().filter(eq(violations.status, 'rejected')).$cast<number>(),
-        resolved: drizzleCount().filter(eq(violations.status, 'resolved')).$cast<number>()
+        total: drizzleCount(),
+        new: sql<number>`SUM(CASE WHEN ${violations.status} = 'new' THEN 1 ELSE 0 END)`,
+        pending: sql<number>`SUM(CASE WHEN ${violations.status} = 'pending_approval' THEN 1 ELSE 0 END)`,
+        approved: sql<number>`SUM(CASE WHEN ${violations.status} = 'approved' THEN 1 ELSE 0 END)`,
+        disputed: sql<number>`SUM(CASE WHEN ${violations.status} = 'disputed' THEN 1 ELSE 0 END)`,
+        rejected: sql<number>`SUM(CASE WHEN ${violations.status} = 'rejected' THEN 1 ELSE 0 END)`,
+        resolved: sql<number>`SUM(CASE WHEN ${violations.status} = 'resolved' THEN 1 ELSE 0 END)`
       })
       .from(violations)
       .where(whereClause);
@@ -1067,7 +1101,7 @@ export class DatabaseStorage implements IStorage {
       const roles = await db.select().from(unitPersonRoles).where(inArray(unitPersonRoles.unitId, unitIds));
       const personIds = roles.map(r => r.personId);
       // Get all persons
-      const persons: Person[] = personIds.length > 0 ? await db.select().from(persons).where(inArray(persons.id, personIds)) : [];
+      const persons: Person[] = personIds.length > 0 ? await db.select().from(personsTable).where(inArray(personsTable.id, personIds)) : [];
       // Map persons by id
       const personsMap = Object.fromEntries(persons.map(p => [p.id, p]));
       // Group by unit and role
@@ -1116,48 +1150,87 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
-   * Create a unit with multiple persons/roles (owners/tenants) in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean }> }
-   * @returns The created unit and associated persons/roles.
+   * Create a unit with multiple persons/roles (owners/tenants) and facilities in a single transaction.
+   * @param unitData - { unit: InsertPropertyUnit, facilities: InsertUnitFacility, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
+   * @returns The created unit, facilities, and associated persons/roles.
    */
   async createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
-    persons: Array<{ 
-      fullName: string; 
-      email: string; 
-      phone?: string; 
+    facilities: Omit<InsertUnitFacility, 'unitId' | 'id' | 'createdAt' | 'updatedAt'>,
+    persons: Array<{
+      fullName: string;
+      email: string;
+      phone?: string;
       role: 'owner' | 'tenant';
       receiveEmailNotifications: boolean;
+      hasCat?: boolean;
+      hasDog?: boolean;
     }>
-  }) {
+  }): Promise<{ unit: PropertyUnit; facilities: UnitFacility; persons: Person[]; roles: UnitPersonRole[] }> {
     return await db.transaction(async (trx) => {
       // 1. Create or find the unit
       let [unit] = await trx.select().from(propertyUnits).where(eq(propertyUnits.unitNumber, unitData.unit.unitNumber));
       if (!unit) {
         [unit] = await trx.insert(propertyUnits).values(unitData.unit).returning();
+      } else {
+        // If unit exists, update it (optional, depending on desired behavior)
+        // For now, we assume if unit exists by number, we don't update its core details,
+        // but we will update/create persons, roles, and facilities.
       }
-      // 2. For each person, create or find by email
+
+      // 2. Create or update unit facilities
+      let facilitiesRecord: UnitFacility | undefined;
+      const existingFacilities = await trx.select().from(unitFacilities).where(eq(unitFacilities.unitId, unit.id)).limit(1);
+      if (existingFacilities.length > 0) {
+        [facilitiesRecord] = await trx.update(unitFacilities)
+          .set({ ...unitData.facilities, updatedAt: new Date() })
+          .where(eq(unitFacilities.unitId, unit.id))
+          .returning();
+      } else {
+        [facilitiesRecord] = await trx.insert(unitFacilities)
+          .values({ ...unitData.facilities, unitId: unit.id })
+          .returning();
+      }
+      if (!facilitiesRecord) {
+        throw new Error("Failed to create or update unit facilities.");
+      }
+
+      // 3. For each person, create or find by email, and update pet info
       const personIds: { [email: string]: number } = {};
       for (const p of unitData.persons) {
-        let [person] = await trx.select().from(persons).where(eq(persons.email, p.email));
+        let [person] = await trx.select().from(personsTable).where(eq(personsTable.email, p.email));
         if (!person) {
-          [person] = await trx.insert(persons).values({ fullName: p.fullName, email: p.email, phone: p.phone }).returning();
+          [person] = await trx.insert(personsTable).values({
+            fullName: p.fullName,
+            email: p.email,
+            phone: p.phone,
+            hasCat: p.hasCat,
+            hasDog: p.hasDog
+          }).returning();
+        } else {
+          [person] = await trx.update(personsTable).set({
+            fullName: p.fullName,
+            phone: p.phone,
+            hasCat: p.hasCat,
+            hasDog: p.hasDog,
+            updatedAt: new Date()
+          }).where(eq(personsTable.id, person.id)).returning();
         }
         personIds[p.email] = person.id;
       }
-      // 3. Create unit_person_roles for each person/role (dedupe by unitId+personId+role)
+
+      // 4. Create unit_person_roles for each person/role (dedupe by unitId+personId+role)
       for (const p of unitData.persons) {
-        const existing = await trx.select().from(unitPersonRoles)
+        const existingRole = await trx.select().from(unitPersonRoles)
           .where(and(eq(unitPersonRoles.unitId, unit.id), eq(unitPersonRoles.personId, personIds[p.email]), eq(unitPersonRoles.role, p.role)));
-        if (!existing.length) {
-          await trx.insert(unitPersonRoles).values({ 
-            unitId: unit.id, 
-            personId: personIds[p.email], 
+        if (!existingRole.length) {
+          await trx.insert(unitPersonRoles).values({
+            unitId: unit.id,
+            personId: personIds[p.email],
             role: p.role,
-            receiveEmailNotifications: p.receiveEmailNotifications 
+            receiveEmailNotifications: p.receiveEmailNotifications
           }).returning();
         } else {
-          // Update existing role with new notification preference
           await trx.update(unitPersonRoles)
             .set({ receiveEmailNotifications: p.receiveEmailNotifications })
             .where(and(
@@ -1167,11 +1240,13 @@ export class DatabaseStorage implements IStorage {
             ));
         }
       }
-      // 4. Return the unit and all associated persons/roles
+      // 5. Return the unit, facilities, and all associated persons/roles
       const roles = await trx.select().from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unit.id));
-      const personList = await trx.select().from(persons).where(or(...roles.map(r => eq(persons.id, r.personId))));
+      const personList: Person[] = roles.length > 0 ? await trx.select().from(personsTable).where(or(...roles.map(r => eq(personsTable.id, r.personId)))) : [];
+      
       return {
         unit,
+        facilities: facilitiesRecord,
         persons: personList,
         roles
       };

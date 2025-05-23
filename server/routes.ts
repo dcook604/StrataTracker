@@ -10,7 +10,8 @@ import {
   insertViolationHistorySchema,
   insertViolationCategorySchema,
   insertCustomerSchema,
-  insertSystemSettingSchema
+  insertSystemSettingSchema,
+  insertUnitFacilitySchema
 } from "@shared/schema";
 import userManagementRoutes from "./routes/user-management";
 import emailConfigRoutes from "./routes/email-config";
@@ -184,6 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle file uploads
       const files = req.files as Express.Multer.File[];
       const attachments = files ? files.map(file => file.filename) : [];
+      console.log("[Violation Upload] Received files:", files?.map(f => f.originalname), "Saved as:", attachments);
       
       // Combine form data with file paths
       const violationData = {
@@ -202,6 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the violation
       const violation = await dbStorage.createViolation(validatedData);
+      console.log("[Violation Upload] Created violation with attachments:", violation.attachments);
       
       // Add to history
       await dbStorage.addViolationHistory({
@@ -244,11 +247,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           violationId: violation.id,
           unitNumber: unit.unitNumber,
           violationType: violation.violationType,
-          ownerEmail: unit.ownerEmail ?? undefined,
-          ownerName: unit.ownerName ?? undefined,
+          ownerEmail: unit.ownerEmail ?? "",
+          ownerName: unit.ownerName ?? "",
           tenantEmail: unit.tenantEmail ?? undefined,
           tenantName: unit.tenantName ?? undefined,
-          reporterName: req.user?.fullName ?? "Unknown Reporter",
+          reporterName: (req.user as any)?.fullName ?? "System",
           unitId: unit.id,
           accessLinks,
         });
@@ -299,8 +302,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             violationId: String(violation.id),
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail ?? undefined,
-            ownerName: unit.ownerName ?? undefined,
+            ownerEmail: unit.ownerEmail ?? "",
+            ownerName: unit.ownerName ?? "",
             fineAmount: violation.fineAmount ?? 0,
             unitId: unit.id,
             tenantEmail: unit.tenantEmail ?? undefined,
@@ -348,8 +351,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             violationId: String(violation.id),
             unitNumber: unit.unitNumber,
             violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail ?? undefined,
-            ownerName: unit.ownerName ?? undefined,
+            ownerEmail: unit.ownerEmail ?? "",
+            ownerName: unit.ownerName ?? "",
             fineAmount: amount ?? 0,
             unitId: unit.id,
             tenantEmail: unit.tenantEmail ?? undefined,
@@ -405,9 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reports/stats", ensureAuthenticated, async (req, res) => {
     try {
       const { from, to, categoryId } = req.query;
-      
       const filters: { from?: Date, to?: Date, categoryId?: number } = {};
-      
       if (from && typeof from === 'string') {
         const fromDate = new Date(from);
         if (!isNaN(fromDate.getTime())) {
@@ -417,7 +418,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (to && typeof to === 'string') {
         const toDate = new Date(to);
         if (!isNaN(toDate.getTime())) {
-          // Ensure the 'to' date includes the whole day
           toDate.setHours(23, 59, 59, 999);
           filters.to = toDate;
         }
@@ -428,15 +428,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filters.categoryId = catId;
         }
       }
-      
-      const stats = await dbStorage.getViolationStats(filters);
-      const violationsByMonth = await dbStorage.getViolationsByMonth(filters);
-      const violationsByType = await dbStorage.getViolationsByType(filters);
-      
+      console.log('[REPORTS/STATS] Filters:', filters);
+      let stats, violationsByMonth, violationsByType;
+      try {
+        stats = await dbStorage.getViolationStats(filters);
+        console.log('[REPORTS/STATS] Stats:', stats);
+      } catch (err) {
+        console.error('[REPORTS/STATS] getViolationStats error:', err);
+        throw err;
+      }
+      try {
+        violationsByMonth = await dbStorage.getViolationsByMonth(filters);
+        console.log('[REPORTS/STATS] ViolationsByMonth:', violationsByMonth);
+      } catch (err) {
+        console.error('[REPORTS/STATS] getViolationsByMonth error:', err);
+        throw err;
+      }
+      try {
+        violationsByType = await dbStorage.getViolationsByType(filters);
+        console.log('[REPORTS/STATS] ViolationsByType:', violationsByType);
+      } catch (err) {
+        console.error('[REPORTS/STATS] getViolationsByType error:', err);
+        throw err;
+      }
       res.json({ stats, violationsByMonth, violationsByType });
     } catch (error) {
-      console.error("Failed to fetch report statistics:", error);
-      res.status(500).json({ message: "Failed to fetch report statistics" });
+      console.error("Failed to fetch report statistics (outer catch):", error);
+      const errorMessage = (error instanceof Error) ? error.stack || error.message : String(error);
+      res.status(500).json({ message: "Failed to fetch report statistics", error: errorMessage });
     }
   });
 
@@ -699,34 +718,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create Unit with Persons (owners/tenants)
+  // Create Unit with Persons (owners/tenants) and Facilities
   app.post("/api/units-with-persons", ensureAuthenticated, async (req, res) => {
     try {
       // Validate input
-      const unitSchema = insertPropertyUnitSchema;
+      const unitSchema = insertPropertyUnitSchema.pick({ unitNumber: true, floor: true }); // Only unitNumber and floor from unit
+      
+      const facilitiesSchema = insertUnitFacilitySchema.pick({
+        parkingSpots: true,
+        storageLockers: true,
+        bikeLockers: true
+      });
+
       const personSchema = z.object({
         fullName: z.string().min(1),
         email: z.string().email(),
         phone: z.string().optional(),
         role: z.enum(["owner", "tenant"]),
-        receiveEmailNotifications: z.boolean()
+        receiveEmailNotifications: z.boolean(),
+        hasCat: z.boolean().optional(),
+        hasDog: z.boolean().optional(),
       });
+      
       const bodySchema = z.object({
         unit: unitSchema,
+        facilities: facilitiesSchema,
         persons: z.array(personSchema).min(1)
       });
+      
       const parsed = bodySchema.parse(req.body);
+      // The dbStorage.createUnitWithPersons function expects facilities without id, unitId, createdAt, updatedAt
+      // Our facilitiesSchema already aligns with this for the pick.
       const result = await dbStorage.createUnitWithPersons(parsed);
       res.status(201).json(result);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create unit with persons", error: error.message });
+      console.error("Failed to create unit with persons and facilities:", error);
+      res.status(500).json({ message: "Failed to create unit with persons and facilities", error: error.message });
     }
   });
 
-  // Unit Management API
+  // Unit Management API (Older - consider for deprecation or refactor if /api/units-with-persons covers all cases)
   app.post("/api/units", ensureAuthenticated, async (req, res) => {
     try {
       const { 
@@ -738,16 +772,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenantName, 
         tenantEmail, 
         tenantReceiveNotifications,
-        phone, 
-        notes 
+        // Assuming facilities are not part of this older endpoint's direct body, add defaults
+        // parkingSpots, storageLockers, bikeLockers 
       } = req.body;
 
-      // Create unit
-      const unitPayload = {
-        unitNumber,
-        floor,
-        ownerName,
-        ownerEmail
+      // Create unit payload for createUnitWithPersons
+      const unitPayload = { unitNumber, floor };
+
+      // Create default facilities payload
+      const facilitiesPayload = {
+        parkingSpots: req.body.parkingSpots || 0,
+        storageLockers: req.body.storageLockers || 0,
+        bikeLockers: req.body.bikeLockers || 0,
       };
 
       // Create persons array
@@ -757,27 +793,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone?: string;
         role: 'owner' | 'tenant';
         receiveEmailNotifications: boolean;
-      }> = [
-        {
+        hasCat?: boolean;
+        hasDog?: boolean;
+      }> = [];
+
+      if (ownerName && ownerEmail) {
+        personsPayload.push({
           fullName: ownerName,
           email: ownerEmail,
           role: 'owner',
-          receiveEmailNotifications: ownerReceiveNotifications
-        }
-      ];
+          receiveEmailNotifications: ownerReceiveNotifications ?? true,
+          hasCat: req.body.ownerHasCat ?? false,
+          hasDog: req.body.ownerHasDog ?? false,
+        });
+      }
 
       if (tenantName && tenantEmail) {
         personsPayload.push({
           fullName: tenantName,
           email: tenantEmail,
           role: 'tenant',
-          receiveEmailNotifications: tenantReceiveNotifications
+          receiveEmailNotifications: tenantReceiveNotifications ?? true,
+          hasCat: req.body.tenantHasCat ?? false,
+          hasDog: req.body.tenantHasDog ?? false,
         });
       }
+      
+      if (personsPayload.length === 0) {
+        return res.status(400).json({ message: "At least one owner or tenant must be provided for the unit." });
+      }
 
-      // Create the unit with persons
       const result = await dbStorage.createUnitWithPersons({
         unit: unitPayload,
+        facilities: facilitiesPayload, // Pass facilities payload
         persons: personsPayload
       });
 
@@ -786,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
-      console.error("Failed to create unit:", error);
+      console.error("Failed to create unit (legacy endpoint):", error);
       res.status(500).json({ message: "Failed to create unit", details: error.message });
     }
   });
@@ -794,56 +842,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/units/:id", ensureAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { 
-        unitNumber, 
-        floor, 
-        ownerName, 
-        ownerEmail, 
-        ownerReceiveNotifications,
-        tenantName, 
-        tenantEmail, 
-        tenantReceiveNotifications,
-        phone, 
-        notes 
-      } = req.body;
+      // TODO: This PATCH route currently calls createUnitWithPersons which is not ideal for an update.
+      // It should ideally call a dedicated updateUnitWithPersons function in dbStorage.
+      // For now, we will adapt its payload to match createUnitWithPersons, but this needs review.
 
-      // Update unit
-      const unitPayload = {
-        unitNumber,
-        floor,
-        ownerName,
-        ownerEmail
-      };
+      const unitSchema = insertPropertyUnitSchema.pick({ unitNumber: true, floor: true });
+      const facilitiesSchema = insertUnitFacilitySchema.pick({
+        parkingSpots: true,
+        storageLockers: true,
+        bikeLockers: true
+      });
+      const personSchema = z.object({
+        fullName: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        role: z.enum(["owner", "tenant"]),
+        receiveEmailNotifications: z.boolean(),
+        hasCat: z.boolean().optional(),
+        hasDog: z.boolean().optional(),
+      });
+      const bodySchema = z.object({
+        unit: unitSchema,
+        facilities: facilitiesSchema, 
+        persons: z.array(personSchema).min(1)
+      });
 
-      // Create persons array
-      const personsPayload: Array<{
-        fullName: string;
-        email: string;
-        phone?: string;
-        role: 'owner' | 'tenant';
-        receiveEmailNotifications: boolean;
-      }> = [
-        {
-          fullName: ownerName,
-          email: ownerEmail,
-          role: 'owner',
-          receiveEmailNotifications: ownerReceiveNotifications
-        }
-      ];
+      const parsedBody = bodySchema.parse(req.body);
 
-      if (tenantName && tenantEmail) {
-        personsPayload.push({
-          fullName: tenantName,
-          email: tenantEmail,
-          role: 'tenant',
-          receiveEmailNotifications: tenantReceiveNotifications
-        });
-      }
-
-      // Update the unit with persons
       const result = await dbStorage.createUnitWithPersons({
-        unit: unitPayload,
-        persons: personsPayload
+        unit: parsedBody.unit, 
+        facilities: parsedBody.facilities,
+        persons: parsedBody.persons
       });
 
       res.json(result);
@@ -851,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
-      console.error("Failed to update unit:", error);
+      console.error("Failed to update unit (via createUnitWithPersons logic):", error);
       res.status(500).json({ message: "Failed to update unit", details: error.message });
     }
   });
@@ -859,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- PUBLIC ENDPOINT: Add comment/evidence via access link ---
   app.post("/public/violation/:token/comment", upload.array("attachments", 5), async (req, res) => {
     const { token } = req.params;
-    const { comment } = req.body;
+    const { comment, commenterName } = req.body;
     try {
       // 1. Validate token
       const link = await dbStorage.getViolationAccessLinkByToken(token);
@@ -879,6 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: 1, // Use a special system/anonymous user ID, or null if allowed
         action: "public_comment",
         comment: comment || undefined,
+        commenterName: commenterName || "Anonymous",
         // Optionally, store attachments in a separate field or as part of comment text
       });
 
@@ -948,7 +978,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pending = await dbStorage.getViolationsByStatus("pending_approval");
       res.json(pending);
     } catch (error) {
+      console.error("Failed to fetch pending approvals:", error);
       res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // --- API: Export Report as PDF ---
+  app.get("/api/reports/export-pdf", ensureAuthenticated, async (req, res) => {
+    try {
+      const { from, to, categoryId } = req.query;
+      // TODO: Implement PDF generation logic using these filters
+      console.log("PDF Export Request Filters:", { from, to, categoryId });
+      res.status(501).contentType("application/json").json({ message: "PDF export not implemented yet." });
+    } catch (error) {
+      console.error("Failed to export PDF report:", error);
+      res.status(500).json({ message: "Failed to export PDF report" });
     }
   });
 

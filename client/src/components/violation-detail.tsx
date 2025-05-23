@@ -35,6 +35,15 @@ interface ViolationDetailProps {
   id: string;
 }
 
+interface ViolationHistoryEntry {
+  id: number;
+  action: string;
+  comment?: string | null;
+  createdAt: string; // Assuming it's a date string
+  userFullName?: string | null;
+  commenterName?: string | null; // Added for public commenter's name
+}
+
 export function ViolationDetail({ id }: ViolationDetailProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -50,7 +59,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
   });
   
   // Fetch violation history
-  const { data: history, isLoading: historyLoading } = useQuery<any[]>({
+  const { data: history, isLoading: historyLoading } = useQuery<ViolationHistoryEntry[]>({
     queryKey: [`/api/violations/${id}/history`],
     enabled: !!id,
   });
@@ -300,7 +309,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                   </div>
                 ) : history && history.length > 0 ? (
                   <ul className="space-y-3">
-                    {history.map((entry: any) => {
+                    {history.map((entry: ViolationHistoryEntry) => {
                       let icon;
                       let title;
                       
@@ -348,6 +357,8 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                               <p className="text-sm text-neutral-600 mt-1">{entry.comment}</p>
                             )}
                             <p className="text-xs text-neutral-500 mt-1">
+                              {/* Display userFullName for logged-in users, or commenterName for public comments */}
+                              {entry.userFullName ? `${entry.userFullName} - ` : (entry.commenterName ? `${entry.commenterName} (Public) - ` : 'Anonymous - ')}
                               {entry.createdAt ? format(new Date(entry.createdAt), "MMM dd, yyyy 'at' h:mm a") : "N/A"}
                             </p>
                           </div>
@@ -401,7 +412,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
               Reject Violation
             </Button>
             
-            {Boolean(user && (user as any).isCouncil) && (
+            {Boolean(user && ((user as any).isCouncilMember || (user as any).isAdmin)) && (
               <div className="pt-2">
                 <p className="text-sm font-medium text-neutral-700 mb-1">Fine Amount ($)</p>
                 <div className="flex">

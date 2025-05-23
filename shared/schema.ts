@@ -65,10 +65,12 @@ export const propertyUnits = pgTable("property_units", {
   customerId: integer("customer_id").references(() => customers.id),
   unitNumber: text("unit_number").notNull().unique(),
   floor: text("floor"),
-  ownerName: text("owner_name").notNull(),
-  ownerEmail: text("owner_email").notNull(),
-  tenantName: text("tenant_name"),
-  tenantEmail: text("tenant_email"),
+  // ownerName, ownerEmail, tenantName, tenantEmail are deprecated and will be removed.
+  // Use the persons and unitPersonRoles tables instead.
+  ownerName: text("owner_name"), // Deprecated
+  ownerEmail: text("owner_email"), // Deprecated
+  tenantName: text("tenant_name"), // Deprecated
+  tenantEmail: text("tenant_email"), // Deprecated
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -85,14 +87,27 @@ export const insertCustomerSchema = createInsertSchema(customers).pick({
 });
 
 export const insertPropertyUnitSchema = createInsertSchema(propertyUnits).pick({
-  customerId: true,
   unitNumber: true,
   floor: true,
-  ownerName: true,
-  ownerEmail: true,
-  tenantName: true,
-  tenantEmail: true,
+  // Deprecated fields are not included in insert schema for new units
 });
+export type PropertyUnit = typeof propertyUnits.$inferSelect;
+export type InsertPropertyUnit = typeof propertyUnits.$inferInsert;
+
+// UnitFacilities table
+export const unitFacilities = pgTable("unit_facilities", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: 'cascade' }).unique(), // Ensure one-to-one
+  parkingSpots: integer("parking_spots").default(0),
+  storageLockers: integer("storage_lockers").default(0),
+  bikeLockers: integer("bike_lockers").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertUnitFacilitySchema = createInsertSchema(unitFacilities);
+export type UnitFacility = typeof unitFacilities.$inferSelect;
+export type InsertUnitFacility = typeof unitFacilities.$inferInsert;
 
 // Violation categories schema
 export const violationCategories = pgTable("violation_categories", {
@@ -145,7 +160,7 @@ export const violations = pgTable("violations", {
   violationTime: text("violation_time"),
   description: text("description").notNull(),
   bylawReference: text("bylaw_reference"),
-  status: text("status").notNull().default("new"),
+  status: text("status").notNull().default("pending_approval"),
   fineAmount: integer("fine_amount"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -189,6 +204,7 @@ export const violationHistories = pgTable("violation_histories", {
   userId: integer("user_id").notNull().references(() => users.id),
   action: text("action").notNull(),
   comment: text("comment"),
+  commenterName: text("commenter_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -208,6 +224,7 @@ export const insertViolationHistorySchema = createInsertSchema(violationHistorie
   userId: true,
   action: true,
   comment: true,
+  commenterName: true,
 });
 
 // Types
@@ -226,13 +243,19 @@ export const systemSettingsRelations = relations(systemSettings, ({ one }) => ({
     references: [users.id],
   }),
 }));
-
 // Persons table (for owners/tenants)
 export const persons = pgTable("persons", {
   id: serial("id").primaryKey(),
+  // TODO: Add unique constraints back after data migration for existing records
+  authUserId: text("auth_user_id"), // Link to Supabase Auth User ID for system users
   fullName: text("full_name").notNull(),
+  // TODO: Add unique constraints back after data migration for existing records
   email: text("email").notNull(),
   phone: text("phone"),
+  isSystemUser: boolean("is_system_user").default(false).notNull(), // True if this person can log in
+  // Pet information
+  hasCat: boolean("has_cat").default(false),
+  hasDog: boolean("has_dog").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -241,6 +264,9 @@ export const insertPersonSchema = createInsertSchema(persons).pick({
   fullName: true,
   email: true,
   phone: true,
+  // Add pet info to insert schema
+  hasCat: true,
+  hasDog: true,
 });
 
 // Unit-Person Roles (many-to-many, with role: 'owner' | 'tenant')
@@ -262,8 +288,6 @@ export const insertUnitPersonRoleSchema = createInsertSchema(unitPersonRoles).pi
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
-export type PropertyUnit = typeof propertyUnits.$inferSelect;
-export type InsertPropertyUnit = z.infer<typeof insertPropertyUnitSchema>;
 export type ViolationCategory = typeof violationCategories.$inferSelect;
 export type InsertViolationCategory = z.infer<typeof insertViolationCategorySchema>;
 export type SystemSetting = typeof systemSettings.$inferSelect;
@@ -298,3 +322,4 @@ export const insertViolationAccessLinkSchema = createInsertSchema(violationAcces
 
 export type ViolationAccessLink = typeof violationAccessLinks.$inferSelect;
 export type InsertViolationAccessLink = z.infer<typeof insertViolationAccessLinkSchema>;
+
