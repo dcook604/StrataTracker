@@ -22,6 +22,15 @@ export function generateViolationsPdf(
 ): void {
   const doc = new PDFDocument({ margin: 50, layout: 'portrait', size: 'A4' });
 
+  // Helper to get margin values safely
+  const getMargin = (side: 'left' | 'right' | 'top' | 'bottom'): number => {
+    const defaultMargin = 50; // Matches the initialization
+    if (doc.options.margins) {
+      return doc.options.margins[side] ?? defaultMargin;
+    }
+    return defaultMargin;
+  };
+
   // Pipe the PDF to the response
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=violations_report.pdf');
@@ -51,18 +60,23 @@ export function generateViolationsPdf(
   doc.moveDown();
 
   const tableTop = doc.y;
-  const itemMargin = 20;
+  // const itemMargin = 20; // itemMargin is not used if we base everything on page margins
+
   const colWidthId = 40;
   const colWidthUnit = 60;
   const colWidthDate = 70;
-  const colWidthType = 100;
+  const colWidthType = 100; // Category column
   const colWidthStatus = 70;
   const colWidthFine = 50;
-  const colWidthDesc = doc.page.width - itemMargin * 2 - colWidthId - colWidthUnit - colWidthDate - colWidthType - colWidthStatus - colWidthFine - 50; // remaining space
+  
+  // Refined calculation for Description column width
+  const usableWidth = doc.page.width - getMargin('left') - getMargin('right');
+  const sumOfOtherCols = colWidthId + colWidthUnit + colWidthDate + colWidthType + colWidthStatus + colWidthFine;
+  const colWidthDesc = usableWidth - sumOfOtherCols;
 
   function drawTableHeader() {
     doc.fontSize(8).font('Helvetica-Bold');
-    let currentX = doc.x;
+    let currentX = getMargin('left'); // Start at left page margin
     doc.text('ID', currentX, doc.y, { width: colWidthId, lineBreak: false });
     currentX += colWidthId;
     doc.text('Unit', currentX, doc.y, { width: colWidthUnit, lineBreak: false });
@@ -83,12 +97,12 @@ export function generateViolationsPdf(
   drawTableHeader();
 
   violations.forEach(v => {
-    if (doc.y > doc.page.height - 100) { // Check for page break
+    if (doc.y > doc.page.height - getMargin('bottom') - 50) { // Check for page break, ensuring space for a few lines + bottom margin
       doc.addPage();
       drawTableHeader();
     }
     doc.fontSize(8);
-    let currentX = doc.x;
+    let currentX = getMargin('left'); // Start each row at the left page margin
     const idText = `VIO-${v.id}`;
     const unitText = v.unit.unitNumber;
     const dateText = format(new Date(v.createdAt), 'yyyy-MM-dd');
@@ -121,7 +135,7 @@ export function generateViolationsPdf(
     currentX += colWidthFine;
     doc.text(descText, currentX, doc.y, { width: colWidthDesc, height: rowHeight }); // Last item can wrap
     doc.y += rowHeight + 5; // Move y down after the row ensuring space
-    doc.x = itemMargin; // Reset x for next row
+    doc.x = getMargin('left'); // Correctly reset x to the left page margin for the next row/content
   });
 
   // Finalize the PDF and end the stream

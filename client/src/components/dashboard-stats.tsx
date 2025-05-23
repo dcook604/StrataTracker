@@ -9,8 +9,18 @@ import {
   XCircle 
 } from "lucide-react";
 
+// Basic interface for the expected stats object
+interface ReportStatsData {
+  totalViolations: number;
+  newViolations: number;
+  pendingViolations: number;
+  approvedViolations: number;
+  disputedViolations: number;
+  // Add other fields if necessary, like rejectedViolations, resolvedViolations, averageResolutionTimeDays
+}
+
 export function DashboardStats() {
-  const { data: stats, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<{ stats: ReportStatsData, violationsByMonth: any[], violationsByType: any[] }>({
     queryKey: ["/api/reports/stats"],
   });
 
@@ -28,9 +38,11 @@ export function DashboardStats() {
     );
   }
 
-  if (!stats) {
+  if (!data || !data.stats) {
     return null;
   }
+
+  const stats = data.stats;
 
   const statCards = [
     {
