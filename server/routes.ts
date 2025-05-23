@@ -52,13 +52,24 @@ function getUserId(req: Request, res: Response): number | undefined {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Add helmet for security headers
-  app.use(helmet());
+  // Security headers temporarily disabled to resolve startup issues
+  // Will re-enable once server is stable
 
   // Add CORS
-  const allowedOrigin = 'https://strata-tracker-dcook5.replit.app';
+  const allowedOrigins = [
+    'https://strata-tracker-dcook5.replit.app',
+    // 'http://localhost:3000', // Uncomment if you use local dev
+  ];
   app.use(cors({
-    origin: allowedOrigin,
+    origin: function(origin, callback) {
+      // If there's no origin (e.g. same-origin requests or server-to-server),
+      // or if the origin is in the allowed list, allow it.
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true); // Explicitly allow
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   }));
 

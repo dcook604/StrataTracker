@@ -59,10 +59,10 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 1000 * 60 * 30, // 30 minutes by default
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true, // Replit uses HTTPS, so this should be true
       sameSite: "lax",
-      path: "/",
-      domain: process.env.COOKIE_DOMAIN || undefined
+      path: "/"
+      // domain: process.env.COOKIE_DOMAIN || undefined // REMOVE or COMMENT OUT this line!
     }
   };
 

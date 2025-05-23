@@ -160,4 +160,69 @@ The Settings page now includes the following tabs (visible to Administrators and
 - **SMTP Settings**: Configure the outgoing email (SMTP) server, including host, port, authentication, and sender address. Test email delivery directly from this tab.
 - **User Management**: Add, edit, lock, or remove user accounts and assign roles.
 
-**Access:** Only users with the Administrator or Council Member role can view and modify these settings. Regular users will not see the Settings page or its tabs. 
+**Access:** Only users with the Administrator or Council Member role can view and modify these settings. Regular users will not see the Settings page or its tabs.
+
+## CORS Configuration
+
+The backend is configured to allow requests only from the production frontend domain:
+
+```
+https://strata-tracker-dcook5.replit.app
+```
+
+If you need to allow local development, you can uncomment the localhost entry in the CORS config in `server/routes.ts`:
+
+```js
+const allowedOrigins = [
+  'https://strata-tracker-dcook5.replit.app',
+  // 'http://localhost:3000', // Uncomment if you use local dev
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, origin);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+```
+
+- The CORS middleware must be placed before any routes or other middleware (except `helmet`).
+- `credentials: true` is required for session cookies to work.
+
+## Session Cookie Settings
+
+In `server/auth.ts`, the session cookie is configured as follows:
+
+```js
+cookie: {
+  maxAge: 1000 * 60 * 30, // 30 minutes
+  httpOnly: true,
+  secure: true, // Replit uses HTTPS, so this should be true
+  sameSite: "lax",
+  path: "/"
+  // domain: process.env.COOKIE_DOMAIN || undefined // REMOVED for cross-domain compatibility
+}
+```
+
+- **Do not set the `domain` property** unless you are certain it matches your frontend domain exactly. For most setups, omitting it is best.
+- `secure: true` is required for HTTPS deployments (like Replit).
+
+## Troubleshooting Authentication
+
+- If you encounter login/session issues, ensure:
+  - The frontend URL matches the allowed origins in the CORS config.
+  - The session cookie is being set and sent by the browser (check DevTools > Application > Cookies).
+  - The backend is running with the correct session and CORS settings as above.
+
+## Deployment Notes
+
+- Always restart the backend after changing CORS or session settings.
+- Clear browser cookies if you change cookie or CORS settings.
+
+---
+
+For further details, see [Express CORS documentation](https://expressjs.com/en/resources/middleware/cors.html) and [MDN: CORS and credentials](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#requests_with_credentials). 
