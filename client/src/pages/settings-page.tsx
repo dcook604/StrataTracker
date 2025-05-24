@@ -36,6 +36,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { UserManagementTabContent } from "@/components/user-management-tab";
 import { FileUpload } from "@/components/file-upload";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -144,13 +145,16 @@ export default function SettingsPage() {
   const [smtpTestMessage, setSmtpTestMessage] = useState('');
   const [isSavingSystemSettings, setIsSavingSystemSettings] = useState<boolean>(false);
 
-  const { data: settings, isLoading: isLoadingEmailNotificationSettings } = useQuery<SystemSetting[]>({
+  const { data: settingsResponse, isLoading: isLoadingEmailNotificationSettings } = useQuery({
     queryKey: ["/api/settings"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/settings");
       return res.json();
     },
   });
+
+  // Extract settings array from the response
+  const settings = settingsResponse?.settings || [];
 
   const emailForm = useForm<EmailSettingsFormValues>({
     resolver: zodResolver(emailSettingsSchema),
@@ -236,7 +240,7 @@ export default function SettingsPage() {
       ];
 
       for (const update of updates) {
-        await apiRequest("PUT", `/api/settings/${update.settingKey}`, { settingValue: update.settingValue });
+        await apiRequest("POST", `/api/settings/${update.settingKey}`, { value: update.settingValue });
       }
 
       return true;
@@ -450,20 +454,17 @@ export default function SettingsPage() {
       
       setSystemForm((prev: any) => ({ ...prev, ...sys }));
 
-      // Handle logoUrl separately after populating sys
-      const logoUrlSetting = Array.isArray(settings) ? settings.find(s => s.settingKey === 'strata_logo_url') : null;
-      if (logoUrlSetting && logoUrlSetting.settingValue) {
-        setLogoUrl(logoUrlSetting.settingValue);
+      // Handle logoUrl - use the direct logoUrl from the API response if available
+      if (settingsResponse?.logoUrl) {
+        setLogoUrl(settingsResponse.logoUrl);
       } else if (sys.strataLogo) { 
-        // If strata_logo_url is not found, use strataLogo (which might be a full URL or relative path)
-        // This assumes sys.strataLogo holds a usable URL or path.
-        // If it's just a filename, the <FileUpload/> or image display logic needs to handle it.
-        setLogoUrl(sys.strataLogo);
+        // Fallback to constructing the URL from the logo filename
+        setLogoUrl(`/api/uploads/${sys.strataLogo}`);
       } else {
         setLogoUrl(null);
       }
     }
-  }, [settings, setLogoUrl, setSystemForm]); // Added setLogoUrl and setSystemForm to dependencies
+  }, [settings, settingsResponse, setLogoUrl, setSystemForm]); // Added setLogoUrl and setSystemForm to dependencies
 
   // Add handler for logo upload
   const handleLogoUpload = async (files: File[]) => {
@@ -1137,6 +1138,89 @@ export default function SettingsPage() {
           </TabsContent>
 
         </Tabs>
+
+        {/* SMTP Test Dialog */}
+        <Dialog open={isSmtpTestDialogOpen} onOpenChange={setIsSmtpTestDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Test SMTP Configuration</DialogTitle>
+              <DialogDescription>
+                Send a test email to verify your SMTP settings are working correctly.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...smtpTestForm}>
+              <form onSubmit={smtpTestForm.handleSubmit(onSmtpTestSubmit)} className="space-y-4">
+                <FormField
+                  control={smtpTestForm.control}
+                  name="testEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Test Email Address</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          placeholder="test@example.com" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {smtpTestStatus !== 'idle' && (
+                  <div className="p-3 rounded-md border">
+                    {smtpTestStatus === 'loading' && (
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Sending test email...</span>
+                      </div>
+                    )}
+                    {smtpTestStatus === 'success' && (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>{smtpTestMessage}</span>
+                      </div>
+                    )}
+                    {smtpTestStatus === 'error' && (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{smtpTestMessage}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsSmtpTestDialogOpen(false);
+                      setSmtpTestStatus('idle');
+                      setSmtpTestMessage('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={testSmtpEmailMutation.isPending}
+                  >
+                    {testSmtpEmailMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Send Test Email"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

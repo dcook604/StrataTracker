@@ -2,52 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Modern Tailwind CSS theme configuration */
+@theme {
+  /* Primary color palette */
+  --color-primary: 207 90% 54%;
+  --color-primary-foreground: 211 100% 99%;
+  
+  /* Semantic color system */
+  --color-background: 0 0% 100%;
+  --color-foreground: 20 14.3% 4.1%;
+  --color-muted: 60 4.8% 95.9%;
+  --color-muted-foreground: 25 5.3% 44.7%;
+  --color-popover: 0 0% 100%;
+  --color-popover-foreground: 20 14.3% 4.1%;
+  --color-card: 0 0% 100%;
+  --color-card-foreground: 20 14.3% 4.1%;
+  --color-border: 20 5.9% 90%;
+  --color-input: 20 5.9% 90%;
+  --color-secondary: 60 4.8% 95.9%;
+  --color-secondary-foreground: 24 9.8% 10%;
+  --color-accent: 60 4.8% 95.9%;
+  --color-accent-foreground: 24 9.8% 10%;
+  --color-destructive: 0 84.2% 60.2%;
+  --color-destructive-foreground: 60 9.1% 97.8%;
+  --color-ring: 20 14.3% 4.1%;
+  
+  /* Border radius system */
+  --radius: 0.5rem;
+  
+  /* Overlay utilities */
+  --overlay-light: 0 0% 0% / 0.4;
+  --overlay-dark: 0 0% 0% / 0.5;
+}
+
 :root {
-      --background: 0 0% 100%;
---foreground: 20 14.3% 4.1%;
---muted: 60 4.8% 95.9%;
---muted-foreground: 25 5.3% 44.7%;
---popover: 0 0% 100%;
---popover-foreground: 20 14.3% 4.1%;
---card: 0 0% 100%;
---card-foreground: 20 14.3% 4.1%;
---border: 20 5.9% 90%;
---input: 20 5.9% 90%;
---primary: 207 90% 54%;
---primary-foreground: 211 100% 99%;
---secondary: 60 4.8% 95.9%;
---secondary-foreground: 24 9.8% 10%;
---accent: 60 4.8% 95.9%;
---accent-foreground: 24 9.8% 10%;
---destructive: 0 84.2% 60.2%;
---destructive-foreground: 60 9.1% 97.8%;
---ring: 20 14.3% 4.1%;
---radius: 0.5rem;
---overlay: 0 0% 0% / 0.4; /* Default overlay for light theme */
-  }
-  .dark {
-      --background: 240 10% 3.9%;
---foreground: 0 0% 98%;
---muted: 240 3.7% 15.9%;
---muted-foreground: 240 5% 64.9%;
---popover: 240 10% 3.9%;
---popover-foreground: 0 0% 98%;
---card: 240 10% 3.9%;
---card-foreground: 0 0% 98%;
---border: 240 3.7% 15.9%;
---input: 240 3.7% 15.9%;
---primary: 207 90% 54%;
---primary-foreground: 211 100% 99%;
---secondary: 240 3.7% 15.9%;
---secondary-foreground: 0 0% 98%;
---accent: 240 3.7% 15.9%;
---accent-foreground: 0 0% 98%;
---destructive: 0 62.8% 30.6%;
---destructive-foreground: 0 0% 98%;
---ring: 240 4.9% 83.9%;
---radius: 0.5rem;
---overlay: 0 0% 0% / 0.5; /* Overlay for dark theme */
-  }
+  /* Light theme base */
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
+  --muted: var(--color-muted);
+  --muted-foreground: var(--color-muted-foreground);
+  --popover: var(--color-popover);
+  --popover-foreground: var(--color-popover-foreground);
+  --card: var(--color-card);
+  --card-foreground: var(--color-card-foreground);
+  --border: var(--color-border);
+  --input: var(--color-input);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-primary-foreground);
+  --secondary: var(--color-secondary);
+  --secondary-foreground: var(--color-secondary-foreground);
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-accent-foreground);
+  --destructive: var(--color-destructive);
+  --destructive-foreground: var(--color-destructive-foreground);
+  --ring: var(--color-ring);
+  --radius: 0.5rem;
+  --overlay: var(--overlay-light);
+}
+
+.dark {
+  /* Dark theme overrides */
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: var(--color-primary); /* Keep same primary in dark mode */
+  --primary-foreground: var(--color-primary-foreground);
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+  --overlay: var(--overlay-dark);
+}
 
 @layer base {
   * {
@@ -56,5 +91,56 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  /* Enhanced focus styles for accessibility */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  /* Smooth transitions for theme switching */
+  *,
+  *::before,
+  *::after {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+}
+
+@layer components {
+  /* Custom overlay utility */
+  .overlay {
+    background: hsl(var(--overlay));
+  }
+  
+  /* Enhanced card shadows for depth */
+  .card-elevated {
+    @apply shadow-lg dark:shadow-2xl dark:shadow-black/25;
+  }
+}
+
+@layer utilities {
+  /* Custom scrollbar styles */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted)) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted));
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground));
   }
 }
