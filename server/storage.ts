@@ -788,60 +788,92 @@ export class DatabaseStorage implements IStorage {
     resolvedViolations: number,
     averageResolutionTimeDays: number | null
   }> {
-    const { from, to, categoryId } = filters;
-    const conditions: SQL[] = [];
-    if (from) conditions.push(gte(violations.createdAt, from));
-    if (to) conditions.push(lte(violations.createdAt, to));
-    if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
+    try {
+      console.log('[getViolationStats] Starting with filters:', filters);
+      
+      const { from, to, categoryId } = filters;
+      const conditions: SQL[] = [];
+      if (from) conditions.push(gte(violations.createdAt, from));
+      if (to) conditions.push(lte(violations.createdAt, to));
+      if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      console.log('[getViolationStats] Conditions count:', conditions.length);
 
-    const [counts] = await db
-      .select({
-        total: drizzleCount(),
-        new: sql<number>`SUM(CASE WHEN ${violations.status} = 'new' THEN 1 ELSE 0 END)`,
-        pending: sql<number>`SUM(CASE WHEN ${violations.status} = 'pending_approval' THEN 1 ELSE 0 END)`,
-        approved: sql<number>`SUM(CASE WHEN ${violations.status} = 'approved' THEN 1 ELSE 0 END)`,
-        disputed: sql<number>`SUM(CASE WHEN ${violations.status} = 'disputed' THEN 1 ELSE 0 END)`,
-        rejected: sql<number>`SUM(CASE WHEN ${violations.status} = 'rejected' THEN 1 ELSE 0 END)`,
-        resolved: sql<number>`SUM(CASE WHEN ${violations.status} = 'resolved' THEN 1 ELSE 0 END)`
-      })
-      .from(violations)
-      .where(whereClause);
+      // First, let's check if we have any violations at all
+      const totalCount = await db
+        .select({ count: drizzleCount() })
+        .from(violations);
+      console.log('[getViolationStats] Total violations in database:', totalCount[0]?.count || 0);
 
-    // Calculate average resolution time
-    // This requires violations that have a 'resolvedAt' and 'createdAt'
-    // We consider 'resolved' status as the indicator for resolution.
-    // 'resolvedAt' would ideally be a specific column, but we'll use 'updatedAt' for 'resolved' status for now.
-    const resolvedViolationsData = await db
-      .select({
-        createdAt: violations.createdAt,
-        updatedAt: violations.updatedAt 
-      })
-      .from(violations)
-      .where(whereClause ? and(whereClause, eq(violations.status, 'resolved')) : eq(violations.status, 'resolved'));
-
-    let totalResolutionTimeMs = 0;
-    resolvedViolationsData.forEach(v => {
-      if (v.createdAt && v.updatedAt) {
-        totalResolutionTimeMs += v.updatedAt.getTime() - v.createdAt.getTime();
+      if (!totalCount[0]?.count || totalCount[0].count === 0) {
+        console.log('[getViolationStats] No violations found, returning zero stats');
+        return {
+          totalViolations: 0,
+          newViolations: 0,
+          pendingViolations: 0,
+          approvedViolations: 0,
+          disputedViolations: 0,
+          rejectedViolations: 0,
+          resolvedViolations: 0,
+          averageResolutionTimeDays: null
+        };
       }
-    });
-    
-    const averageResolutionTimeDays = resolvedViolationsData.length > 0 
-      ? (totalResolutionTimeMs / resolvedViolationsData.length) / (1000 * 60 * 60 * 24) 
-      : null;
 
-    return {
-      totalViolations: Number(counts?.total) || 0,
-      newViolations: Number(counts?.new) || 0,
-      pendingViolations: Number(counts?.pending) || 0,
-      approvedViolations: Number(counts?.approved) || 0,
-      disputedViolations: Number(counts?.disputed) || 0,
-      rejectedViolations: Number(counts?.rejected) || 0,
-      resolvedViolations: Number(counts?.resolved) || 0,
-      averageResolutionTimeDays: averageResolutionTimeDays !== null ? parseFloat(averageResolutionTimeDays.toFixed(1)) : null
-    };
+      console.log('[getViolationStats] Executing main stats query...');
+      const [counts] = await db
+        .select({
+          total: drizzleCount(),
+          new: sql<number>`SUM(CASE WHEN ${violations.status} = 'new' THEN 1 ELSE 0 END)`,
+          pending: sql<number>`SUM(CASE WHEN ${violations.status} = 'pending_approval' THEN 1 ELSE 0 END)`,
+          approved: sql<number>`SUM(CASE WHEN ${violations.status} = 'approved' THEN 1 ELSE 0 END)`,
+          disputed: sql<number>`SUM(CASE WHEN ${violations.status} = 'disputed' THEN 1 ELSE 0 END)`,
+          rejected: sql<number>`SUM(CASE WHEN ${violations.status} = 'rejected' THEN 1 ELSE 0 END)`,
+          resolved: sql<number>`SUM(CASE WHEN ${violations.status} = 'resolved' THEN 1 ELSE 0 END)`
+        })
+        .from(violations)
+        .where(whereClause);
+
+      console.log('[getViolationStats] Raw counts result:', counts);
+
+      // Calculate average resolution time
+      console.log('[getViolationStats] Calculating resolution time...');
+      const resolvedViolationsData = await db
+        .select({
+          createdAt: violations.createdAt,
+          updatedAt: violations.updatedAt 
+        })
+        .from(violations)
+        .where(whereClause ? and(whereClause, eq(violations.status, 'resolved')) : eq(violations.status, 'resolved'));
+
+      let totalResolutionTimeMs = 0;
+      resolvedViolationsData.forEach(v => {
+        if (v.createdAt && v.updatedAt) {
+          totalResolutionTimeMs += v.updatedAt.getTime() - v.createdAt.getTime();
+        }
+      });
+      
+      const averageResolutionTimeDays = resolvedViolationsData.length > 0 
+        ? (totalResolutionTimeMs / resolvedViolationsData.length) / (1000 * 60 * 60 * 24) 
+        : null;
+
+      const result = {
+        totalViolations: Number(counts?.total) || 0,
+        newViolations: Number(counts?.new) || 0,
+        pendingViolations: Number(counts?.pending) || 0,
+        approvedViolations: Number(counts?.approved) || 0,
+        disputedViolations: Number(counts?.disputed) || 0,
+        rejectedViolations: Number(counts?.rejected) || 0,
+        resolvedViolations: Number(counts?.resolved) || 0,
+        averageResolutionTimeDays: averageResolutionTimeDays !== null ? parseFloat(averageResolutionTimeDays.toFixed(1)) : null
+      };
+
+      console.log('[getViolationStats] Final result:', result);
+      return result;
+    } catch (error) {
+      console.error('[getViolationStats] Error occurred:', error);
+      throw error;
+    }
   }
   
   async getViolationsByMonth(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{ month: string, count: number }[]> {

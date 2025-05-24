@@ -25,9 +25,11 @@ export function setupAuth(app: Express) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://replit.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
       },
     },
     xssFilter: true,
@@ -57,10 +59,10 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 1000 * 60 * 30, // 30 minutes by default
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Set to false for Replit compatibility
       sameSite: "lax",
       path: "/",
-      domain: process.env.COOKIE_DOMAIN || undefined
+      domain: undefined // Remove domain restriction for Replit
     }
   };
 
@@ -300,10 +302,19 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    console.log("Auth check - session:", !!req.session);
+    console.log("Auth check - session ID:", req.session?.id || 'none');
+    console.log("Auth check - isAuthenticated:", req.isAuthenticated());
+    console.log("Auth check - user:", !!req.user);
+    
+    if (!req.isAuthenticated()) {
+      console.log("User not authenticated, returning 401");
+      return res.sendStatus(401);
+    }
     
     // Remove sensitive fields before sending the user object
     const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
+    console.log("Auth check successful, returning user:", safeUser.email);
     res.json(safeUser);
   });
 
