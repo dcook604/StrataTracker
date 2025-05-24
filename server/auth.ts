@@ -186,9 +186,18 @@ export function setupAuth(app: Express) {
       req.login(user, (err) => {
         if (err) return next(err);
         
-        // Remove sensitive fields before sending the user object
-        const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
-        res.status(200).json(safeUser);
+        // Explicitly save the session before sending the response
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            // Log the error and potentially send a server error response
+            console.error("Error saving session:", saveErr);
+            return next(saveErr); 
+          }
+          
+          // Remove sensitive fields before sending the user object
+          const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+          res.status(200).json(safeUser);
+        });
       });
     })(req, res, next);
   });
