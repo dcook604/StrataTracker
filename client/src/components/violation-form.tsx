@@ -76,6 +76,13 @@ export function ViolationForm() {
   const safeUnits = Array.isArray(units) ? units : [];
   const safeCategories = Array.isArray(categories) ? categories : [];
 
+  // Log loaded categories for debugging
+  useEffect(() => {
+    if (!categoriesLoading) {
+      console.log("Loaded categories for form (ViolationForm):", safeCategories);
+    }
+  }, [categoriesLoading, safeCategories]);
+
   // Filtered units based on search term
   const filteredUnits = useMemo(() => {
     if (!unitSearchTerm) return safeUnits;
@@ -334,6 +341,41 @@ export function ViolationForm() {
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => {
+                    // Log field value for categoryId during render
+                    if (!categoriesLoading) { 
+                        console.log("Rendering categoryId FormField (ViolationForm) - field.value:", field.value, "Available categories:", safeCategories);
+                    }
+                    return (
+                      <FormItem>
+                        <FormLabel>Violation Category *</FormLabel>
+                        <Select
+                          disabled={categoriesLoading}
+                          onValueChange={field.onChange}
+                          value={field.value ? field.value.toString() : ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {safeCategories.map((category: any) => (
+                              <SelectItem key={category.id} value={category.id.toString()}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
             </div>
