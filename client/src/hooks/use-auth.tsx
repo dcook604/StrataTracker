@@ -7,6 +7,7 @@ import {
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { navigate } from "wouter/use-browser-location";
 
 // Define the query key as a const for type safety and consistency
 const authQueryKey = ["/api/auth/me"] as const;
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnMount: false,
     refetchOnReconnect: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes cache time
   });
 
   // Clear user data when on auth pages to prevent stale state
@@ -100,23 +102,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json() as SafeUser;
     },
     onSuccess: (loggedInUser: SafeUser) => {
+      // Set the user data in the cache first
       queryClient.setQueryData<SafeUser | null>(authQueryKey, loggedInUser);
+      
       // Clear any error states
       queryClient.removeQueries({ 
         queryKey: authQueryKey, 
         type: 'inactive' 
       });
+      
+      // Show success toast
       toast({
         title: "Login successful",
         description: `Welcome back, ${loggedInUser.fullName}`,
       });
       
-      // Navigate programmatically instead of relying on redirect
-      if (typeof window !== 'undefined') {
-        // Use history API to maintain React Router state
-        window.history.pushState(null, '', '/');
-        window.dispatchEvent(new PopStateEvent('popstate'));
-      }
+      // Use wouter's navigate function for consistent routing
+      // Small delay to ensure the query cache is updated
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 100);
     },
     onError: (error: Error) => {
       console.error('Login error:', error);
@@ -163,11 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "You have been successfully logged out",
       });
       
-      // Navigate to auth page
-      if (typeof window !== 'undefined') {
-        window.history.pushState(null, '', '/auth');
-        window.dispatchEvent(new PopStateEvent('popstate'));
-      }
+      // Use wouter's navigate function consistently
+      navigate("/auth", { replace: true });
     },
     onError: (error: Error) => {
       toast({

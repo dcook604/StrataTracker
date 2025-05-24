@@ -60,7 +60,6 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
-  const [hasRedirected, setHasRedirected] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search.includes('expired=1')) {
@@ -71,16 +70,12 @@ export default function AuthPage() {
     }
   }, []);
 
-  // Handle redirect when user is authenticated, but avoid immediate redirect loops
+  // Simplified redirect logic - only redirect if user exists and we're not in the middle of login
   useEffect(() => {
-    if (user && !authLoading && !hasRedirected && !loginMutation.isPending) {
-      setHasRedirected(true);
-      // Small delay to prevent immediate redirect conflicts
-      setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 100);
+    if (user && !authLoading && !loginMutation.isPending) {
+      navigate("/", { replace: true });
     }
-  }, [user, authLoading, hasRedirected, loginMutation.isPending, navigate]);
+  }, [user, authLoading, loginMutation.isPending, navigate]);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -127,9 +122,16 @@ export default function AuthPage() {
     // Implementation of register submission
   };
 
-  // Don't render anything while redirecting to prevent flash
+  // Show loading state while user exists (being redirected)
   if (user && !authLoading) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-neutral-600">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

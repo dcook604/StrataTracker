@@ -50,18 +50,13 @@ export async function apiRequest(
         }, 5000);
       }
       
-      // Only redirect if not already on auth page
+      // Only redirect if not already on auth page and not during login process
       if (!window.location.pathname.includes('/auth')) {
         isRedirecting = true;
-        // Use history API instead of window.location to maintain React Router state
-        if (typeof window !== 'undefined' && window.history && window.history.pushState) {
-          window.history.pushState(null, '', '/auth?expired=1');
-          // Dispatch a popstate event to trigger React Router update
-          window.dispatchEvent(new PopStateEvent('popstate'));
-        } else {
-          // Fallback to window.location if history API is not available
-          window.location.href = '/auth?expired=1';
-        }
+        
+        // Use the navigate function from wouter instead of direct window.history
+        const { navigate } = await import("wouter/use-browser-location");
+        navigate('/auth?expired=1', { replace: true });
         
         // Reset redirect flag after a delay
         setTimeout(() => {
@@ -72,23 +67,26 @@ export async function apiRequest(
       throw new Error('Session expired');
     }
 
-    // Handle non-JSON responses
-    const contentType = res.headers.get("content-type");
     if (!res.ok) {
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "An error occurred");
-      } else {
-        const errorText = await res.text();
-        console.error("Non-JSON error response:", errorText);
-        throw new Error("An unexpected error occurred. Please try again.");
+      const errorText = await res.text();
+      let errorMessage = `HTTP ${res.status}`;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
       }
+      
+      throw new Error(errorMessage);
     }
 
     return res;
   } catch (error) {
-    console.error("API request error:", error);
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Network request failed');
   }
 }
 
