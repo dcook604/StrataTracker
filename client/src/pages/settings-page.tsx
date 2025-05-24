@@ -70,12 +70,12 @@ type SmtpTestEmailFormData = z.infer<typeof smtpTestEmailSchema>;
 
 const mapSettingsToForm = (settings: SystemSetting[]): EmailSettingsFormValues => {
   const getValue = (key: string, defaultValue: string = "") => {
-    const setting = settings.find(s => s.settingKey === key);
+    const setting = Array.isArray(settings) ? settings.find(s => s.settingKey === key) : undefined;
     return setting ? setting.settingValue || defaultValue : defaultValue;
   };
 
   const getBoolValue = (key: string, defaultValue: boolean = false) => {
-    const setting = settings.find(s => s.settingKey === key);
+    const setting = Array.isArray(settings) ? settings.find(s => s.settingKey === key) : undefined;
     return setting ? setting.settingValue === 'true' : defaultValue;
   };
 
@@ -169,7 +169,7 @@ export default function SettingsPage() {
 
   // Update form values when settings are loaded
   useEffect(() => {
-    if (settings) {
+    if (settings && Array.isArray(settings)) {
       const formValues = mapSettingsToForm(settings);
       emailForm.reset(formValues);
     }
@@ -389,14 +389,25 @@ export default function SettingsPage() {
 
   // In useEffect, when settings are loaded, populate systemForm and logoUrl
   useEffect(() => {
-    if (settings && settings.settings) {
+    if (settings && Array.isArray(settings)) {
       const sys = {
-        propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
-        propertyManagers: [],
-        caretakers: [],
-        councilMembers: [],
+        strataName: systemForm.strataName || "",
+        propertyAddress: { ...(systemForm.propertyAddress || { streetLine1: "", city: "", province: "", postalCode: "", country: "Canada" }) },
+        adminFirstName: systemForm.adminFirstName || "",
+        adminLastName: systemForm.adminLastName || "",
+        adminEmail: systemForm.adminEmail || "",
+        adminPhone: systemForm.adminPhone || "",
+        propertyManagers: Array.isArray(systemForm.propertyManagers) ? [...systemForm.propertyManagers] : [],
+        caretakers: Array.isArray(systemForm.caretakers) ? [...systemForm.caretakers] : [],
+        councilMembers: Array.isArray(systemForm.councilMembers) ? [...systemForm.councilMembers] : [],
+        defaultTimezone: systemForm.defaultTimezone || "America/Vancouver",
+        defaultLanguage: systemForm.defaultLanguage || "en",
+        strataLogo: systemForm.strataLogo || "",
       } as any;
-      settings.settings.forEach((s: SystemSetting) => {
+      
+      let foundLogoPath: string | null = null;
+
+      settings.forEach((s: SystemSetting) => {
         if (s.settingKey === 'strata_name') sys.strataName = s.settingValue;
         if (s.settingKey === 'property_address') {
           try {
@@ -436,14 +447,16 @@ export default function SettingsPage() {
         if (s.settingKey === 'default_language') sys.defaultLanguage = s.settingValue;
         if (s.settingKey === 'strata_logo') {
           sys.strataLogo = s.settingValue;
-          if (settings.logoUrl && s.settingValue) {
-             setLogoUrl(settings.logoUrl);
-          } else if (!s.settingValue) {
-             setLogoUrl(null);
-          }
+          foundLogoPath = s.settingValue;
         }
       });
-      setSystemForm((prev: any) => ({ ...prev, ...sys }));
+      setSystemForm(sys);
+
+      if (foundLogoPath) {
+        setLogoUrl(foundLogoPath);
+      } else {
+        setLogoUrl(null);
+      }
     }
   }, [settings]);
 

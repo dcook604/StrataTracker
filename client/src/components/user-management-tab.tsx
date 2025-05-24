@@ -567,7 +567,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
           <DialogHeader>
             <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
             <DialogDescription>
-              {editingUser ? "Update the user's details below." : "Fill in the form to add a new user."}
+              {editingUser ? "Update the user's details below." : "Fill in the details to create a new user account."}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -747,11 +747,11 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
       <Dialog open={isLockDialogOpen} onOpenChange={setIsLockDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{usersData?.find(u => u.id === lockUserId)?.accountLocked ? "Unlock User Account" : "Lock User Account"}</DialogTitle>
+            <DialogTitle>Confirm Account Lock/Unlock</DialogTitle>
             <DialogDescription>
               {usersData?.find(u => u.id === lockUserId)?.accountLocked 
-                ? "Unlocking this account will allow the user to log in again."
-                : "Locking this account will prevent the user from logging in. Provide a reason for locking."}
+                ? "Unlocking this account will allow the user to log in again." 
+                : "Locking this account will prevent the user from logging in. You can provide an optional reason."}
             </DialogDescription>
           </DialogHeader>
           {!usersData?.find(u => u.id === lockUserId)?.accountLocked && (
@@ -788,7 +788,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
           <DialogHeader>
             <DialogTitle>Invite New User</DialogTitle>
             <DialogDescription>
-              Enter the user's details. They will receive an email to set their password and activate their account.
+              Enter the details of the user you want to invite. They will receive an email to set up their account.
             </DialogDescription>
           </DialogHeader>
           <Form {...inviteForm}>

@@ -7,6 +7,7 @@ import {
   CheckCircle, 
   AlertTriangle 
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 // Interface for the expected stats object
 interface ReportStatsData {
@@ -19,8 +20,18 @@ interface ReportStatsData {
 }
 
 export function DashboardStats() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: reportNumericStats, isLoading } = useQuery<ReportStatsData>({
     queryKey: ["/api/reports/stats"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/reports/stats");
+      if (!res.ok) {
+        // Consider more specific error handling or logging here
+        const errorData = await res.json().catch(() => ({ message: 'Failed to fetch dashboard stats' }));
+        throw new Error(errorData.message || 'Failed to fetch dashboard stats');
+      }
+      const jsonData = await res.json();
+      return jsonData.stats;
+    },
   });
 
   if (isLoading) {
@@ -37,38 +48,38 @@ export function DashboardStats() {
     );
   }
 
-  if (!stats) {
+  if (!reportNumericStats) {
     return null;
   }
 
   const statCards = [
     {
       title: "Total Violations",
-      value: stats.totalViolations,
+      value: reportNumericStats.totalViolations,
       icon: <FileText className="h-6 w-6 text-primary-600" />,
       bgColor: "bg-primary-100",
     },
     {
       title: "New",
-      value: stats.newViolations,
+      value: reportNumericStats.newViolations,
       icon: <FileText className="h-6 w-6 text-blue-600" />,
       bgColor: "bg-blue-100",
     },
     {
       title: "Pending",
-      value: stats.pendingViolations,
+      value: reportNumericStats.pendingViolations,
       icon: <Clock className="h-6 w-6 text-yellow-600" />,
       bgColor: "bg-yellow-100",
     },
     {
       title: "Approved",
-      value: stats.approvedViolations,
+      value: reportNumericStats.approvedViolations,
       icon: <CheckCircle className="h-6 w-6 text-green-600" />,
       bgColor: "bg-green-100",
     },
     {
       title: "Disputed",
-      value: stats.disputedViolations,
+      value: reportNumericStats.disputedViolations,
       icon: <AlertTriangle className="h-6 w-6 text-orange-600" />,
       bgColor: "bg-orange-100",
     },
