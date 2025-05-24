@@ -160,4 +160,38 @@ The Settings page now includes the following tabs (visible to Administrators and
 - **SMTP Settings**: Configure the outgoing email (SMTP) server, including host, port, authentication, and sender address. Test email delivery directly from this tab.
 - **User Management**: Add, edit, lock, or remove user accounts and assign roles.
 
-**Access:** Only users with the Administrator or Council Member role can view and modify these settings. Regular users will not see the Settings page or its tabs. 
+**Access:** Only users with the Administrator or Council Member role can view and modify these settings. Regular users will not see the Settings page or its tabs.
+
+---
+
+## Recent Fixes & Resolutions
+
+### Dashboard & Settings Page Stability
+
+A series of issues affecting the Dashboard and Settings page have been resolved:
+
+1.  **Dashboard Statistics Display:**
+    *   **Issue:** Statistics cards on the Dashboard (Total Violations, New, Pending, etc.) were appearing blank.
+    *   **Cause:** The `DashboardStats` component was not correctly accessing the nested `stats` object from the `/api/reports/stats` API response. The `useQuery` hook was returning the entire response object, and the component was attempting to read properties like `totalViolations` from this parent object where they were undefined.
+    *   **Fix:** The `useQuery` hook in `client/src/components/dashboard-stats.tsx` was updated. An explicit `queryFn` was added that now processes the API response and returns the `jsonData.stats` object directly. This ensures the component receives the correct data structure for display.
+
+2.  **Settings Page Crash (`TypeError: e.find is not a function`):**
+    *   **Issue:** The Settings page was crashing with a "Something went wrong" message, and browser console logs showed a `TypeError: e.find is not a function`.
+    *   **Primary Cause (Corrected in `settings-page.tsx`):**
+        *   The `useEffect` hook responsible for populating the "System Settings" form (including strata name, address, logo, etc.) was incorrectly attempting to access `settings.settings` and `settings.logoUrl` as if the `settings` data (from `/api/settings`) was an object containing these properties. However, `settings` is an array (`SystemSetting[]`).
+        *   **Fix:** The `useEffect` hook in `client/src/pages/settings-page.tsx` was modified to correctly treat `settings` as an array. It now iterates directly over `settings` to find the relevant `SystemSetting` objects (e.g., for 'strata_logo') and populates the form state and `logoUrl` state variable appropriately.
+    *   **Preventative Measure (Corrected in `settings-page.tsx`):**
+        *   The `mapSettingsToForm` helper function (used for email settings) was also made more robust.
+        *   **Fix:** Added `Array.isArray(settings)` checks before calling `.find()` on the `settings` data within `mapSettingsToForm` and in the `useEffect` hook that calls it. This prevents type errors if the `/api/settings` endpoint were to return a non-array (though the primary fix ensures correct usage of the expected array).
+
+3.  **Settings Page - Dialog Accessibility Warnings:**
+    *   **Issue:** Browser console logs showed accessibility warnings for `DialogContent` components (from Radix UI, via shadcn/ui) within the User Management tab of the Settings page, indicating missing `DialogTitle` or `DialogDescription` / `aria-describedby` attributes.
+    *   **Fix:** Added the required `<DialogDescription>` components to the following dialogs within `client/src/components/user-management-tab.tsx`:
+        *   Add/Edit User Dialog
+        *   Invite User Dialog
+        *   Lock/Unlock User Account Dialog
+        This ensures these dialogs are more accessible to screen reader users.
+
+4.  **Backend API Error (`/api/violations/pending-approval` - 500 Error):**
+    *   **Issue:** The API endpoint `/api/violations/pending-approval` (called by the main Layout component for notification badges) was consistently returning a 500 Internal Server Error.
+    *   **Resolution Note:** While the exact backend fix details were not processed here, this issue was also reported as resolved. For future reference, server logs are located in the `logs/` directory and are essential for diagnosing such backend errors. The endpoint relies on the `dbStorage.getViolationsByStatus("pending_approval")` function in `server/storage.ts`. 

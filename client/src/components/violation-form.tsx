@@ -165,6 +165,8 @@ export function ViolationForm() {
 
   const onSubmit = async (values: z.infer<typeof violationFormSchema>) => {
     // Submit the violation directly
+    console.log("Attempting to submit violation with values:", values);
+    console.log("Current form validation state (errors):", form.formState.errors);
     submitViolationMutation.mutate(values);
   };
 
@@ -181,7 +183,14 @@ export function ViolationForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+            console.error("Form validation failed:", errors);
+            toast({
+              title: "Validation Error",
+              description: "Please check the form for errors and fill all required fields.",
+              variant: "destructive",
+            });
+          })} className="space-y-6">
             {/* Unit Information */}
             <div>
               <h3 className="text-lg font-medium text-neutral-800 mb-4">Unit Information</h3>
