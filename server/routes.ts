@@ -17,7 +17,8 @@ import {
   insertViolationCategorySchema,
   insertCustomerSchema,
   insertSystemSettingSchema,
-  insertUnitFacilitySchema
+  insertUnitFacilitySchema,
+  type User
 } from "@shared/schema";
 import userManagementRoutes from "./routes/user-management";
 import emailConfigRoutes from "./routes/email-config";
@@ -1070,28 +1071,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
       
-      // Further filter to only show violations not yet acted upon by this user,
-      // or where this user is the reporter (though reporter shouldn't approve their own)
-      // This logic might need refinement based on exact requirements for "pending approval for *me*"
-      
-      // For now, just returning all pending_approval.
-      // The UI can decide what to show based on user role (e.g. council member vs admin)
       console.log(`[INFO] /api/violations/pending-approval: Successfully fetched ${pendingViolations?.length || 0} pending violations for userId: ${userId}`);
       res.json(pendingViolations);
     } catch (error: any) {
       console.error("------------------------------------------------------------");
       console.error("ERROR in /api/violations/pending-approval route for userId:", userId);
+      console.error("Raw error object received in catch block:", error);
       const errorTimestamp = new Date().toISOString();
       let errorDetails = "An unexpected error occurred.";
-      let loggedError = error;
 
       if (error instanceof Error) {
-        console.error("Message:", error.message);
-        console.error("Stack:", error.stack);
-        // Avoid logging potentially very large or circular objects directly in a simple console.error
-        // Consider a more sophisticated logger for full object dumps in production
-        console.error("Full Error Name:", error.name); 
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+        console.error("Error Stack:", error.stack);
+        if (error.cause) {
+          console.error("Error Cause:", error.cause);
+        }
         errorDetails = error.message;
+        if (typeof error.cause === 'string') {
+          errorDetails += ` | Cause: ${error.cause}`;
+        } else if (error.cause && typeof (error.cause as any).message === 'string') {
+          errorDetails += ` | Cause: ${(error.cause as any).message}`;
+        }
       } else {
         console.error("Non-Error Object Thrown:", error);
         try {
@@ -1099,7 +1100,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (stringifyError) {
           errorDetails = "Could not stringify non-Error object.";
         }
-        loggedError = { message: "Non-Error object thrown", content: error };
       }
       console.error(`Error occurred at: ${errorTimestamp}`);
       console.error("------------------------------------------------------------");
@@ -1107,10 +1107,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         message: "Failed to fetch pending violations. Please check server logs.", 
         errorCode: "PENDING_VIOLATIONS_FETCH_FAILED",
-        details: errorDetails, // Provide a sanitized or general error message
+        details: errorDetails,
         timestamp: errorTimestamp,
-        // Optionally, include a server-generated error ID for tracking if you have such a system
-        // errorId: generateUniqueErrorId() 
       });
     }
   });
