@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,16 +20,55 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
   const [location, navigate] = useLocation();
   const [pending, setPending] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user?.isCouncilMember || user?.isAdmin) {
       setLoading(true);
       fetch("/api/violations/pending-approval", { credentials: "include" })
-        .then(res => res.json())
-        .then(data => setPending(Array.isArray(data) ? data : []))
+        .then(async (res) => {
+          if (!res.ok) {
+            let errorData = { message: `HTTP error! status: \${res.status}`, details: "No further details from server." };
+            try {
+              const serverError = await res.json();
+              errorData.message = serverError.message || errorData.message;
+              errorData.details = serverError.details || `Server responded with \${res.status}. ErrorCode: \${serverError.errorCode || 'N/A'}`;
+              console.error("Server error fetching pending approvals:", serverError);
+            } catch (parseError) {
+              console.error("Failed to parse server error response:", parseError, "Original status:", res.status, res.statusText);
+              errorData.details = res.statusText || "Could not retrieve error details from server.";
+            }
+            const error = new Error(errorData.message);
+            (error as any).details = errorData.details;
+            throw error;
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (Array.isArray(data)) {
+            setPending(data);
+          } else {
+            console.warn("Pending approvals data is not an array:", data);
+            setPending([]);
+            toast({
+              title: "Unexpected Data Format",
+              description: "Received unexpected data for pending approvals.",
+              variant: "warning",
+            });
+          }
+        })
+        .catch(error => {
+          console.error("Failed to fetch pending approvals:", error);
+          toast({
+            title: "Error Fetching Approvals",
+            description: error.message || "Could not load pending approvals.",
+            variant: "destructive",
+          });
+          setPending([]);
+        })
         .finally(() => setLoading(false));
     }
-  }, [user]);
+  }, [user, toast]);
 
   return (
     <div className="flex h-screen bg-neutral-50">

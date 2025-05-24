@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import {
   useQuery,
   useMutation,
@@ -7,16 +7,17 @@ import {
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { identifyUser } from "@/lib/logrocket";
 
 // Omit the password from the user type for client-side usage
 type SafeUser = Omit<SelectUser, "password"> & {
-  // Add compatibility optional fields that may come from either format
-  isAdmin?: boolean;
-  is_admin?: boolean;
-  isCouncilMember?: boolean;
-  is_council_member?: boolean;
-  isUser?: boolean;
-  is_user?: boolean;
+  // Add compatibility required fields that ensure consistent boolean values
+  isAdmin: boolean;
+  is_admin: boolean;
+  isCouncilMember: boolean;
+  is_council_member: boolean;
+  isUser: boolean;
+  is_user: boolean;
 };
 
 type AuthContextType = {
@@ -43,6 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
+  // Identify user in LogRocket when user data changes
+  useEffect(() => {
+    if (user && user.id) {
+      identifyUser({
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        isAdmin: user.isAdmin || user.is_admin,
+        isCouncilMember: user.isCouncilMember || user.is_council_member,
+        isUser: user.isUser || user.is_user
+      });
+    }
+  }, [user]);
+
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
@@ -50,6 +65,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SafeUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      
+      // Identify user in LogRocket after successful login
+      if (user.id) {
+        identifyUser({
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          isAdmin: user.isAdmin || user.is_admin,
+          isCouncilMember: user.isCouncilMember || user.is_council_member,
+          isUser: user.isUser || user.is_user
+        });
+      }
+      
       toast({
         title: "Login successful",
         description: `Welcome back, ${user.fullName}`,
@@ -71,6 +99,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SafeUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      
+      // Identify user in LogRocket after successful registration
+      if (user.id) {
+        identifyUser({
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          isAdmin: user.isAdmin || user.is_admin,
+          isCouncilMember: user.isCouncilMember || user.is_council_member,
+          isUser: user.isUser || user.is_user
+        });
+      }
+      
       toast({
         title: "Registration successful",
         description: `Welcome to StrataGuard, ${user.fullName}`,
@@ -111,12 +152,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: user ? {
           ...user,
           // Add compatibility properties for client components that expect camelCase or snake_case
-          isAdmin: user.isAdmin || user.is_admin,
-          isCouncilMember: user.isCouncilMember || user.is_council_member,
-          isUser: user.isUser || user.is_user,
-          is_admin: user.is_admin || user.isAdmin,
-          is_council_member: user.is_council_member || user.isCouncilMember,
-          is_user: user.is_user || user.isUser
+          isAdmin: !!(user.isAdmin || user.is_admin),
+          isCouncilMember: !!(user.isCouncilMember || user.is_council_member),
+          isUser: !!(user.isUser || user.is_user),
+          is_admin: !!(user.is_admin || user.isAdmin),
+          is_council_member: !!(user.is_council_member || user.isCouncilMember),
+          is_user: !!(user.is_user || user.isUser)
         } : null,
         isLoading,
         error,
