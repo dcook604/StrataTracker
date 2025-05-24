@@ -7,7 +7,7 @@ import {
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { navigate } from "wouter/use-browser-location";
+import { useLocation } from "wouter";
 
 // Define the query key as a const for type safety and consistency
 const authQueryKey = ["/api/auth/me"] as const;
@@ -45,6 +45,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [location, navigate] = useLocation();
   
   // Check if we're on an auth-related page to avoid unnecessary queries
   const isAuthPage = typeof window !== 'undefined' && (
@@ -62,9 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: authQueryKey,
     queryFn: async () => {
       try {
+        console.log('Auth query running - checking session...');
         const response = await apiRequest("GET", authQueryKey[0]);
-        return await response.json() as SafeUser;
+        const userData = await response.json() as SafeUser;
+        console.log('Auth query successful:', userData);
+        return userData;
       } catch (err: any) {
+        console.log('Auth query failed:', err.message);
         // If session expired, don't throw - just return null
         if (err.message === 'Session expired') {
           return null;
@@ -98,12 +103,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
+      console.log('Login mutation starting...');
       const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json() as SafeUser;
+      const userData = await res.json() as SafeUser;
+      console.log('Login response received:', userData);
+      return userData;
     },
-    onSuccess: (loggedInUser: SafeUser) => {
-      // Set the user data in the cache first
+    onSuccess: async (loggedInUser: SafeUser) => {
+      console.log('Login mutation onSuccess called with:', loggedInUser);
+      
+      // Show success toast first
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${loggedInUser.fullName}`,
+      });
+      
+      // Set the user data in the cache
       queryClient.setQueryData<SafeUser | null>(authQueryKey, loggedInUser);
+      console.log('Cache updated with user data');
       
       // Clear any error states
       queryClient.removeQueries({ 
@@ -111,17 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         type: 'inactive' 
       });
       
-      // Show success toast
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${loggedInUser.fullName}`,
-      });
-      
-      // Use wouter's navigate function for consistent routing
-      // Small delay to ensure the query cache is updated
+      // Navigate using wouter's navigate function from useLocation
+      // Add a small delay to ensure the session is fully established
       setTimeout(() => {
+        console.log('Navigating to dashboard...');
         navigate("/", { replace: true });
-      }, 100);
+        
+        // After navigation, invalidate and refetch the auth query to ensure fresh data
+        setTimeout(() => {
+          console.log('Invalidating auth query for fresh data...');
+          queryClient.invalidateQueries({ queryKey: authQueryKey });
+        }, 200);
+      }, 150);
     },
     onError: (error: Error) => {
       console.error('Login error:', error);

@@ -54,9 +54,8 @@ export async function apiRequest(
       if (!window.location.pathname.includes('/auth')) {
         isRedirecting = true;
         
-        // Use the navigate function from wouter instead of direct window.history
-        const { navigate } = await import("wouter/use-browser-location");
-        navigate('/auth?expired=1', { replace: true });
+        // Use window.location as fallback for 401 redirects (outside React context)
+        window.location.href = '/auth?expired=1';
         
         // Reset redirect flag after a delay
         setTimeout(() => {
