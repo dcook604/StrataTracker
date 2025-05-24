@@ -50,10 +50,10 @@ export function ViolationSummaryCard() {
   const { data: units = [] } = useQuery({
     queryKey: ['/api/property-units'],
   });
-  const { data: stats = {} } = useQuery({
+  const { data: statsResponse } = useQuery({
     queryKey: ['/api/reports/stats'],
   });
-  const isLoading = !units || !stats;
+  const isLoading = !units || !statsResponse;
 
   if (isLoading) {
     return (
@@ -72,10 +72,11 @@ export function ViolationSummaryCard() {
     );
   }
 
+  const stats = (statsResponse as any)?.stats || {};
   const unitCount = (units as any[]).length || 0;
-  const monthlyViolations = (stats as any).totalViolations ?? 0;
-  const openCases = ((stats as any).newViolations ?? 0) + ((stats as any).pendingViolations ?? 0);
-  const disputedCases = (stats as any).disputedViolations ?? 0;
+  const monthlyViolations = stats.totalViolations ?? 0;
+  const openCases = (stats.newViolations ?? 0) + (stats.pendingViolations ?? 0);
+  const disputedCases = stats.disputedViolations ?? 0;
 
   return (
     <Card className="shadow rounded-lg p-6">

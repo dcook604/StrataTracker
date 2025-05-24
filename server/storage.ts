@@ -528,56 +528,90 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit }) | undefined> {
-    const result = await db
-      .select({
-        violation: violations,
-        unit: propertyUnits
-      })
-      .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(eq(violations.id, id));
+    try {
+      console.log(`[DB] getViolationWithUnit called with id: ${id}`);
       
-    if (result.length === 0) {
-      return undefined;
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .where(eq(violations.id, id));
+        
+      if (result.length === 0) {
+        console.log(`[DB] getViolationWithUnit: No violation found with id ${id}`);
+        return undefined;
+      }
+      
+      const item = result[0];
+      if (!item.unit) {
+        console.warn(`[DB] Warning: Violation ${item.violation.id} references non-existent property unit ${item.violation.unitId}`);
+        return undefined;
+      }
+      
+      console.log(`[DB] getViolationWithUnit returning violation ${id} with unit ${item.unit.unitNumber}`);
+      
+      return {
+        ...item.violation,
+        unit: item.unit
+      };
+    } catch (error) {
+      console.error(`[DB] Error in getViolationWithUnit for id ${id}:`, error);
+      throw error;
     }
-    
-    return {
-      ...result[0].violation,
-      unit: result[0].unit
-    };
   }
   
   async getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]> {
-    const result = await db
-      .select({
-        violation: violations,
-        unit: propertyUnits
-      })
-      .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .orderBy(desc(violations.createdAt));
-    
-    return result.map(r => ({
-      ...r.violation,
-      unit: r.unit
-    }));
+    try {
+      console.log(`[DB] getAllViolations called`);
+      
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .orderBy(desc(violations.createdAt));
+      
+      console.log(`[DB] getAllViolations found ${result.length} results`);
+      
+      return result.map(r => ({
+        ...r.violation,
+        unit: r.unit
+      }));
+    } catch (error) {
+      console.error(`[DB] Error in getAllViolations:`, error);
+      throw error;
+    }
   }
   
   async getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]> {
-    const result = await db
-      .select({
-        violation: violations,
-        unit: propertyUnits
-      })
-      .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(eq(violations.status, status))
-      .orderBy(desc(violations.createdAt));
-    
-    return result.map(r => ({
-      ...r.violation,
-      unit: r.unit
-    }));
+    try {
+      console.log(`[DB] getViolationsByStatus called with status: ${status}`);
+      
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .where(eq(violations.status, status))
+        .orderBy(desc(violations.createdAt));
+      
+      console.log(`[DB] getViolationsByStatus found ${result.length} results`);
+      
+      return result.map(r => ({
+        ...r.violation,
+        unit: r.unit
+      }));
+    } catch (error) {
+      console.error(`[DB] Error in getViolationsByStatus for status "${status}":`, error);
+      throw error;
+    }
   }
   
   async getViolationsByUnit(unitId: number): Promise<Violation[]> {
@@ -605,20 +639,29 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getRecentViolations(limit: number): Promise<(Violation & { unit: PropertyUnit })[]> {
-    const result = await db
-      .select({
-        violation: violations,
-        unit: propertyUnits
-      })
-      .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .orderBy(desc(violations.createdAt))
-      .limit(limit);
+    try {
+      console.log(`[DB] getRecentViolations called with limit: ${limit}`);
       
-    return result.map(r => ({
-      ...r.violation,
-      unit: r.unit
-    }));
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .orderBy(desc(violations.createdAt))
+        .limit(limit);
+      
+      console.log(`[DB] getRecentViolations found ${result.length} results`);
+      
+      return result.map(r => ({
+        ...r.violation,
+        unit: r.unit
+      }));
+    } catch (error) {
+      console.error(`[DB] Error in getRecentViolations:`, error);
+      throw error;
+    }
   }
   
   async createViolation(violation: InsertViolation): Promise<Violation> {
@@ -796,9 +839,10 @@ export class DatabaseStorage implements IStorage {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
+    console.log('[DB Stats] whereClause:', whereClause);
     const [counts] = await db
       .select({
-        total: drizzleCount(),
+        total: sql<number>`COUNT(*)`,
         new: sql<number>`SUM(CASE WHEN ${violations.status} = 'new' THEN 1 ELSE 0 END)`,
         pending: sql<number>`SUM(CASE WHEN ${violations.status} = 'pending_approval' THEN 1 ELSE 0 END)`,
         approved: sql<number>`SUM(CASE WHEN ${violations.status} = 'approved' THEN 1 ELSE 0 END)`,
@@ -808,6 +852,8 @@ export class DatabaseStorage implements IStorage {
       })
       .from(violations)
       .where(whereClause);
+    
+    console.log('[DB Stats] Raw counts result:', counts);
 
     // Calculate average resolution time
     // This requires violations that have a 'resolvedAt' and 'createdAt'
@@ -1068,70 +1114,25 @@ export class DatabaseStorage implements IStorage {
   async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
     
-    const sortableColumns: Record<string, SQL<unknown> | undefined> = {
-      unitNumber: propertyUnits.unitNumber,
-      floor: propertyUnits.floor,
-      // Add other sortable base fields of propertyUnits if needed
-      createdAt: propertyUnits.createdAt,
-      updatedAt: propertyUnits.updatedAt,
-      id: propertyUnits.id
-    };
-    
-    let orderByClause: SQL<unknown> | undefined = sortableColumns[sortBy || 'unitNumber'] || propertyUnits.unitNumber;
-    if (orderByClause) {
-      orderByClause = sortOrder === 'asc' ? asc(orderByClause) : desc(orderByClause);
-    }
+    // Simple ordering - just use unitNumber as default
+    const orderDirection = sortOrder === 'asc' ? asc : desc;
+    const orderClause = orderDirection(propertyUnits.unitNumber);
 
-    const paginatedUnits = await db.query.propertyUnits.findMany({
-      orderBy: orderByClause,
-      limit: limit,
-      offset: offset,
-      with: {
-        unitRoles: { // This must match the relation name in propertyUnitsRelations
-          with: {
-            person: true // This must match the relation name in unitPersonRolesRelations
-          }
-        },
-        facilities: true // This must match the relation name in propertyUnitsRelations
-      }
-    });
+    // Get paginated units
+    const paginatedUnits = await db
+      .select()
+      .from(propertyUnits)
+      .orderBy(orderClause)
+      .limit(limit)
+      .offset(offset);
 
-    // Process units to structure owners and tenants
-    const unitsWithPeopleAndFacilities = paginatedUnits.map(unit => {
-      const owners: Person[] = [];
-      const tenants: Person[] = [];
-      if (unit.unitRoles) {
-        unit.unitRoles.forEach(role => {
-          if (role.person) { // Ensure person data is loaded
-            const personWithNotificationPref = {
-                ...role.person,
-                receiveEmailNotifications: role.receiveEmailNotifications
-            };
-            if (role.role === 'owner') {
-              owners.push(personWithNotificationPref as Person);
-            } else if (role.role === 'tenant') {
-              tenants.push(personWithNotificationPref as Person);
-            }
-          }
-        });
-      }
-      // Remove unitRoles from the final unit object if it's not needed directly by frontend
-      const { unitRoles, ...restOfUnit } = unit;
-      return {
-        ...restOfUnit,
-        facilities: unit.facilities || undefined, // Ensure facilities is there or undefined
-        owners,
-        tenants,
-      };
-    });
-
-    // Count query remains the same for now
+    // Get total count
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(propertyUnits);
 
     return {
-      units: unitsWithPeopleAndFacilities as (PropertyUnit & { owners: Person[], tenants: Person[], facilities?: UnitFacility })[],
+      units: paginatedUnits as PropertyUnit[],
       total: Number(count)
     };
   }

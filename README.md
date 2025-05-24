@@ -268,6 +268,23 @@ The authentication system includes multiple safeguards to prevent infinite login
    - Stale React Query cache containing invalid session data
    - Race conditions between navigation and auth state updates
 
+5. **🚨 LOGIN SUCCESS BUT NO DASHBOARD (CRITICAL ISSUE)**
+   - **Symptoms**: Login shows "successful" but stays on auth page
+   - **Cause**: Mixed navigation patterns (wouter vs window.history) + timing issues
+   - **Solution**: 
+     ```typescript
+     // ❌ DON'T mix navigation methods
+     window.history.pushState(null, '', '/');
+     window.dispatchEvent(new PopStateEvent('popstate'));
+     
+     // ✅ DO use wouter's navigate consistently
+     const [location, navigate] = useLocation();
+     navigate("/", { replace: true });
+     ```
+   - **Implementation**: Use navigate from useLocation hook in React context
+   - **Timing**: Add 150ms delay after login before navigation
+   - **Cache**: Invalidate auth queries after navigation for fresh session data
+
 #### Debug Steps
 
 1. **Check Network Tab**:
@@ -287,15 +304,29 @@ The authentication system includes multiple safeguards to prevent infinite login
    Auth query enabled/disabled status
    Redirect prevention flags
    Session destruction confirmations
+   Login flow: "Login mutation starting..." → "Navigating to dashboard..."
+   ```
+
+4. **Check for Navigation Conflicts**:
+   ```javascript
+   // Look for these patterns in console
+   "Login mutation onSuccess called with: {user data}"
+   "Cache updated with user data"
+   "Navigating to dashboard..."
+   "Auth query running - checking session..."
+   "Auth query successful: {user data}"
    ```
 
 ### Best Practices
 
-- Never use window.location.href for internal navigation in React apps
-- Always include credentials in CORS when using session cookies  
-- Implement proper loading states to prevent authentication race conditions
-- Use React Query's enabled option to conditionally run auth queries
-- Clear all caches on logout to prevent stale authentication state
+- **Never use `window.location.href` for internal navigation in React apps**
+- **Always include credentials in CORS when using session cookies**
+- **Implement proper loading states to prevent authentication race conditions**
+- **Use React Query's `enabled` option to conditionally run auth queries**
+- **Clear all caches on logout to prevent stale authentication state**
+- **Use consistent navigation methods throughout the app (wouter's `navigate` function)**
+- **Add proper delays between login success and navigation (150ms minimum)**
+- **Invalidate auth queries after navigation to ensure fresh session verification**
 
 ## Security Headers
 

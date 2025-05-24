@@ -8,14 +8,22 @@ import {
   AlertTriangle 
 } from "lucide-react";
 
-// Interface for the expected stats object
+// Interface for the actual API response structure
 interface ReportStatsData {
   totalViolations: number;
   newViolations: number;
   pendingViolations: number;
   approvedViolations: number;
   disputedViolations: number;
-  // Add other fields if necessary, like rejectedViolations, resolvedViolations, averageResolutionTimeDays
+  rejectedViolations: number;
+  resolvedViolations: number;
+  averageResolutionTimeDays: number | null;
+}
+
+interface ReportApiResponse {
+  stats: ReportStatsData;
+  violationsByMonth: any[];
+  violationsByType: any[];
 }
 
 const initialStatsData: ReportStatsData = {
@@ -24,13 +32,18 @@ const initialStatsData: ReportStatsData = {
   pendingViolations: 0,
   approvedViolations: 0,
   disputedViolations: 0,
+  rejectedViolations: 0,
+  resolvedViolations: 0,
+  averageResolutionTimeDays: null,
 };
 
 export function DashboardStats() {
-  const { data: stats, isLoading } = useQuery<ReportStatsData>({
+  const { data: response, isLoading } = useQuery<ReportApiResponse>({
     queryKey: ["/api/reports/stats"],
-    placeholderData: initialStatsData,
+    placeholderData: { stats: initialStatsData, violationsByMonth: [], violationsByType: [] },
   });
+
+  const stats = response?.stats;
 
   if (isLoading && !stats) {
     return (

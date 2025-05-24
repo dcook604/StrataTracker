@@ -169,7 +169,7 @@ export default function SettingsPage() {
 
   // Update form values when settings are loaded
   useEffect(() => {
-    if (settings) {
+    if (settings && Array.isArray(settings)) {
       const formValues = mapSettingsToForm(settings);
       emailForm.reset(formValues);
     }
@@ -389,7 +389,7 @@ export default function SettingsPage() {
 
   // In useEffect, when settings are loaded, populate systemForm and logoUrl
   useEffect(() => {
-    if (settings) { 
+    if (settings && Array.isArray(settings)) { 
       const sys = {
         strataName: "", // Initialize all properties
         propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
@@ -451,7 +451,7 @@ export default function SettingsPage() {
       setSystemForm((prev: any) => ({ ...prev, ...sys }));
 
       // Handle logoUrl separately after populating sys
-      const logoUrlSetting = settings.find(s => s.settingKey === 'strata_logo_url');
+      const logoUrlSetting = Array.isArray(settings) ? settings.find(s => s.settingKey === 'strata_logo_url') : null;
       if (logoUrlSetting && logoUrlSetting.settingValue) {
         setLogoUrl(logoUrlSetting.settingValue);
       } else if (sys.strataLogo) { 
