@@ -54,20 +54,33 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
-  const { user, loginMutation } = useAuth();
+  const { user, loginMutation, isLoading: authLoading } = useAuth();
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search.includes('expired=1')) {
       setShowExpiredModal(true);
-      // Optional: Clean the URL query parameter
-      // navigate(\"/auth\", { replace: true }); 
+      // Clean the URL parameter without causing a redirect loop
+      const newURL = window.location.pathname;
+      window.history.replaceState({}, document.title, newURL);
     }
-  }, [location]);
+  }, []);
+
+  // Handle redirect when user is authenticated, but avoid immediate redirect loops
+  useEffect(() => {
+    if (user && !authLoading && !hasRedirected && !loginMutation.isPending) {
+      setHasRedirected(true);
+      // Small delay to prevent immediate redirect conflicts
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 100);
+    }
+  }, [user, authLoading, hasRedirected, loginMutation.isPending, navigate]);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -97,10 +110,11 @@ export default function AuthPage() {
       setIsLoading(true);
       setError(null);
       await loginMutation.mutateAsync({
-      email: values.email,
-      password: values.password,
-      rememberMe: values.rememberMe
-    });
+        email: values.email,
+        password: values.password,
+        rememberMe: values.rememberMe
+      });
+      // Navigation is handled by the loginMutation onSuccess callback
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
@@ -113,9 +127,8 @@ export default function AuthPage() {
     // Implementation of register submission
   };
 
-  // Redirect if the user is logged in
-  if (user) {
-    navigate("/");
+  // Don't render anything while redirecting to prevent flash
+  if (user && !authLoading) {
     return null;
   }
 
@@ -141,99 +154,99 @@ export default function AuthPage() {
           <img 
             src="/spectrum4-small.jpeg" 
             alt="Spectrum 4 Logo" 
-            className="h-16 w-auto mx-auto" // Height 64px, auto width, centered
+            className="h-16 w-auto mx-auto"
           />
         </div>
-        <CardHeader className="space-y-1 text-center pt-0"> {/* Adjusted pt-0 as logo div has padding */}
+        <CardHeader className="space-y-1 text-center pt-0">
           <CardTitle>Sign In</CardTitle>
           <CardDescription>
             Enter your credentials to access the system
           </CardDescription>
         </CardHeader>
         <CardContent>
-            <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-        {error && (
-          <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-            {error}
-          </div>
-        )}
-        
-                <FormField
-                  control={loginForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                    <Input 
-                      type="email" 
-                      placeholder="Enter your email" 
-                      disabled={isLoading}
-                      {...field} 
-                    />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={loginForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="Enter your password" 
-                      disabled={isLoading}
-                      {...field} 
-                    />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                  <FormField
-                    control={loginForm.control}
-                    name="rememberMe"
-                    render={({ field }) => (
-              <FormItem className="flex flex-row items-center space-x-2">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value} 
-                            onCheckedChange={field.onChange}
-                    disabled={isLoading}
-                          />
-                        </FormControl>
-                <FormLabel className="text-sm font-normal">Remember me</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-          disabled={isLoading}
-                >
-                {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        "Sign in"
-                      )}
-                </Button>
-              </form>
-            </Form>
-            
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              <p>Only administrators can add new users to the system.</p>
-              <p>Contact your administrator if you need access.</p>
+          <Form {...loginForm}>
+            <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+              {error && (
+                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+                  {error}
+                </div>
+              )}
+              
+              <FormField
+                control={loginForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="email" 
+                        placeholder="Enter your email" 
+                        disabled={isLoading || loginMutation.isPending}
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={loginForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="Enter your password" 
+                        disabled={isLoading || loginMutation.isPending}
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={loginForm.control}
+                name="rememberMe"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-2">
+                    <FormControl>
+                      <Checkbox 
+                        checked={field.value} 
+                        onCheckedChange={field.onChange}
+                        disabled={isLoading || loginMutation.isPending}
+                      />
+                    </FormControl>
+                    <FormLabel className="text-sm font-normal">Remember me</FormLabel>
+                  </FormItem>
+                )}
+              />
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading || loginMutation.isPending}
+              >
+                {(isLoading || loginMutation.isPending) ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign in"
+                )}
+              </Button>
+            </form>
+          </Form>
+          
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            <p>Only administrators can add new users to the system.</p>
+            <p>Contact your administrator if you need access.</p>
           </div>
         </CardContent>
       </Card>

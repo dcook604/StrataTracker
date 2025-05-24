@@ -180,48 +180,141 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in our allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    
+    // Log the rejected origin for debugging
+    console.warn(`CORS blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
 }));
 ```
 
-- The CORS middleware must be placed before any routes or other middleware (except `helmet`).
-- `credentials: true` is required for session cookies to work.
+- The CORS middleware prevents cross-origin attacks by only allowing requests from trusted domains
+- `credentials: true` enables sending cookies for authentication
+- Comprehensive error logging helps with debugging CORS issues
 
-## Session Cookie Settings
+## Authentication & Session Management
 
-In `server/auth.ts`, the session cookie is configured as follows:
+### Session Configuration
+
+The application uses express-session with the following security settings:
 
 ```js
-cookie: {
-  maxAge: 1000 * 60 * 30, // 30 minutes
-  httpOnly: true,
-  secure: true, // Replit uses HTTPS, so this should be true
-  sameSite: "lax",
-  path: "/"
-  // domain: process.env.COOKIE_DOMAIN || undefined // REMOVED for cross-domain compatibility
-}
+const sessionSettings = {
+  store: dbStorage.sessionStore,
+  secret: sessionSecret,
+  name: 'sessionId',
+  resave: false,
+  saveUninitialized: false,
+  rolling: true, // Refresh session with each request
+  cookie: {
+    maxAge: 1000 * 60 * 30, // 30 minutes (extended to 24h if "Remember Me")
+    httpOnly: true,
+    secure: true, // Required for HTTPS (Replit)
+    sameSite: "lax",
+    path: "/"
+    // domain is intentionally omitted to avoid cross-domain issues
+  }
+};
 ```
 
-- **Do not set the `domain` property** unless you are certain it matches your frontend domain exactly. For most setups, omitting it is best.
-- `secure: true` is required for HTTPS deployments (like Replit).
+### Login Loop Prevention
 
-## Troubleshooting Authentication
+The authentication system includes multiple safeguards to prevent infinite login loops:
 
-- If you encounter login/session issues, ensure:
-  - The frontend URL matches the allowed origins in the CORS config.
-  - The session cookie is being set and sent by the browser (check DevTools > Application > Cookies).
-  - The backend is running with the correct session and CORS settings as above.
+1. **Conditional Query Execution**: Authentication queries don't run on auth pages
+2. **Redirect Loop Protection**: Global flags prevent multiple simultaneous redirects
+3. **Proper Session Cleanup**: Complete session destruction on logout
+4. **Smart Error Handling**: 401 errors are handled without triggering infinite retries
+5. **React Router Integration**: Uses History API instead of window.location for navigation
 
-## Deployment Notes
+### Troubleshooting Authentication Issues
 
-- Always restart the backend after changing CORS or session settings.
-- Clear browser cookies if you change cookie or CORS settings.
+#### Login Loop Symptoms
+- Constant "Session expired" messages
+- Unable to reach login form
+- Infinite redirects between `/` and `/auth`
+- Browser dev tools showing repeated 401 requests
+
+#### Common Causes & Solutions
+
+1. **CORS Misconfiguration**
+   - Ensure frontend domain matches CORS allowedOrigins
+   - Check browser network tab for CORS errors
+   - Verify credentials: true is set
+
+2. **Session Cookie Issues**
+   - Confirm secure: true for HTTPS environments
+   - Ensure sameSite is set to "lax"
+   - Remove domain property for same-domain deployments
+
+3. **Query Configuration Problems**
+   - Check that auth queries are disabled on auth pages
+   - Verify retry logic doesn't infinitely retry 401s
+   - Ensure proper cache invalidation on auth state changes
+
+4. **Component State Conflicts**
+   - Multiple authentication checks running simultaneously
+   - Stale React Query cache containing invalid session data
+   - Race conditions between navigation and auth state updates
+
+#### Debug Steps
+
+1. **Check Network Tab**:
+   ```
+   Look for: Repeated requests to /api/auth/me
+   Expected: Single request, then silence until user action
+   ```
+
+2. **Verify Session Cookies**:
+   ```
+   Application tab → Cookies → sessionId
+   Should exist after login, be httpOnly, secure
+   ```
+
+3. **Monitor Console Logs**:
+   ```
+   Auth query enabled/disabled status
+   Redirect prevention flags
+   Session destruction confirmations
+   ```
+
+### Best Practices
+
+- Never use window.location.href for internal navigation in React apps
+- Always include credentials in CORS when using session cookies  
+- Implement proper loading states to prevent authentication race conditions
+- Use React Query's enabled option to conditionally run auth queries
+- Clear all caches on logout to prevent stale authentication state
+
+## Security Headers
+
+Security headers are currently disabled during debugging but should be re-enabled in production:
+
+```js
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://replit.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
+```
 
 ---
 

@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import {
   useQuery,
   useMutation,
@@ -44,34 +44,55 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  
+  // Check if we're on an auth-related page to avoid unnecessary queries
+  const isAuthPage = typeof window !== 'undefined' && (
+    window.location.pathname === '/auth' || 
+    window.location.pathname === '/forgot-password' ||
+    window.location.pathname === '/reset-password' ||
+    window.location.pathname.startsWith('/violation/comment/')
+  );
+
   const {
-    data: user, // This is SafeUser | null (original from useQuery)
+    data: user,
     error,
     isLoading,
-  } = useQuery<SafeUser | null, Error, SafeUser | null, typeof authQueryKey>({ // Use typeof authQueryKey for the key type
+  } = useQuery<SafeUser | null, Error, SafeUser | null, typeof authQueryKey>({
     queryKey: authQueryKey,
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", authQueryKey[0]); // Use authQueryKey[0] for URL
+        const response = await apiRequest("GET", authQueryKey[0]);
         return await response.json() as SafeUser;
       } catch (err: any) {
+        // If session expired, don't throw - just return null
         if (err.message === 'Session expired') {
-          // User is already being redirected by apiRequest.
-          // Query should not be 'loading' and data should be null.
+          return null;
         }
+        // For other errors, still return null to avoid crashes
+        console.warn('Auth query failed:', err);
         return null;
       }
     },
+    enabled: !isAuthPage, // Don't run the query on auth pages
     retry: (failureCount, error: any) => {
-      if (error.message === "Session expired" || error?.status === 401 || (error?.cause as Response)?.status === 401) {
+      // Never retry session expired errors
+      if (error?.message === "Session expired" || error?.status === 401) {
         return false;
       }
-      return failureCount < 3;
+      return failureCount < 1; // Only retry once for other errors
     },
     refetchOnWindowFocus: false,
-    refetchOnMount: false,       // Prevent refetch on mount
-    refetchOnReconnect: false,   // Prevent refetch on reconnect
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Clear user data when on auth pages to prevent stale state
+  useEffect(() => {
+    if (isAuthPage && user) {
+      queryClient.setQueryData<SafeUser | null>(authQueryKey, null);
+    }
+  }, [isAuthPage, user]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
@@ -80,12 +101,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: SafeUser) => {
       queryClient.setQueryData<SafeUser | null>(authQueryKey, loggedInUser);
+      // Clear any error states
+      queryClient.removeQueries({ 
+        queryKey: authQueryKey, 
+        type: 'inactive' 
+      });
       toast({
         title: "Login successful",
         description: `Welcome back, ${loggedInUser.fullName}`,
       });
+      
+      // Navigate programmatically instead of relying on redirect
+      if (typeof window !== 'undefined') {
+        // Use history API to maintain React Router state
+        window.history.pushState(null, '', '/');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
     },
     onError: (error: Error) => {
+      console.error('Login error:', error);
       toast({
         title: "Login failed",
         description: error.message,
@@ -120,11 +154,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData<SafeUser | null>(authQueryKey, null); // Use SafeUser | null for consistency
+      // Clear all query cache to ensure clean state
+      queryClient.clear();
+      queryClient.setQueryData<SafeUser | null>(authQueryKey, null);
+      
       toast({
         title: "Logged out",
         description: "You have been successfully logged out",
       });
+      
+      // Navigate to auth page
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/auth');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -138,9 +181,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ? { // user here is SafeUser | null
-          ...user, // Spread all properties from SafeUser (which includes non-optional camelCase from SelectUser)
-          // Ensure all six variants are definite booleans for the AuthContextUser type
+        user: user ? {
+          ...user,
+          // Ensure all six variants are definite booleans
           isAdmin: !!(user.isAdmin || user.is_admin),
           isCouncilMember: !!(user.isCouncilMember || user.is_council_member),
           isUser: !!(user.isUser || user.is_user),
@@ -148,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           is_council_member: !!(user.is_council_member || user.isCouncilMember),
           is_user: !!(user.is_user || user.isUser),
         } : null,
-        isLoading,
+        isLoading: !isAuthPage && isLoading, // Don't show loading on auth pages
         error,
         loginMutation,
         logoutMutation,

@@ -306,9 +306,29 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/logout", (req, res, next) => {
+    const sessionId = req.sessionID;
+    
     req.logout((err) => {
       if (err) return next(err);
-      res.sendStatus(200);
+      
+      // Destroy the session completely
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error('Error destroying session:', destroyErr);
+          return res.status(500).json({ message: 'Failed to logout completely' });
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('sessionId', {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          path: "/"
+        });
+        
+        console.log(`Session ${sessionId} destroyed successfully`);
+        res.status(200).json({ message: 'Logged out successfully' });
+      });
     });
   });
 
