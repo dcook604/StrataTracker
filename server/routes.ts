@@ -1277,6 +1277,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- DEBUG/ADMIN Endpoint: Delete all violation data ---
+  app.delete("/api/debug/clear-violations-data", ensureAuthenticated, async (req, res) => {
+    const user = req.user as User;
+    // Ensure user is an admin
+    if (!user || !user.isAdmin) {
+      console.warn(`[WARN] Non-admin user (ID: ${user?.id || 'unknown'}) attempted to access /api/debug/clear-violations-data`);
+      return res.status(403).json({ message: "Forbidden: Admin access required." });
+    }
+
+    console.log(`[ADMIN_ACTION] User ID ${user.id} (${user.email}) is attempting to delete all violation data.`);
+
+    try {
+      const result = await dbStorage.deleteAllViolationsData();
+      const message = `Successfully deleted all violation data. Counts: Violations (${result.deletedViolationsCount}), Histories (${result.deletedHistoriesCount}), Access Links (${result.deletedAccessLinksCount}).`;
+      console.log(`[ADMIN_ACTION] ${message}`);
+      res.status(200).json({ 
+        message: message,
+        details: result
+      });
+    } catch (error: any) {
+      console.error("[ERROR] /api/debug/clear-violations-data: Failed to delete violation data.", error);
+      res.status(500).json({ 
+        message: "Failed to delete all violation data.", 
+        details: error.message || "An unexpected error occurred. Check server logs."
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -564,20 +564,25 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]> {
-    const result = await db
-      .select({
-        violation: violations,
-        unit: propertyUnits
-      })
-      .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(eq(violations.status, status))
-      .orderBy(desc(violations.createdAt));
+    try {
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .where(eq(violations.status, status))
+        .orderBy(desc(violations.createdAt));
     
-    return result.map(r => ({
-      ...r.violation,
-      unit: r.unit
-    }));
+      return result.map(r => ({
+        ...r.violation,
+        unit: r.unit
+      }));
+    } catch (error) {
+      console.error(`[ERROR_DB] Failed to getViolationsByStatus for status "${status}":`, error);
+      throw error;
+    }
   }
   
   async getViolationsByUnit(unitId: number): Promise<Violation[]> {
@@ -1297,6 +1302,33 @@ export class DatabaseStorage implements IStorage {
 
   async markViolationAccessLinkUsed(id: number): Promise<void> {
     await db.update(violationAccessLinks).set({ usedAt: new Date() }).where(eq(violationAccessLinks.id, id));
+  }
+
+  async deleteAllViolationsData(): Promise<{ deletedViolationsCount: number, deletedHistoriesCount: number, deletedAccessLinksCount: number }> {
+    try {
+      return await db.transaction(async (tx) => {
+        const deletedHistoriesResult = await tx.delete(violationHistories).returning({ id: violationHistories.id });
+        const deletedHistoriesCount = deletedHistoriesResult.length;
+        console.log(`Deleted ${deletedHistoriesCount} violation histories.`);
+
+        const deletedAccessLinksResult = await tx.delete(violationAccessLinks).returning({ id: violationAccessLinks.id });
+        const deletedAccessLinksCount = deletedAccessLinksResult.length;
+        console.log(`Deleted ${deletedAccessLinksCount} violation access links.`);
+
+        const deletedViolationsResult = await tx.delete(violations).returning({ id: violations.id });
+        const deletedViolationsCount = deletedViolationsResult.length;
+        console.log(`Deleted ${deletedViolationsCount} violations.`);
+
+        return {
+          deletedViolationsCount,
+          deletedHistoriesCount,
+          deletedAccessLinksCount
+        };
+      });
+    } catch (error) {
+      console.error("Error during deleteAllViolationsData transaction:", error);
+      throw new Error("Failed to delete all violations data. Check server logs for details.");
+    }
   }
 }
 
