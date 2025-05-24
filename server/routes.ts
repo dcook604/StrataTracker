@@ -55,29 +55,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Security headers temporarily disabled to resolve startup issues
   // Will re-enable once server is stable
 
-  // Add CORS with improved configuration
-  const allowedOrigins = [
-    'https://strata-tracker-dcook5.replit.app',
-    // Add localhost for development if needed
-    // 'http://localhost:3000',
-  ];
-  
+  // Add CORS - allow all origins in development
   app.use(cors({
-    origin: function(origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      
-      // Check if the origin is in our allowed list
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      
-      // Log the rejected origin for debugging
-      console.warn(`CORS blocked origin: ${origin}`);
-      return callback(new Error('Not allowed by CORS'));
-    },
+    origin: true,
     credentials: true,
-    optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+    optionsSuccessStatus: 200,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   }));
