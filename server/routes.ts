@@ -51,6 +51,15 @@ function getUserId(req: Request, res: Response): number | undefined {
   return req.user.id;
 }
 
+function parseValidId(idString: string, res: Response, paramName: string = "ID"): number | undefined {
+  const id = parseInt(idString);
+  if (isNaN(id) || id <= 0) {
+    res.status(400).json({ message: `Invalid ${paramName}` });
+    return undefined;
+  }
+  return id;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Security headers temporarily disabled to resolve startup issues
   // Will re-enable once server is stable
