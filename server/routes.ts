@@ -1053,9 +1053,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- API: Get all violations pending approval (council/admin only) ---
   app.get("/api/violations/pending-approval", ensureAuthenticated, async (req, res) => {
+    const userId = getUserId(req, res); // Get userId at the beginning
+    console.log(`[INFO] /api/violations/pending-approval called by userId: ${userId || 'N/A'}`); // Log who is calling
+
     try {
-      const userId = getUserId(req, res);
-      if (userId === undefined) return; // Should not happen due to ensureAuthenticated, but good practice
+      if (userId === undefined) {
+        // This case should ideally be caught by ensureAuthenticated,
+        // but as a safeguard:
+        console.error("[ERROR] /api/violations/pending-approval: userId is undefined after ensureAuthenticated.");
+        return res.status(401).json({ 
+          message: "Authentication failed: User ID not found.",
+          errorCode: "AUTH_USERID_MISSING",
+          details: "User ID was not available after authentication check." 
+        });
+      }
 
       const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
       
@@ -1065,24 +1076,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For now, just returning all pending_approval.
       // The UI can decide what to show based on user role (e.g. council member vs admin)
+      console.log(`[INFO] /api/violations/pending-approval: Successfully fetched ${pendingViolations?.length || 0} pending violations for userId: ${userId}`);
       res.json(pendingViolations);
     } catch (error: any) {
       console.error("------------------------------------------------------------");
-      console.error("ERROR in /api/violations/pending-approval route:");
+      console.error("ERROR in /api/violations/pending-approval route for userId:", userId);
+      const errorTimestamp = new Date().toISOString();
+      let errorDetails = "An unexpected error occurred.";
+      let loggedError = error;
+
       if (error instanceof Error) {
         console.error("Message:", error.message);
         console.error("Stack:", error.stack);
-        console.error("Full Error Object:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+        // Avoid logging potentially very large or circular objects directly in a simple console.error
+        // Consider a more sophisticated logger for full object dumps in production
+        console.error("Full Error Name:", error.name); 
+        errorDetails = error.message;
       } else {
         console.error("Non-Error Object Thrown:", error);
+        try {
+          errorDetails = JSON.stringify(error);
+        } catch (stringifyError) {
+          errorDetails = "Could not stringify non-Error object.";
+        }
+        loggedError = { message: "Non-Error object thrown", content: error };
       }
+      console.error(`Error occurred at: ${errorTimestamp}`);
       console.error("------------------------------------------------------------");
-      // Provide a more specific message if possible
-      const detailMessage = error instanceof Error ? error.message : String(error);
+      
       res.status(500).json({ 
-        message: "Failed to fetch pending violations. Potential database issue.", 
-        details: detailMessage,
-        errorContext: error // Sending more context, be cautious with sensitive info in production
+        message: "Failed to fetch pending violations. Please check server logs.", 
+        errorCode: "PENDING_VIOLATIONS_FETCH_FAILED",
+        details: errorDetails, // Provide a sanitized or general error message
+        timestamp: errorTimestamp,
+        // Optionally, include a server-generated error ID for tracking if you have such a system
+        // errorId: generateUniqueErrorId() 
       });
     }
   });
