@@ -40,7 +40,6 @@ const violationFormSchema = z.object({
   categoryId: z.string().or(z.number()).refine(val => Number(val) > 0, {
     message: "Please select a category",
   }),
-  violationType: z.string().min(1, "Please select a violation type"),
   violationDate: z.string().min(1, "Date is required"),
   violationTime: z.string().optional(),
   description: z.string().min(10, "Description must be at least 10 characters"),
@@ -76,13 +75,6 @@ export function ViolationForm() {
   const safeUnits = Array.isArray(units) ? units : [];
   const safeCategories = Array.isArray(categories) ? categories : [];
 
-  // Log loaded categories for debugging
-  useEffect(() => {
-    if (!categoriesLoading) {
-      console.log("Loaded categories for form (ViolationForm):", safeCategories);
-    }
-  }, [categoriesLoading, safeCategories]);
-
   // Filtered units based on search term
   const filteredUnits = useMemo(() => {
     if (!unitSearchTerm) return safeUnits;
@@ -97,7 +89,6 @@ export function ViolationForm() {
     defaultValues: {
       unitId: "",
       categoryId: "",
-      violationType: "",
       violationDate: new Date().toISOString().split("T")[0],
       violationTime: "",
       description: "",
@@ -129,7 +120,6 @@ export function ViolationForm() {
       // Add regular fields
       formData.append("unitId", Number(data.unitId).toString());
       formData.append("categoryId", Number(data.categoryId).toString());
-      formData.append("violationType", data.violationType);
       formData.append("violationDate", data.violationDate);
       formData.append("violationTime", data.violationTime || "");
       formData.append("description", data.description);
@@ -172,8 +162,6 @@ export function ViolationForm() {
 
   const onSubmit = async (values: z.infer<typeof violationFormSchema>) => {
     // Submit the violation directly
-    console.log("Attempting to submit violation with values:", values);
-    console.log("Current form validation state (errors):", form.formState.errors);
     submitViolationMutation.mutate(values);
   };
 
@@ -191,7 +179,6 @@ export function ViolationForm() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
-            console.error("Form validation failed:", errors);
             toast({
               title: "Validation Error",
               description: "Please check the form for errors and fill all required fields.",
@@ -250,33 +237,6 @@ export function ViolationForm() {
             <div>
               <h3 className="text-lg font-medium text-neutral-800 mb-4">Violation Details</h3>
               <div className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="violationType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Violation Type *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select violation type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="noise">Noise Complaint</SelectItem>
-                          <SelectItem value="parking">Parking Violation</SelectItem>
-                          <SelectItem value="garbage">Improper Garbage Disposal</SelectItem>
-                          <SelectItem value="pet">Unauthorized Pet</SelectItem>
-                          <SelectItem value="property">Property Damage</SelectItem>
-                          <SelectItem value="balcony">Balcony Misuse</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
@@ -347,10 +307,6 @@ export function ViolationForm() {
                   control={form.control}
                   name="categoryId"
                   render={({ field }) => {
-                    // Log field value for categoryId during render
-                    if (!categoriesLoading) { 
-                        console.log("Rendering categoryId FormField (ViolationForm) - field.value:", field.value, "Available categories:", safeCategories);
-                    }
                     return (
                       <FormItem>
                         <FormLabel>Violation Category *</FormLabel>
