@@ -196,6 +196,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/violations/:id", ensureAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Validate that id is a valid number
+      if (isNaN(id) || id <= 0) {
+        return res.status(400).json({ message: "Invalid violation ID" });
+      }
+      
       const violation = await dbStorage.getViolationWithUnit(id);
       
       if (!violation) {
@@ -204,6 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(violation);
     } catch (error) {
+      console.error(`Error fetching violation ${req.params.id}:`, error);
       res.status(500).json({ message: "Failed to fetch violation" });
     }
   });
