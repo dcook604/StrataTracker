@@ -35,3 +35,6 @@
 2025-05-25 21:22:19.609 [warning] [Decorations] CAPPING events from decorations provider vscode.git 6023
 2025-05-25 21:26:36.921 [warning] [Decorations] CAPPING events from decorations provider vscode.git 1780
 2025-05-25 21:27:13.918 [warning] [Decorations] CAPPING events from decorations provider vscode.git 1780
+2025-05-25 21:27:23.477 [warning] [Decorations] CAPPING events from decorations provider vscode.git 1780
+2025-05-25 21:27:28.890 [warning] [Decorations] CAPPING events from decorations provider vscode.git 1778
+2025-05-25 21:52:17.745 [info] ExtensionService#_doActivateExtension vscode.typescript-language-features, startup: false, activationEvent: 'onLanguage:typescript'

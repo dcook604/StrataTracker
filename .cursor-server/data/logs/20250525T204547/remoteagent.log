@@ -69,3 +69,4 @@
 2025-05-25 21:14:09.582 [info] Renamed to /home/violation/.cursor-server/extensions/ms-azuretools.vscode-docker-1.29.6
 2025-05-25 21:14:09.622 [info] Marked extension as uninstalled ms-azuretools.vscode-docker-1.29.4
 2025-05-25 21:14:09.631 [info] Extension installed successfully: ms-azuretools.vscode-docker file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 21:27:27.265 [warning] [File Watcher (node.js)] Watcher shutdown because watched path got deleted
