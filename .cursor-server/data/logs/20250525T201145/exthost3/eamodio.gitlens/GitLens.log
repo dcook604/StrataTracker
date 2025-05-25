@@ -127,3 +127,108 @@ Use '--' to separate paths from revisions, like this:
 
 [2025-05-25 20:29:37.756] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [10ms]
 
+2025-05-25 20:29:41.202 [info] [2025-05-25 20:29:39.963] [GIT          ] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 main -- • bad revision 'main' [54ms]
+[2025-05-25 20:29:39.963] ChildProcess.<anonymous>
+Error: fatal: bad revision 'main'
+[2025-05-25 20:29:40.064] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:29:40.064] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [83ms]
+[2025-05-25 20:29:40.139] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:29:40.140] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [41ms]
+
+2025-05-25 20:29:43.707 [info] [2025-05-25 20:29:43.317] [GIT          ] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 main -- • bad revision 'main' [64ms]
+[2025-05-25 20:29:43.318] ChildProcess.<anonymous>
+Error: fatal: bad revision 'main'
+[2025-05-25 20:29:43.366] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:29:43.367] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [31ms]
+[2025-05-25 20:29:43.401] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:29:43.402] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [16ms]
+
+2025-05-25 20:30:03.849 [info] [2025-05-25 20:30:03.349] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false -c log.showSignature=false log -z --format=%H -n1 HEAD --): fatal: bad revision 'HEAD'
+
+[2025-05-25 20:30:03.349] [GIT          ] [/home/violation] git log -z --format=%H -n1 HEAD -- • bad revision 'HEAD' [58ms]
+
+2025-05-25 20:30:05.852 [info] [2025-05-25 20:30:05.589] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false -c log.showSignature=false log -z --format=%H -n1 HEAD --): fatal: bad revision 'HEAD'
+
+[2025-05-25 20:30:05.589] [GIT          ] [/home/violation] git log -z --format=%H -n1 HEAD -- • bad revision 'HEAD' [40ms]
+
+2025-05-25 20:30:23.128 [info] [2025-05-25 20:30:22.627] [GIT    *824ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*824ms] (slow)
+
+2025-05-25 20:30:28.269 [info] [2025-05-25 20:30:27.778] [GIT    *813ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*813ms] (slow)
+
+2025-05-25 20:30:33.402 [info] [2025-05-25 20:30:32.918] [GIT    *797ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*797ms] (slow)
+
+2025-05-25 20:30:43.757 [info] [2025-05-25 20:30:43.257] [GIT    *791ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*791ms] (slow)
+
+2025-05-25 20:30:48.925 [info] [2025-05-25 20:30:48.435] [GIT    *795ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*795ms] (slow)
+
+2025-05-25 20:31:29.195 [info] [2025-05-25 20:31:28.694] [GIT    *786ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*786ms] (slow)
+
+2025-05-25 20:31:39.580 [info] [2025-05-25 20:31:39.080] [GIT    *787ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*787ms] (slow)
+
+2025-05-25 20:32:34.901 [info] [2025-05-25 20:32:34.401] [GIT          ] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 main -- • bad revision 'main' [49ms]
+[2025-05-25 20:32:34.402] ChildProcess.<anonymous>
+Error: fatal: bad revision 'main'
+[2025-05-25 20:32:34.447] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:32:34.447] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [31ms]
+[2025-05-25 20:32:34.485] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:32:34.486] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [18ms]
+
+2025-05-25 20:33:04.899 [info] [2025-05-25 20:33:04.398] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false rev-parse --abbrev-ref --symbolic-full-name @ @{u} --): fatal: bad revision '@'
+
+[2025-05-25 20:33:04.398] [GIT          ] [/home/violation] git rev-parse --abbrev-ref --symbolic-full-name @ @{u} -- • bad revision '@' [15ms]
+[2025-05-25 20:33:04.434] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false -c log.showSignature=false log -n1 --format=%ct --): fatal: your current branch 'main' does not have any commits yet
+
+[2025-05-25 20:33:04.732] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:33:04.732] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [23ms]
+[2025-05-25 20:33:04.850] [GIT          ] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 main -- • bad revision 'main' [104ms]
+[2025-05-25 20:33:04.851] ChildProcess.<anonymous>
+Error: fatal: bad revision 'main'
+[2025-05-25 20:33:04.853] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false reflog main --grep-reflog=branch: Created from *.): fatal: ambiguous argument 'main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+[2025-05-25 20:33:04.853] [/home/violation] Git ambiguous argument 'main': unknown revision or path not in the working tree. • Use '--' to separate paths from revisions, like this: • 'git <command> [<revision>...] -- [<file>...]' [13ms]
+
+2025-05-25 20:33:29.716 [info] [2025-05-25 20:33:29.215] [GIT          ] [/home/violation] git for-each-ref --format=%1E%(HEAD)%1D%(refname)%1D%(upstream)%1D%(upstream:track)%1D%(objectname)%1D%(committerdate:iso8601)%1D%(worktreepath)%1D refs/heads/ refs/remotes/ • cancelled [15ms]
+
+2025-05-25 20:34:53.979 [info] [2025-05-25 20:34:53.479] [GIT    *850ms] [/home/violation] git check-ignore -z --stdin [*850ms] (slow)
+
+2025-05-25 20:34:58.624 [info] [2025-05-25 20:34:58.624] [GIT    *812ms] [/home/violation] git check-ignore -z --stdin [*812ms] (slow)
+
+2025-05-25 20:36:48.152 [info] [2025-05-25 20:36:47.651] [GIT          ] [/home/violation] git blame --root --incremental --contents - -- .cache/motd.legal-displayed • cancelled [60501ms] (slow)
+
+2025-05-25 20:36:54.230 [info] [2025-05-25 20:36:53.756] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false fetch): From https://github.com/dcook604/StrataTracker
+ * [new branch]      hotfix/prod8 -> origin/hotfix/prod8
+
+
+2025-05-25 20:36:54.730 [info] [2025-05-25 20:36:54.499] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false symbolic-ref --short refs/remotes/origin/HEAD): fatal: ref refs/remotes/origin/HEAD is not a symbolic ref
+
+[2025-05-25 20:36:54.500] [GIT          ] [/home/violation] git symbolic-ref --short refs/remotes/origin/HEAD • ref refs/remotes/origin/HEAD is not a symbolic ref [83ms]
+
+2025-05-25 20:37:58.994 [info] [2025-05-25 20:37:58.494] [GIT          ] [/home/violation] git for-each-ref --format=%1E%(refname)%1D%(objectname)%1D%(*objectname)%1D%(creatordate:iso8601)%1D%(authordate:iso8601)%1D%(subject)%1D refs/tags/ • cancelled [921ms] (slow)
+
+2025-05-25 20:41:38.851 [info] [2025-05-25 20:41:38.350] [GIT    *797ms] [/home/violation] git check-ignore -z --stdin [*797ms] (slow)
+
+2025-05-25 20:41:54.434 [info] [2025-05-25 20:41:53.934] [GIT    *776ms] [/home/violation] git check-ignore -z --stdin [*776ms] (slow)
+

@@ -6,3 +6,6 @@ vite.config.ts.*
 *.tar.gz
 .replit
 .cursorrules
+.cusor-server
+.cache
+.vscode

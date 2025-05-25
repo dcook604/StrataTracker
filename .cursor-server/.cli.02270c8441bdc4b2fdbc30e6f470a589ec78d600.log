@@ -1,4 +1,4 @@
-Listening on 127.0.0.1:37607
-[2025-05-25 20:27:59] info Disposed of connection to running server.
-[2025-05-25 20:27:59] info Checking /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/log.txt and /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/pid.txt for a running server...
-[2025-05-25 20:27:59] info Found running server (pid=760317)
+Listening on 127.0.0.1:43429
+[2025-05-25 21:13:57] info Disposed of connection to running server.
+[2025-05-25 21:13:57] info Checking /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/log.txt and /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/pid.txt for a running server...
+[2025-05-25 21:13:57] info Found running server (pid=775638)
