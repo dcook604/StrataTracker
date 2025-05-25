@@ -73,3 +73,37 @@
 2025-05-25 22:02:46.400 [info] Aborting indexing job.
 2025-05-25 22:02:46.400 [error] We currently do not allow indexing the home directory.
 2025-05-25 22:02:46.400 [info] Indexing job successfully done or aborted.
+2025-05-25 22:07:46.398 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:07:46.398 [info] Aborting indexing job.
+2025-05-25 22:07:46.398 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:07:46.398 [info] Indexing job successfully done or aborted.
+2025-05-25 22:12:46.400 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:12:46.400 [info] Aborting indexing job.
+2025-05-25 22:12:46.400 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:12:46.400 [info] Indexing job successfully done or aborted.
+2025-05-25 22:17:46.399 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:17:46.399 [info] Aborting indexing job.
+2025-05-25 22:17:46.399 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:17:46.399 [info] Indexing job successfully done or aborted.
+2025-05-25 22:22:46.400 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:22:46.400 [info] Aborting indexing job.
+2025-05-25 22:22:46.400 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:22:46.401 [info] Indexing job successfully done or aborted.
+2025-05-25 22:27:46.400 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:27:46.400 [info] Aborting indexing job.
+2025-05-25 22:27:46.400 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:27:46.400 [info] Indexing job successfully done or aborted.
+2025-05-25 22:32:46.403 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:32:46.403 [info] Aborting indexing job.
+2025-05-25 22:32:46.403 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:32:46.403 [info] Indexing job successfully done or aborted.
+2025-05-25 22:35:32.407 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:35:32.407 [info] Aborting indexing job.
+2025-05-25 22:35:33.668 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.668 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.668 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled

@@ -1,0 +1,6 @@
+2025-05-25 22:47:26.597 [info] GitLens v17.1.1 activating in Cursor (1.96.2) on the desktop; language='en', logLevel='warn', defaultDateLocale='null' (464ed72cdb6ef453f7bbfc3bbba6b516380aec12fe61c3f9b6c89fd35a1057f9|9b3c17ac-bfe3-4049-9beb-863cb91e5d6a1748207626984)
+To enable debug logging, set `"gitlens.outputLevel": "debug"` or run "GitLens: Enable Debug Logging" from the Command Palette
+[2025-05-25 22:47:26.216] Authentication provider 'github' is not registered; User has disabled it
+
+2025-05-25 22:47:36.533 [info] [2025-05-25 22:47:35.555] [GIT   *2274ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*2274ms] (slow)
+

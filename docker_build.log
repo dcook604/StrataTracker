@@ -83,3 +83,142 @@ Building backend
 #12 DONE 0.4s
 
 #15 [builder  9/11] RUN npm install
+#15 9.360 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+#15 9.394 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+#15 21.21 
+#15 21.21 added 534 packages, and audited 535 packages in 21s
+#15 21.21 
+#15 21.21 69 packages are looking for funding
+#15 21.21   run `npm fund` for details
+#15 21.29 
+#15 21.29 7 moderate severity vulnerabilities
+#15 21.29 
+#15 21.29 To address issues that do not require attention, run:
+#15 21.29   npm audit fix
+#15 21.29 
+#15 21.29 To address all issues (including breaking changes), run:
+#15 21.29   npm audit fix --force
+#15 21.29 
+#15 21.29 Run `npm audit` for details.
+#15 21.29 npm notice
+#15 21.29 npm notice New major version of npm available! 10.8.2 -> 11.4.1
+#15 21.29 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.4.1
+#15 21.29 npm notice To update run: npm install -g npm@11.4.1
+#15 21.29 npm notice
+#15 DONE 25.4s
+
+#16 [builder 10/11] RUN ls -la client # Debug: List files in /app/client to verify index.html presence
+#16 0.395 total 24
+#16 0.395 drwxr-xr-x    4 root     root          4096 May 25 21:46 .
+#16 0.395 drwxr-xr-x    1 root     root          4096 May 25 22:05 ..
+#16 0.395 -rw-rw-r--    1 root     root          1783 May 25 20:33 index.html
+#16 0.395 drwxrwxr-x    2 root     root          4096 May 25 20:33 public
+#16 0.395 drwxrwxr-x    6 root     root          4096 May 25 20:33 src
+#16 DONE 0.4s
+
+#17 [builder 11/11] RUN npm run build
+#17 0.992 
+#17 0.992 > rest-express@1.0.0 build
+#17 0.992 > npm run check-conflicts && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+#17 0.992 
+#17 1.282 
+#17 1.282 > rest-express@1.0.0 check-conflicts
+#17 1.282 > find . -type f \( -name '*.tsx' -o -name '*.ts' -o -name '*.jsx' -o -name '*.js' \) -exec grep -H '<<<<<<< HEAD' {} + || true
+#17 1.282 
+#17 7.478 vite v5.4.14 building for production...
+#17 7.597 transforming...
+#17 24.08 ✓ 2892 modules transformed.
+#17 25.55 rendering chunks...
+#17 25.60 computing gzip size...
+#17 25.81 ../dist/public/index.html                     1.88 kB │ gzip:   0.81 kB
+#17 25.81 ../dist/public/assets/index-B2MAaKPm.css      1.30 kB │ gzip:   0.45 kB
+#17 25.81 ../dist/public/assets/index-3-HCJIwz.js   2,002.88 kB │ gzip: 723.81 kB
+#17 25.81 
+#17 25.81 (!) Some chunks are larger than 500 kB after minification. Consider:
+#17 25.81 - Using dynamic import() to code-split the application
+#17 25.81 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#17 25.81 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#17 25.81 ✓ built in 18.29s
+#17 25.97 
+#17 25.97   dist/index.js  150.6kb
+#17 25.97 
+#17 25.97 ⚡ Done in 45ms
+#17 DONE 26.1s
+
+#18 [stage-1 5/8] COPY --from=builder /app/package*.json ./
+#18 DONE 0.5s
+
+#19 [stage-1 6/8] COPY --from=builder /app/dist ./dist/
+#19 DONE 0.1s
+
+#20 [stage-1 7/8] COPY --from=builder /app/dist/public ./dist/public/
+#20 DONE 0.1s
+
+#21 [stage-1 8/8] COPY --from=builder /app/node_modules ./node_modules/
+#21 DONE 6.7s
+
+#22 exporting to image
+#22 exporting layers
+#22 exporting layers 9.8s done
+#22 writing image sha256:cb9afe24b93451e96810ccb5b39d5076ad2abe13acc131818c553cbd782e5f2f done
+#22 naming to docker.io/library/violation_backend done
+#22 DONE 9.8s
+The Docker Engine you're using is running in swarm mode.
+
+Compose does not use swarm mode to deploy services to multiple nodes in a swarm. All containers will be scheduled on the current node.
+
+To deploy your application across the swarm, use `docker stack deploy`.
+
+Creating network "violation_default" with the default driver
+Pulling db (postgres:15)...
+15: Pulling from library/postgres
+Digest: sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7
+Status: Downloaded newer image for postgres:15
+Creating violation_db_1 ... 
+Creating violation_db_1 ... done
+Creating violation_backend_1 ... 
+Creating violation_backend_1 ... done
+Attaching to violation_db_1, violation_backend_1
+[33mdb_1       |[0m 
+[33mdb_1       |[0m PostgreSQL Database directory appears to contain a database; Skipping initialization
+[33mdb_1       |[0m 
+[33mdb_1       |[0m 2025-05-25 22:07:03.184 UTC [1] LOG:  starting PostgreSQL 15.13 (Debian 15.13-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+[33mdb_1       |[0m 2025-05-25 22:07:03.185 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+[33mdb_1       |[0m 2025-05-25 22:07:03.185 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+[33mdb_1       |[0m 2025-05-25 22:07:03.188 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+[33mdb_1       |[0m 2025-05-25 22:07:03.194 UTC [29] LOG:  database system was shut down at 2025-05-25 22:02:51 UTC
+[33mdb_1       |[0m 2025-05-25 22:07:03.206 UTC [1] LOG:  database system is ready to accept connections
+[36mbackend_1  |[0m [36m[LOGGER] Debug logging enabled. Log level: INFO[0m
+[36mbackend_1  |[0m [36m[LOGGER] Log files will be written to: /app/logs[0m
+[36mbackend_1  |[0m [32m[2025-05-25T22:07:04.862Z] [INFO] Setting up database connection...[0m
+[36mbackend_1  |[0m [32m[2025-05-25T22:07:04.863Z] [INFO] Database connection string (masked): postgres://spectrum4:****@db:5432/spectrum4[0m
+[36mbackend_1  |[0m [32m[2025-05-25T22:07:04.868Z] [INFO] Drizzle ORM initialized successfully[0m
+[36mbackend_1  |[0m node:internal/errors:496
+[36mbackend_1  |[0m     ErrorCaptureStackTrace(err);
+[36mbackend_1  |[0m     ^
+[36mbackend_1  |[0m 
+[36mbackend_1  |[0m TypeError [ERR_INVALID_ARG_TYPE]: The "paths[0]" argument must be of type string. Received undefined
+[36mbackend_1  |[0m     at new NodeError (node:internal/errors:405:5)
+[36mbackend_1  |[0m     at validateString (node:internal/validators:162:11)
+[36mbackend_1  |[0m     at Object.resolve (node:path:1115:7)
+[36mbackend_1  |[0m     at file:///app/dist/index.js:3699:18
+[36mbackend_1  |[0m     at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+[36mbackend_1  |[0m     at async ModuleLoader.import (node:internal/modules/esm/loader:337:24)
+[36mbackend_1  |[0m     at async loadESM (node:internal/process/esm_loader:34:7)
+[36mbackend_1  |[0m     at async handleMainPromise (node:internal/modules/run_main:106:12) {
+[36mbackend_1  |[0m   code: 'ERR_INVALID_ARG_TYPE'
+[36mbackend_1  |[0m }
+[36mbackend_1  |[0m 
+[36mbackend_1  |[0m Node.js v18.20.8
+[36mviolation_backend_1 exited with code 1
+[0m[33mdb_1       |[0m 2025-05-25 22:12:03.232 UTC [27] LOG:  checkpoint starting: time
+[33mdb_1       |[0m 2025-05-25 22:12:03.252 UTC [27] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.004 s, total=0.021 s; sync files=2, longest=0.002 s, average=0.002 s; distance=0 kB, estimate=0 kB
+[33mdb_1       |[0m 2025-05-25 22:22:21.070 UTC [1] LOG:  received fast shutdown request
+[33mdb_1       |[0m 2025-05-25 22:22:21.074 UTC [1] LOG:  aborting any active transactions
+[33mdb_1       |[0m 2025-05-25 22:22:21.077 UTC [1] LOG:  background worker "logical replication launcher" (PID 32) exited with exit code 1
+[33mdb_1       |[0m 2025-05-25 22:22:21.081 UTC [27] LOG:  shutting down
+[33mdb_1       |[0m 2025-05-25 22:22:21.084 UTC [27] LOG:  checkpoint starting: shutdown immediate
+[33mdb_1       |[0m 2025-05-25 22:22:21.099 UTC [27] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.019 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=0 kB
+[33mdb_1       |[0m 2025-05-25 22:22:21.110 UTC [1] LOG:  database system is shut down
+[33mviolation_db_1 exited with code 0
+[0m
