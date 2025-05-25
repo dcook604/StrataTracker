@@ -127,6 +127,10 @@ class Logger {
     if (process.env.LOG_LEVEL) {
       this.minLevel = process.env.LOG_LEVEL as LogLevel;
     }
+    
+    // Log the current logging configuration
+    console.log(`${colors.cyan}[LOGGER] Debug logging enabled. Log level: ${this.minLevel}${colors.reset}`);
+    console.log(`${colors.cyan}[LOGGER] Log files will be written to: ${logDir}${colors.reset}`);
   }
   
   /**
@@ -170,6 +174,26 @@ class Logger {
    */
   debug(message: string, data?: any): void {
     this.log('DEBUG', message, data);
+  }
+  
+  /**
+   * Trace level logging for very detailed debugging
+   */
+  trace(message: string, data?: any): void {
+    if (!this.shouldLog('DEBUG')) return;
+    
+    // Include stack trace for trace-level logging
+    const stack = new Error().stack?.split('\n').slice(2, 5).join('\n') || 'No stack available';
+    const traceData = data ? { ...data, stack } : { stack };
+    this.log('DEBUG', `[TRACE] ${message}`, traceData);
+  }
+  
+  /**
+   * Performance logging
+   */
+  perf(operation: string, startTime: number, data?: any): void {
+    const duration = Date.now() - startTime;
+    this.debug(`[PERF] ${operation} completed in ${duration}ms`, data);
   }
   
   /**
