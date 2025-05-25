@@ -77,3 +77,16 @@ sudo docker-compose up --build
 sudo docker-compose down
 docker system prune -a -f --volumes
 sudo docker-compose build --no-cache > docker_build.log 2>&1 && sudo docker-compose up >> docker_build.log 2>&1
+. "\home\violation\.cursor-server\cli\servers\Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600\server\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration-bash.sh"
+cd /home/violation && sudo docker ps
+sudo docker logs bf165b48e728
+sudo docker stop bf165b48e728
+sudo docker-compose up --build
+sudo docker --version && sudo docker-compose --version
+sudo docker compose version
+sudo docker compose down -v
+sudo docker compose up --build
+sudo docker compose down -v && sudo docker compose up --build
+sudo docker compose up -d db && sleep 10 && sudo docker compose logs db
+sudo docker compose down -v
+sudo docker compose up --build

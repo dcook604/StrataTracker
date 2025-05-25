@@ -111,3 +111,6 @@
 2025-05-25 22:47:23.844 [info] Installing extension: eamodio.gitlens {"isMachineScoped":false,"installPreReleaseVersion":false,"donotVerifySignature":true,"pinned":false,"productVersion":{"version":"0.50.7","date":"2025-05-24T18:32:30.918Z","vscodeVersion":"1.96.2"},"operation":3,"isApplicationScoped":false,"context":{"clientTargetPlatform":"win32-x64"},"installOnlyNewlyAddedFromExtensionPack":true,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"}}
 2025-05-25 22:47:23.961 [info] Removed the extension from uninstalled list: eamodio.gitlens
 2025-05-25 22:47:24.019 [info] Extension installed successfully: eamodio.gitlens file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:52:13.408 [info] Uninstalling extension from the profile: eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:52:13.484 [info] Marked extension as uninstalled eamodio.gitlens-17.1.1
+2025-05-25 22:52:13.597 [info] Successfully uninstalled extension from the profile eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json

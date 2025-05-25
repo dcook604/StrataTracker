@@ -4,3 +4,31 @@ To enable debug logging, set `"gitlens.outputLevel": "debug"` or run "GitLens: E
 
 2025-05-25 22:47:36.533 [info] [2025-05-25 22:47:35.555] [GIT   *2274ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*2274ms] (slow)
 
+2025-05-25 22:48:14.676 [info] [2025-05-25 22:48:14.175] [GIT   *2355ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*2355ms] (slow)
+
+2025-05-25 22:48:22.528 [info] [2025-05-25 22:48:22.028] [GIT   *3332ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*3332ms] (slow)
+
+2025-05-25 22:48:27.030 [info] [2025-05-25 22:48:26.712] [GIT   *3343ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*3343ms] (slow)
+
+2025-05-25 22:48:35.268 [info] [2025-05-25 22:48:34.768] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false rev-parse --show-toplevel): fatal: this operation must be run in a work tree
+
+[2025-05-25 22:48:34.769] [GIT          ] [/home/violation/.git] git rev-parse --show-toplevel • this operation must be run in a work tree [40ms]
+
+2025-05-25 22:48:38.268 [info] [2025-05-25 22:48:38.070] [GIT   *3392ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*3392ms] (slow)
+
+2025-05-25 22:49:32.906 [info] [2025-05-25 22:49:32.406] [GIT    *544ms] [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap -m --no-min-parents -n1 5ca93c85fee54129e27faf40de484a01603b127b -- [*544ms] (slow)
+
+2025-05-25 22:49:36.409 [info] [2025-05-25 22:49:36.003] [GIT    *930ms] [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap -m --no-min-parents -n1 6a935af27998534bfaa255bbaa6f3561d1f897ea -- [*930ms] (slow)
+
+2025-05-25 22:49:38.414 [info] [2025-05-25 22:49:38.208] [GIT    *546ms] [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap -m --no-min-parents -n1 5ca93c85fee54129e27faf40de484a01603b127b -- [*546ms] (slow)
+
+2025-05-25 22:50:08.981 [info] [2025-05-25 22:50:08.480] [GIT    *546ms] [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap -m --no-min-parents -n1 5ca93c85fee54129e27faf40de484a01603b127b -- [*546ms] (slow)
+
+2025-05-25 22:50:42.557 [info] [2025-05-25 22:50:42.057] [GIT   *3684ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*3684ms] (slow)
+
+2025-05-25 22:51:08.287 [info] [2025-05-25 22:51:07.786] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false -c log.showSignature=false log --format=%x1E%H%x1D -n2 -L1,1:.cursor-server/data/User/History/738a0274/entries.json): fatal: There is no path .cursor-server/data/User/History/738a0274/entries.json in the commit
+
+[2025-05-25 22:51:07.790] [GIT          ] [/home/violation] git log --format=%x1E%H%x1D -n2 -L1,1:.cursor-server/data/User/History/738a0274/entries.json • There is no path .cursor-server/data/User/History/738a0274/entries.json in the commit [24ms]
+[2025-05-25 22:51:07.802] Git.exec
+Error: fatal: There is no path .cursor-server/data/User/History/738a0274/entries.json in the commit
+

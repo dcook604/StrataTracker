@@ -14,3 +14,4 @@
 2025-05-25 22:23:58.697 [warning] Shell integration may not be active, environment activated may be overridden by the shell.
 2025-05-25 22:23:58.755 [info] Shell integration status changed, can confirm it's working.
 2025-05-25 22:24:00.299 [info] Starting Pylance language server.
+2025-05-25 22:50:33.851 [info] Discover tests for workspace name: undefined - uri: c:/Users/danie/AppData/Roaming/Cursor/User/settings.json
