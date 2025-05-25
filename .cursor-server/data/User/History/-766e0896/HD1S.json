@@ -1,0 +1,67 @@
+{
+    "window.commandCenter": 1,
+    "remote.SSH.remotePlatform": {
+        "45.41.204.94": "linux",
+        "172.16.16.6": "linux",
+        "100.75.244.2": "linux",
+        "38.102.125.145": "linux",
+        "fc18716b-befa-420f-92b2-9df0dde1e364-00-3sc29c45k5scq.picard.replit.dev": "linux"
+    },
+    "workbench.editorAssociations": {
+        "*.html": "default"
+    },
+    "cursor.composer.shouldAutoScrollToBottom": false,
+    "gitlens.plusFeatures.enabled": false,
+    "gitlens.ai.model": "gitkraken",
+    "gitlens.ai.gitkraken.model": "gemini:gemini-2.0-flash",
+    "localSnapshots.customIgnorePatterns": [
+        {
+            "pattern": "node_modules",
+            "fromGitignore": true
+        },
+        {
+            "pattern": "dist",
+            "fromGitignore": true
+        },
+        {
+            "pattern": ".DS_Store",
+            "fromGitignore": true
+        },
+        {
+            "pattern": "server/public",
+            "fromGitignore": true
+        },
+        {
+            "pattern": "vite.config.ts.*",
+            "fromGitignore": true
+        },
+        {
+            "pattern": "*.tar.gz",
+            "fromGitignore": true
+        },
+        {
+            "pattern": ".replit",
+            "fromGitignore": true
+        },
+        {
+            "pattern": ".cursorrules",
+            "fromGitignore": true
+        },
+        {
+            "pattern": ".cusor-server",
+            "fromGitignore": true
+        },
+        {
+            "pattern": ".cache",
+            "fromGitignore": true
+        },
+        {
+            "pattern": ".vscode",
+            "fromGitignore": true
+        },
+        {
+            "pattern": ".npm",
+            "fromGitignore": true
+        }
+    ]
+}

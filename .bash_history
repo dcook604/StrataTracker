@@ -45,3 +45,35 @@ docker-compose up --build
 git add package.json Dockerfile
 git commit -m "Fix Docker build: ensure Vite finds index.html and update check-conflicts script"
 git push
+ls
+cd ~
+ls
+cd violation/
+ls
+cd ..
+rm -rf violation/
+cd ~
+ls
+Nano Dockerfile 
+nano Dockerfile 
+ls
+cd app
+cd client/
+ls
+nano index.html 
+sudo docker-compose build --no-cache && sudo docker-compose up --build
+cd ..
+ls
+sudo docker-compose build --no-cache && sudo docker-compose up --build
+ls
+sudo docker-compose build --no-cache > docker_build.log 2>&1 && sudo docker-compose up --build >> docker_build.log 2>&1
+sudo docker-compose build --no-cache > docker_build.log 2>&1 && sudo docker-compose up >> docker_build.log 2>&1
+docker ps
+ls
+nano docker_build.log 
+sudo docker-compose down
+docker system prune -a -f --volumes
+sudo docker-compose up --build
+sudo docker-compose down
+docker system prune -a -f --volumes
+sudo docker-compose build --no-cache > docker_build.log 2>&1 && sudo docker-compose up >> docker_build.log 2>&1
