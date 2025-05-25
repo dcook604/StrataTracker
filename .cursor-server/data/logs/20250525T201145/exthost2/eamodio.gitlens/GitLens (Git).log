@@ -1,0 +1,52 @@
+2025-05-25 20:13:19.355 [info] [2025-05-25 20:13:19.140] [         17ms] [/home/violation] git rev-parse --show-toplevel • FAILED
+2025-05-25 20:13:19.355 [info] 
+Error: fatal: not a git repository (or any of the parent directories): .git
+
+2025-05-25 20:14:39.842 [info] [2025-05-25 20:14:39.842] [         14ms] [/home/violation/.cursor-server/data/Machine] git rev-parse --show-toplevel • FAILED
+2025-05-25 20:14:39.842 [info] 
+Error: fatal: not a git repository (or any of the parent directories): .git
+
+2025-05-25 20:14:42.952 [info] [2025-05-25 20:14:42.952] [         11ms] [/home/violation/.vscode] git rev-parse --show-toplevel • FAILED
+2025-05-25 20:14:42.953 [info] 
+Error: fatal: not a git repository (or any of the parent directories): .git
+
+2025-05-25 20:15:09.698 [info] [2025-05-25 20:15:09.698] [          8ms] [/home/violation] git rev-parse --abbrev-ref --symbolic-full-name @ @{u} -- • FAILED
+2025-05-25 20:15:09.698 [info] 
+Error: fatal: bad revision '@'
+
+2025-05-25 20:15:20.385 [info] [2025-05-25 20:15:20.384] [*      2010ms] [/home/violation] git shortlog -s --all --no-min-parents --since=1.year.ago (slow) • FAILED
+2025-05-25 20:15:20.385 [info] 
+Canceled: Operation cancelled; command=/usr/bin/git -c core.quotepath=false -c color.ui=false shortlog -s --all --no-min-parents --since=1.year.ago
+
+2025-05-25 20:15:20.390 [info] [2025-05-25 20:15:20.385] [*      2001ms] [/home/violation] git shortlog -s --all --no-min-parents --since=1.year.ago (slow, waiting) • FAILED
+2025-05-25 20:15:20.390 [info] 
+Canceled: Operation cancelled; command=/usr/bin/git -c core.quotepath=false -c color.ui=false shortlog -s --all --no-min-parents --since=1.year.ago
+
+2025-05-25 20:18:36.659 [info] [2025-05-25 20:18:36.659] [         68ms] [/home/violation] git symbolic-ref --short refs/remotes/origin/HEAD • FAILED
+2025-05-25 20:18:36.659 [info] 
+Error: fatal: ref refs/remotes/origin/HEAD is not a symbolic ref
+
+2025-05-25 20:18:36.734 [info] [2025-05-25 20:18:36.734] [         21ms] [/home/violation] git symbolic-ref --short refs/remotes/origin/HEAD • FAILED
+2025-05-25 20:18:36.734 [info] 
+Error: fatal: ref refs/remotes/origin/HEAD is not a symbolic ref
+
+2025-05-25 20:19:13.041 [info] [2025-05-25 20:19:13.041] [         11ms] [/home/violation] git rev-parse --abbrev-ref --symbolic-full-name @ @{u} -- • FAILED
+2025-05-25 20:19:13.041 [info] 
+Error: fatal: bad revision '@'
+
+2025-05-25 20:19:13.117 [info] [2025-05-25 20:19:13.117] [         46ms] [/home/violation] git symbolic-ref --short refs/remotes/origin/HEAD • FAILED
+2025-05-25 20:19:13.117 [info] 
+Error: fatal: ref refs/remotes/origin/HEAD is not a symbolic ref
+
+2025-05-25 20:19:13.199 [info] [2025-05-25 20:19:13.199] [         23ms] [/home/violation] git symbolic-ref --short refs/remotes/origin/HEAD • FAILED
+2025-05-25 20:19:13.199 [info] 
+Error: fatal: ref refs/remotes/origin/HEAD is not a symbolic ref
+
+2025-05-25 20:23:25.441 [info] [2025-05-25 20:23:25.441] [         24ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 main -- • FAILED
+2025-05-25 20:23:25.441 [info] 
+Error: fatal: bad revision 'main'
+
+2025-05-25 20:27:03.852 [info] [2025-05-25 20:27:03.852] [         44ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 main -- • FAILED
+2025-05-25 20:27:03.852 [info] 
+Error: fatal: bad revision 'main'
+
