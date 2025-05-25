@@ -1,0 +1,109 @@
+Server bound to /tmp/cursor-455da175-722c-4414-8158-2cd8d4388abd
+Extension host agent listening on /tmp/cursor-455da175-722c-4414-8158-2cd8d4388abd
+
+[20:11:45] 
+
+
+
+
+[20:11:45] Extension host agent started.
+[20:11:45] Started initializing default profile extensions in extensions installation folder. file:///home/violation/.cursor-server/extensions
+[20:11:46] Completed initializing default profile extensions in extensions installation folder. file:///home/violation/.cursor-server/extensions
+[20:11:46] [<unknown>][75195cbe][ManagementConnection] New connection established.
+[20:11:46] [<unknown>][81a7a940][ExtensionHostConnection] New connection established.
+[20:11:46] [<unknown>][81a7a940][ExtensionHostConnection] <760352> Launched Extension Host Process.
+rejected promise not handled within 1 second: CodeExpectedError: Could not find pty 4 on pty host
+stack trace: CodeExpectedError: Could not find pty 4 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+[20:11:52] Error [CodeExpectedError]: Could not find pty 4 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+[20:12:02] [<unknown>][75195cbe][ManagementConnection] The client has disconnected gracefully, so the connection will be disposed.
+[20:12:02] [<unknown>][81a7a940][ExtensionHostConnection] <760352> Extension Host Process exited with code: 0, signal: null.
+Cancelling previous shutdown timeout
+[20:12:02] Cancelling previous shutdown timeout
+Last EH closed, waiting before shutting down
+[20:12:02] Last EH closed, waiting before shutting down
+[20:12:36] [<unknown>][3cfb89f4][ManagementConnection] New connection established.
+[20:12:36] [<unknown>][357f33e0][ExtensionHostConnection] New connection established.
+[20:12:36] [<unknown>][357f33e0][ExtensionHostConnection] <760674> Launched Extension Host Process.
+rejected promise not handled within 1 second: CodeExpectedError: Could not find pty 10 on pty host
+stack trace: CodeExpectedError: Could not find pty 10 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+[20:12:43] Error [CodeExpectedError]: Could not find pty 10 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+[20:13:14] Getting Manifest... eamodio.gitlens
+[20:13:14] Installing extension: eamodio.gitlens {
+  isMachineScoped: false,
+  installPreReleaseVersion: false,
+  donotVerifySignature: true,
+  pinned: false,
+  context: { clientTargetPlatform: 'win32-x64' },
+  installOnlyNewlyAddedFromExtensionPack: true,
+  isApplicationScoped: false,
+  profileLocation: vr {
+    scheme: 'file',
+    authority: '',
+    path: '/home/violation/.cursor-server/extensions/extensions.json',
+    query: '',
+    fragment: '',
+    _formatted: 'file:///home/violation/.cursor-server/extensions/extensions.json',
+    _fsPath: '/home/violation/.cursor-server/extensions/extensions.json'
+  },
+  productVersion: {
+    version: '0.50.7',
+    date: '2025-05-24T18:23:35.492Z',
+    vscodeVersion: '1.96.2'
+  }
+}
+[20:13:15] Started downloading extension: eamodio.gitlens 17.1.1 file:///home/violation/.cursor-server/data/CachedExtensionVSIXs/cursor-eamodio.gitlens-17.1.1
+[20:13:16] Extracted extension to file:///home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1: eamodio.gitlens
+[20:13:16] Renamed to /home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1
+[20:13:16] Extension installed successfully: eamodio.gitlens file:///home/violation/.cursor-server/extensions/extensions.json
