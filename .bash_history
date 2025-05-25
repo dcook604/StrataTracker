@@ -90,3 +90,78 @@ sudo docker compose down -v && sudo docker compose up --build
 sudo docker compose up -d db && sleep 10 && sudo docker compose logs db
 sudo docker compose down -v
 sudo docker compose up --build
+sudo visudo
+su
+git commit -m "Fix Docker build: ensure Vite finds index.html and update check-conflicts script"
+git config --global user.name "Daniel"
+git config --global user.email "you@example.com"
+nano .gitignore
+git push
+nano .gitignore 
+git lfs track
+git ls-files | xargs -I{} du -h {} | sort -rh | head -2
+git push
+git commit -m "Remove large files from repo"
+git addAA
+git add .
+git commit -m "Remove large files from repo"
+git push
+docker-compose up --build
+su
+sudo usermod -aG docker violation
+WHOAMI
+whoami
+id
+sudo visudo
+sudo -i 
+. "\home\violation\.cursor-server\cli\servers\Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600\server\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration-bash.sh"
+git rm --cached a888d02286694d2aa35e6cd0add934e92d1800b7
+git push
+docker-compose up --build --no-cache
+docker-compose build --no-cache && docker-compose up --build
+sudo docker-compose up --build
+sudo docker-compose build --no-cache && sudo docker-compose up --build
+. "\home\violation\.cursor-server\cli\servers\Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600\server\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration-bash.sh"
+sudo docker-compose build --no-cache > docker_build.log 2>&1 && sudo docker-compose up --build >> docker_build.log 2>&1
+ls
+cat docker_build.log 
+git add .
+git commit -m "Fix Docker build, runtime path errors, and update port config"
+git push
+sudo docker-compose logs backend
+sudo docker-compose build --no-cache
+sudo docker-compose up -d
+sudo docker ps -a && sudo docker-compose logs backend
+sudo docker-compose down && sudo docker-compose up --force-recreate -d && sleep 5 && sudo docker-compose logs backend
+sudo docker-compose build --no-cache backend
+sudo docker-compose up --force-recreate -d && sleep 5 && sudo docker-compose logs backend
+sudo docker-compose down -v && sudo docker system prune -f && sudo docker volume prune -f
+sudo docker-compose up --build
+. "\home\violation\.cursor-server\cli\servers\Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600\server\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration-bash.sh"
+cd /home/violation && sudo docker-compose logs -f backend
+sudo docker-compose build --no-cache backend
+sudo docker-compose up --force-recreate -d && sleep 5 && sudo docker-compose logs backend
+sudo docker build -t test-backend . && sudo docker run --rm -e NODE_ENV=production -e DATABASE_URL=postgres://spectrum4:spectrum4password@localhost:5432/spectrum4 -p 3001:3000 test-backend
+sudo docker ps -a | grep test-backend
+sudo docker run --rm -e NODE_ENV=production test-backend
+sudo docker run --rm -e NODE_ENV=production -e DATABASE_URL=postgres://test:test@localhost:5432/test test-backend
+sudo docker build --no-cache -t test-backend .
+sudo docker run --rm -e NODE_ENV=production -e DATABASE_URL=postgres://test:test@localhost:5432/test test-backend
+sudo docker build --no-cache -t test-backend .
+sudo docker run --rm -e NODE_ENV=production -e DATABASE_URL=postgres://test:test@localhost:5432/test test-backend
+. "\home\violation\.cursor-server\cli\servers\Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600\server\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration-bash.sh"
+cd /home/violation && sudo docker compose logs backend
+sudo docker compose logs db | grep -E "(CREATE TABLE|INSERT|ERROR)" | tail -10
+sudo docker compose up -d
+sleep 5 && sudo docker compose logs backend | tail -10
+git add . && git commit -m "Configure local PostgreSQL database and clean up Replit dependencies"
+git add README.md docs/MIGRATION_GUIDE.md docs/TECHNICAL_OVERVIEW.md
+git commit -m "Update documentation: README, technical overview, and migration guide - Updated README.md with new Docker setup instructions - Documented migration from Replit to local Docker environment - Added comprehensive troubleshooting and deployment guides - Created detailed migration guide with technical changes - Updated technical overview with current architecture - Added performance comparisons and future considerations"
+git status
+. "\home\violation\.cursor-server\cli\servers\Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600\server\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration-bash.sh"
+git status
+pwd && ls -la
+git status --porcelain | grep -v "\.cursor-server\|\.npm\|\.bash_history"
+git log --oneline -3
+ls -a
+nano .env.example 
