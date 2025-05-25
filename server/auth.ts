@@ -8,6 +8,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import logger from "./utils/logger";
 
 declare global {
   namespace Express {
@@ -76,28 +77,44 @@ export function setupAuth(app: Express) {
     new LocalStrategy(
       { usernameField: 'email' },
       async (email, password, done) => {
+        const authStartTime = Date.now();
+        logger.info(`[AUTH] Login attempt started for email: ${email}`);
+        
         try {
           // Get user by email
+          logger.debug(`[AUTH] Looking up user by email`);
           let user = await dbStorage.getUserByEmail(email);
           
           if (!user) {
-            console.log("User not found:", email);
+            logger.warn(`[AUTH] Login failed - User not found`, { email });
+            logger.perf(`authentication_failed_no_user`, authStartTime, { email });
             return done(null, false, { message: "Invalid email or password" });
           }
           
+          logger.debug(`[AUTH] User found, checking account status`, { 
+            userId: user.id, 
+            accountLocked: user.accountLocked,
+            failedAttempts: user.failedLoginAttempts 
+          });
+          
           // Check if account is locked
           if (user.accountLocked) {
-            console.log("Account locked:", email);
+            logger.warn(`[AUTH] Login failed - Account locked`, { 
+              userId: user.id, 
+              email, 
+              failedAttempts: user.failedLoginAttempts 
+            });
+            logger.perf(`authentication_failed_locked`, authStartTime, { userId: user.id });
             return done(null, false, { message: "Account locked due to too many failed attempts" });
           }
           
           try {
             // Check password
+            logger.debug(`[AUTH] Verifying password for user`, { userId: user.id });
             const isMatch = await dbStorage.comparePasswords(password, user.password);
-            console.log("Password comparison result:", isMatch);
             
             if (!isMatch) {
-              console.log("Invalid password for user:", email);
+              logger.warn(`[AUTH] Login failed - Invalid password`, { userId: user.id, email });
               // Increment failed attempts if available
               if (typeof dbStorage.incrementFailedLoginAttempts === 'function') {
                 await dbStorage.incrementFailedLoginAttempts(user.id);

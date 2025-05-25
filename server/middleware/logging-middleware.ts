@@ -12,12 +12,20 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
   if (requestBody.password) requestBody.password = '[REDACTED]';
   if (requestBody.token) requestBody.token = '[REDACTED]';
   
-  // Log the incoming request
-  logger.debug(`Request: ${method} ${path}`, {
+  // Log the incoming request with comprehensive details
+  logger.debug(`[API] Incoming ${method} ${path}`, {
+    headers: {
+      contentType: req.get('content-type'),
+      authorization: req.get('authorization') ? '[PRESENT]' : '[MISSING]',
+      userAgent: req.get('user-agent')
+    },
     query: req.query,
     body: Object.keys(requestBody).length ? requestBody : undefined,
+    params: req.params,
     ip: req.ip,
-    userAgent: req.get('user-agent')
+    sessionId: req.sessionID,
+    authenticated: !!req.user,
+    userId: req.user?.id
   });
   
   // Capture the original response methods
@@ -45,16 +53,30 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     const statusCode = res.statusCode;
     
     // For all routes, log basic info
-    logger.info(`${method} ${path} ${statusCode} ${duration}ms`);
+    logger.info(`[API] ${method} ${path} ${statusCode} ${duration}ms`);
     
     // Additional detailed logging for API routes
     if (path.startsWith('/api')) {
-      // Log additional info for errors
+      const logData = {
+        statusCode,
+        duration,
+        responseSize: res.get('content-length') || 'unknown',
+        contentType: res.get('content-type'),
+        userId: req.user?.id,
+        sessionId: req.sessionID
+      };
+
       if (statusCode >= 400) {
-        logger.error(`Request failed: ${method} ${path}`, {
-          statusCode,
-          duration,
-          response: responseBody
+        logger.error(`[API] Request failed: ${method} ${path}`, {
+          ...logData,
+          response: responseBody,
+          requestBody: Object.keys(requestBody).length ? requestBody : undefined
+        });
+      } else if (statusCode >= 200 && statusCode < 300) {
+        logger.debug(`[API] Success: ${method} ${path}`, {
+          ...logData,
+          response: responseBody && typeof responseBody === 'object' ? 
+            Object.keys(responseBody).length : 'response_sent'
         });
       }
     }

@@ -46,6 +46,7 @@ import { drizzle, NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 import { Pool } from 'pg';
 import connectPgSimple from 'connect-pg-simple';
+import logger from './utils/logger';
 
 const scryptAsync = promisify(scrypt);
 
@@ -186,10 +187,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async comparePasswords(supplied: string, stored: string): Promise<boolean> {
+    const startTime = Date.now();
+    logger.debug(`[AUTH] Starting password comparison`);
+    
     try {
       // Check if stored password has the correct format (hash.salt)
       if (!stored || !stored.includes(".")) {
-        console.error("Invalid stored password format, should be 'hash.salt'");
+        logger.error(`[AUTH] Invalid stored password format, should be 'hash.salt'`);
         return false;
       }
       
@@ -197,15 +201,24 @@ export class DatabaseStorage implements IStorage {
       
       // Check if both hash and salt are present
       if (!hashed || !salt) {
-        console.error("Missing hash or salt in stored password");
+        logger.error(`[AUTH] Missing hash or salt in stored password`);
         return false;
       }
       
       const hashedBuf = Buffer.from(hashed, "hex");
       const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-      return timingSafeEqual(hashedBuf, suppliedBuf);
+      const isMatch = timingSafeEqual(hashedBuf, suppliedBuf);
+      
+      logger.perf(`comparePasswords`, startTime, { 
+        passwordMatch: isMatch,
+        saltLength: salt.length,
+        hashLength: hashed.length
+      });
+      
+      logger.debug(`[AUTH] Password comparison result: ${isMatch ? 'MATCH' : 'NO MATCH'}`);
+      return isMatch;
     } catch (error) {
-      console.error("Error comparing passwords:", error);
+      logger.error(`[AUTH] Error comparing passwords`, { error });
       return false;
     }
   }
@@ -364,8 +377,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    const startTime = Date.now();
+    logger.debug(`[DB] Getting user by email`, { email });
+    
+    try {
+      const [user] = await db.select().from(users).where(eq(users.email, email));
+      logger.perf(`getUserByEmail`, startTime, { 
+        email, 
+        found: !!user,
+        userId: user?.id 
+      });
+      
+      if (user) {
+        logger.debug(`[DB] User found`, { 
+          userId: user.id, 
+          email: user.email, 
+          isAdmin: user.isAdmin,
+          accountLocked: user.accountLocked,
+          failedLoginAttempts: user.failedLoginAttempts
+        });
+      } else {
+        logger.debug(`[DB] User not found for email: ${email}`);
+      }
+      
+      return user;
+    } catch (error) {
+      logger.error(`[DB] Error getting user by email`, { email, error });
+      throw error;
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
