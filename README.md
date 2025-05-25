@@ -1,264 +1,327 @@
-# Spectrum 4 Violation System
+# StrataTracker - Property Violation Management System
 
 A full-stack property violation management system for property managers, with user authentication, violation tracking, reporting, and PWA support.
+
+**Recently migrated from Replit to local Docker development environment.**
 
 ---
 
 ## 🚀 Quick Start with Docker (Recommended)
 
+### Prerequisites
+- **Docker**: Version 20.10+ 
+- **Docker Compose**: V2 (use `docker compose` not `docker-compose`)
+- **Git**: For cloning the repository
+
+### Setup Instructions
+
 1. **Clone the repository**
-   ```sh
-   git clone <your-repo-url>
-   cd <your-repo>
+   ```bash
+   git clone https://github.com/dcook604/StrataTracker.git
+   cd StrataTracker
    ```
-2. **Copy and configure environment variables**
-   - Copy `.env.example` to `.env` and fill in all required values (see below).
-3. **Start the app with Docker Compose**
-   ```sh
-   docker-compose up --build
+
+2. **Start the application**
+   ```bash
+   sudo docker compose up --build
    ```
-   - The backend will be available at [http://localhost:3000](http://localhost:3000)
-   - PostgreSQL will run on port 5432 (see `docker-compose.yml` for credentials)
-4. **First-time setup:**
-   - The database will be initialized with an admin user (see `db/init/01-init.sql`).
-   - **Important:** Replace the default admin password hash in `01-init.sql` with a bcrypt hash of your own password before deploying to production.
-   initial admin user
-admin@spectrum4.com
-admin123
+   
+   The application will be available at:
+   - **Frontend/Backend**: http://localhost:3001
+   - **Database**: PostgreSQL on localhost:5432
+
+3. **First-time setup:**
+   - Database schema is automatically created from Drizzle migrations
+   - An admin user is created during initialization:
+     - **Email**: admin@spectrum4.com
+     - **Password**: admin123
+   - **⚠️ Important**: Change the default admin password after first login!
+
+### Stopping the Application
+```bash
+sudo docker compose down
+```
+
+To also remove the database volume (fresh start):
+```bash
+sudo docker compose down -v
+```
 
 ---
 
-## Features
-- User authentication (admin-managed)
-- Violation reporting and evidence upload (with static file serving)
-- Unit and user management (add/search units, assign tenants/owners, facilities fields)
-- Responsive UI, PWA-ready (installable, with manifest/icons)
-- Secure (Helmet, CORS, rate limiting)
-- Error boundaries for robust UX
-- PM2 process management (for non-Docker production)
-- Full Canadian address support, multiple property managers/caretakers/council
-- Email notification toggles and SMTP settings
+## 🏗️ Architecture
+
+### Technology Stack
+- **Frontend**: React 18 + TypeScript + Vite
+- **Backend**: Node.js + Express + TypeScript
+- **Database**: PostgreSQL 15
+- **ORM**: Drizzle ORM
+- **Containerization**: Docker + Docker Compose V2
+- **UI Components**: Radix UI + Tailwind CSS
+
+### Project Structure
+```
+├── client/                 # React frontend
+│   ├── src/               # Source code
+│   ├── public/            # Static assets
+│   └── index.html         # Entry point
+├── server/                # Express backend
+│   ├── routes/            # API routes
+│   ├── middleware/        # Express middleware
+│   ├── utils/             # Utilities
+│   └── index.ts           # Server entry point
+├── shared/                # Shared types and schemas
+├── migrations/            # Drizzle database migrations
+├── db/init/              # Database initialization scripts
+├── docker-compose.yml    # Docker services configuration
+├── Dockerfile            # Container build instructions
+└── vite.config.ts        # Vite configuration
+```
 
 ---
 
-## Requirements (for non-Docker/manual setup)
+## 🔧 Development
 
-- **Node.js**: >=18.x
-- **npm**: >=9.x
-- **Database**: PostgreSQL
-- **Other**:
-  - [PM2](https://pm2.keymetrics.io/) (for process management)
-  - [ts-node](https://typestrong.org/ts-node/) (if running TypeScript directly)
-  - SMTP server (for email notifications)
+### Local Development (without Docker)
 
----
+If you prefer to run without Docker:
 
-## Manual Setup (Alternative to Docker)
+1. **Prerequisites**
+   - Node.js 18+
+   - PostgreSQL 15+
+   - npm 9+
 
-1. **Install dependencies**
-   ```sh
+2. **Install dependencies**
+   ```bash
    npm install
    ```
-2. **Configure environment variables**
-   - Copy `.env.example` to `.env` and fill in all required values.
-3. **Build the app**
-   ```sh
-   npm run build
+
+3. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your database credentials
    ```
-4. **Run in development**
-   ```sh
+
+4. **Run database migrations**
+   ```bash
+   npm run db:push
+   ```
+
+5. **Start development server**
+   ```bash
    npm run dev
    ```
-5. **Run in production (recommended: PM2)**
-   ```sh
-   pm2 start dist/index.js --name spectrum4
-   # or, for TypeScript:
-   pm2 start server/index.ts --name spectrum4 --interpreter $(which ts-node)
+
+### Available Scripts
+
+| Script              | Description                           |
+|---------------------|---------------------------------------|
+| `npm run dev`       | Start development server              |
+| `npm run build`     | Build for production                  |
+| `npm start`         | Start production server               |
+| `npm run check`     | TypeScript type checking              |
+| `npm run db:push`   | Push database schema changes          |
+
+---
+
+## 🐳 Docker Configuration
+
+### Services
+
+- **backend**: Node.js application (port 3001 → 3000)
+- **db**: PostgreSQL 15 database (port 5432)
+
+### Database Initialization
+
+The database is automatically set up with:
+1. **Schema Creation**: Drizzle migrations applied automatically
+2. **Admin User**: Created via `db/init/01-init.sql`
+3. **Persistent Storage**: Data stored in Docker volume `db_data`
+
+### Environment Variables
+
+The Docker setup uses these key environment variables:
+
+```env
+NODE_ENV=production
+DATABASE_URL=postgres://spectrum4:spectrum4password@db:5432/spectrum4
+SESSION_SECRET=your-session-secret
+PUBLIC_BASE_URL=http://localhost:3001
+```
+
+---
+
+## 🔄 Migration from Replit
+
+This application was successfully migrated from Replit to a local Docker environment. Key changes made:
+
+### Removed Replit Dependencies
+- `@replit/vite-plugin-cartographer`
+- `@replit/vite-plugin-runtime-error-modal`
+
+### Database Migration
+- **From**: Neon cloud database (`@neondatabase/serverless`)
+- **To**: Local PostgreSQL with standard `pg` driver
+
+### Build System Updates
+- Fixed ES module/CommonJS compatibility issues
+- Updated Vite configuration for local development
+- Resolved `import.meta.dirname` bundling issues
+
+### Docker Compatibility
+- Updated to Docker Compose V2
+- Fixed container configuration issues
+- Added proper volume mounts for migrations
+
+---
+
+## 🚀 Features
+
+- **User Authentication**: Admin-managed user accounts
+- **Violation Management**: Report, track, and manage property violations
+- **Evidence Upload**: Photo and document attachment support
+- **Unit Management**: Property unit and tenant/owner assignment
+- **Responsive Design**: Mobile-friendly PWA
+- **Email Notifications**: SMTP-based notification system
+- **Role-based Access**: Admin, Council Member, and User roles
+- **Reporting**: Violation statistics and reporting
+- **Security**: Helmet, CORS, rate limiting, session management
+
+---
+
+## 🔒 Security Features
+
+- **HTTP Security Headers**: Helmet.js integration
+- **CORS Protection**: Configurable cross-origin policies
+- **Rate Limiting**: API endpoint protection
+- **Session Management**: Secure session handling
+- **Input Validation**: Zod schema validation
+- **Error Boundaries**: React error boundary protection
+- **Environment Variables**: Secure configuration management
+
+---
+
+## 📊 Settings & Administration
+
+### Admin Features (Settings Page)
+
+Available to Administrators and Council Members:
+
+- **Email Settings**: Configure notification preferences
+- **System Settings**: General system configuration
+- **SMTP Settings**: Email server configuration with testing
+- **User Management**: Add, edit, lock, or remove users
+
+### Default Admin Account
+
+- **Email**: admin@spectrum4.com
+- **Password**: admin123
+- **⚠️ Change immediately after first login!**
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Port Already in Use**
+   ```bash
+   sudo docker compose down
+   # Wait a moment, then:
+   sudo docker compose up
    ```
 
----
+2. **Database Connection Issues**
+   - Ensure PostgreSQL container is running
+   - Check logs: `sudo docker compose logs db`
 
-## Database Initialization
-- On first run with Docker Compose, the database is initialized using scripts in `db/init/`.
-- The default script (`01-init.sql`) creates an admin user. **Replace the bcrypt hash with your own password hash before production.**
-- You can add more SQL scripts to this directory for further initialization.
+3. **Build Failures**
+   - Clear Docker cache: `sudo docker system prune -f`
+   - Rebuild: `sudo docker compose build --no-cache`
 
----
+### Logs
 
-## Deployment & Production Notes
-- **HTTPS**: Use a reverse proxy (Nginx, Caddy) for SSL.
-- **Static files**: Served from `client/public/` (including evidence uploads).
-- **PWA**: Manifest and icons included; app is installable.
-- **Process management**: Use PM2 or Docker for zero-downtime restarts and monitoring.
-- **Backups**: Regularly back up your PostgreSQL volume/data.
-- **Environment variables**: Never commit secrets; use `.env` and `.env.example`.
+View application logs:
+```bash
+# Backend logs
+sudo docker compose logs backend
 
----
+# Database logs  
+sudo docker compose logs db
 
-## Security & Best Practices
-- Helmet for HTTP security headers
-- CORS restricted in production
-- Rate limiting enabled
-- All secrets/config in `.env`
-- Error boundaries in React
-- Regular DB backups recommended
-- **Sanitize and validate all user input**
-- **Never hardcode credentials**
+# All logs
+sudo docker compose logs
+```
 
 ---
 
-## Scripts
+## 🚀 Deployment
 
-| Script            | Description                       |
-|-------------------|-----------------------------------|
-| `npm run dev`     | Start app in development mode     |
-| `npm run build`   | Build app for production          |
-| `npm start`       | Start app (use in production)     |
-| `npm run lint`    | Run linter                        |
-| `npm test`        | Run tests (if implemented)        |
+### Production Deployment
 
----
+1. **Environment Configuration**
+   - Set production environment variables
+   - Configure HTTPS with reverse proxy (Nginx/Caddy)
+   - Set up proper database credentials
 
-## Environment Variables
+2. **Security Checklist**
+   - Change default admin password
+   - Configure CORS for production domain
+   - Set secure session secrets
+   - Enable HTTPS
+   - Regular database backups
 
-See `.env.example` for all required variables. Key variables include:
-- `DATABASE_URL` (Postgres connection string)
-- `SESSION_SECRET` (session encryption)
-- `PUBLIC_BASE_URL` (frontend URL)
-- SMTP/email settings
-
----
-
-## Additional Recommendations
-- **Automated tests**: Add/expand as needed.
-- **Monitoring**: Integrate with Sentry, UptimeRobot, etc.
-- **Image optimization**: Compress all images in `client/public/`.
-- **Accessibility**: Review UI for a11y best practices.
-- **Service workers**: Consider for advanced PWA features.
+3. **Monitoring**
+   - Set up application monitoring
+   - Configure log aggregation
+   - Database performance monitoring
 
 ---
 
-## Docker & Image Notes
-- `.dockerignore` is configured to keep images lean.
-- Static files and evidence are served from `client/public/`.
-- Database data is persisted via Docker volume (`db_data`).
+## 📝 Recent Updates
+
+### v2.0.0 - Docker Migration (Latest)
+- ✅ Migrated from Replit to local Docker environment
+- ✅ Replaced Neon database with local PostgreSQL
+- ✅ Fixed ES module compatibility issues
+- ✅ Updated to Docker Compose V2
+- ✅ Automated database schema migrations
+- ✅ Cleaned up Replit-specific dependencies
+
+### Previous Fixes
+- Dashboard statistics display issues resolved
+- Settings page crash fixes (`TypeError: e.find is not a function`)
+- Dialog accessibility improvements
+- Enhanced API error handling and logging
 
 ---
 
-## License
+## 🤝 Contributing
 
-MIT (or your chosen license)
-
----
-
-## Settings Page Tabs
-
-The Settings page now includes the following tabs (visible to Administrators and Council Members):
-
-- **Email Settings**: Configure notification sender, enable/disable notifications, customize email subjects and footer.
-- **System Settings**: General system-wide preferences (future expansion).
-- **SMTP Settings**: Configure the outgoing email (SMTP) server, including host, port, authentication, and sender address. Test email delivery directly from this tab.
-- **User Management**: Add, edit, lock, or remove user accounts and assign roles.
-
-**Access:** Only users with the Administrator or Council Member role can view and modify these settings. Regular users will not see the Settings page or its tabs.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test with Docker setup
+5. Submit a pull request
 
 ---
 
-## Recent Fixes & Resolutions
+## 📄 License
 
-### Dashboard & Settings Page Stability
-
-A series of issues affecting the Dashboard and Settings page have been resolved:
-
-1.  **Dashboard Statistics Display:**
-    *   **Issue:** Statistics cards on the Dashboard (Total Violations, New, Pending, etc.) were appearing blank.
-    *   **Cause:** The `DashboardStats` component was not correctly accessing the nested `stats` object from the `/api/reports/stats` API response. The `useQuery` hook was returning the entire response object, and the component was attempting to read properties like `totalViolations` from this parent object where they were undefined.
-    *   **Fix:** The `useQuery` hook in `client/src/components/dashboard-stats.tsx` was updated. An explicit `queryFn` was added that now processes the API response and returns the `jsonData.stats` object directly. This ensures the component receives the correct data structure for display.
-
-2.  **Settings Page Crash (`TypeError: e.find is not a function`):**
-    *   **Issue:** The Settings page was crashing with a "Something went wrong" message, and browser console logs showed a `TypeError: e.find is not a function`.
-    *   **Primary Cause (Corrected in `settings-page.tsx`):**
-        *   The `useEffect` hook responsible for populating the "System Settings" form (including strata name, address, logo, etc.) was incorrectly attempting to access `settings.settings` and `settings.logoUrl` as if the `settings` data (from `/api/settings`) was an object containing these properties. However, `settings` is an array (`SystemSetting[]`).
-        *   **Fix:** The `useEffect` hook in `client/src/pages/settings-page.tsx` was modified to correctly treat `settings` as an array. It now iterates directly over `settings` to find the relevant `SystemSetting` objects (e.g., for 'strata_logo') and populates the form state and `logoUrl` state variable appropriately.
-
-3.  **Settings Page - Dialog Accessibility Warnings:**
-    *   **Issue:** Browser console logs showed accessibility warnings for `DialogContent` components (from Radix UI, via shadcn/ui) within the User Management tab of the Settings page, indicating missing `DialogTitle` or `DialogDescription` / `aria-describedby` attributes.
-    *   **Fix:** Added the required `<DialogDescription>` components to the following dialogs within `client/src/components/user-management-tab.tsx`:
-        *   Add/Edit User Dialog
-        *   Invite User Dialog
-        *   Lock/Unlock User Account Dialog
-        This ensures these dialogs are more accessible to screen reader users.
-
-4.  **Backend API Error (`/api/violations/pending-approval` - 500 Error):**
-    *   **Issue:** The API endpoint `/api/violations/pending-approval` (called by the main Layout component for notification badges) was consistently returning a 500 Internal Server Error.
-    *   **Resolution Note:** While the exact backend fix details were not processed here, this issue was also reported as resolved. For future reference, server logs are located in the `logs/` directory and are essential for diagnosing such backend errors. The endpoint relies on the `dbStorage.getViolationsByStatus("pending_approval")` function in `server/storage.ts`. 
+MIT License - see LICENSE file for details
 
 ---
 
-## Developer Notes
+## 🆘 Support
 
-### Enhanced API Error Handling & Logging
-
-To aid in debugging and provide clearer insights into backend issues, several enhancements have been made:
-
-*   **`/api/violations/pending-approval` Route (Server-Side):**
-    *   Increased verbosity in logging: Logs now include the calling user's ID at the start of a request and upon successful data retrieval.
-    *   Improved error structure: In case of an error, the server logs detailed error information (message, stack, error name, timestamp) and returns a structured JSON response to the client. This JSON includes `message`, `errorCode`, `details`, and `timestamp` fields, making client-side error handling more robust.
-
-*   **Client-Side Fetch for Pending Approvals (`client/src/components/layout.tsx`):
-    *   The `fetch` call to `/api/violations/pending-approval` now rigorously checks `response.ok`.
-    *   If an error occurs, it attempts to parse the structured JSON error from the server.
-    *   Detailed error information (from the server or a client-generated one) is logged to the console.
-    *   User-facing toast notifications are displayed to inform about failures in fetching pending approvals, using details from the error response.
-
-### LogRocket Integration Guide
-
-LogRocket can be integrated for advanced session replay, performance monitoring, and product analytics. This is invaluable for understanding user-affecting issues.
-
-**General Steps:**
-
-1.  **Account & Project Setup:**
-    *   Sign up/log in at [LogRocket.com](https://logrocket.com).
-    *   Create a new project in your LogRocket dashboard to obtain an **App ID** (e.g., `your-app-id/your-project-name`).
-
-2.  **SDK Installation (in `client/` directory):**
-    ```bash
-    npm i --save logrocket
-    npm i --save logrocket-react@6  # For React 18+, adjust version if needed
-    ```
-
-3.  **Initialization (in `client/src/main.tsx`):**
-    Import and initialize LogRocket *before* your main React app renders:
-    ```typescript
-    import LogRocket from 'logrocket';
-    import setupLogRocketReact from 'logrocket-react'; // If using the React plugin
-
-    // REPLACE 'your-app-id/your-project-name' with your actual LogRocket App ID
-    LogRocket.init('your-app-id/your-project-name');
-    setupLogRocketReact(LogRocket); // Optional: if you installed logrocket-react
-
-    // ... rest of your main.tsx (ReactDOM.createRoot, etc.)
-    ```
-
-4.  **User Identification (Optional but Recommended):**
-    Associate sessions with users for better tracking. Call `LogRocket.identify()` after login or when user data is available (e.g., in `client/src/hooks/use-auth.ts`):
-    ```typescript
-    LogRocket.identify('USER_ID', { // Replace USER_ID with actual user's ID
-      name: 'User Full Name',
-      email: 'user@example.com',
-      // Add any other relevant user traits
-    });
-    ```
-
-5.  **Babel Plugin for `displayName` (Optional for React Plugin):
-    To improve component identification in LogRocket when using `logrocket-react`, ensure components have `displayName` properties. For projects using Babel (e.g., in Vite's production build):
-    *   Install: `npm i --save-dev @babel/plugin-transform-react-display-name`
-    *   Configure in your Babel settings (e.g., `.babelrc` or via `vite.config.ts` if customizing Vite's Babel options).
-
-Refer to the official [LogRocket Documentation](https://docs.logrocket.com/) for more detailed setup and advanced configuration options.
+For issues and questions:
+1. Check the troubleshooting section above
+2. Review Docker logs for error details
+3. Create an issue on GitHub with:
+   - Error messages
+   - Steps to reproduce
+   - Environment details (OS, Docker version)
 
 ---
 
-## Getting Started with Create React App
-
-This section is not provided in the original file or the code block. It's unclear if it's meant to be included in the rewritten file. If it's meant to be included, please provide the relevant content. 
+**Note**: This application is now fully containerized and ready for local development and production deployment! 
