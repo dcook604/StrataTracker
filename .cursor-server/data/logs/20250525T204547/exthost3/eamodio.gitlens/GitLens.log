@@ -32,3 +32,7 @@ To enable debug logging, set `"gitlens.outputLevel": "debug"` or run "GitLens: E
 [2025-05-25 22:51:07.802] Git.exec
 Error: fatal: There is no path .cursor-server/data/User/History/738a0274/entries.json in the commit
 
+2025-05-25 22:53:29.801 [info] [2025-05-25 22:53:29.301] [GIT   *3174ms] (spawn) [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap --no-min-parents -n41 hotfit/prodsetup -- [*3174ms] (slow)
+
+2025-05-25 22:55:15.808 [info] [2025-05-25 22:55:15.307] [GIT    *558ms] [/home/violation] git log --format=%x1E%H%x1D%aN%x1D%aE%x1D%at%x1D%cN%x1D%cE%x1D%ct%x1D%P%x1D%D%x1D%B%x1D --numstat --summary -M --use-mailmap -m --no-min-parents -n1 5ca93c85fee54129e27faf40de484a01603b127b -- [*558ms] (slow)
+

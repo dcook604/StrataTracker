@@ -200,3 +200,53 @@
 2025-05-25 22:49:34.342 [warning] TextEditor is closed/disposed
 2025-05-25 22:50:33.182 [warning] TextEditor is closed/disposed
 2025-05-25 22:52:11.500 [warning] TextEditor is closed/disposed
+2025-05-25 22:55:36.309 [warning] [Decorations] CAPPING events from decorations provider vscode.git 2883
+2025-05-25 22:55:39.159 [warning] TextEditor is closed/disposed
+2025-05-25 22:56:45.805 [error] Error: Cannot call write after a stream was destroyed
+	at errorBuffer (node:internal/streams/writable:733:33)
+	at afterWrite (node:internal/streams/writable:714:5)
+	at onwrite (node:internal/streams/writable:688:7)
+	at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:88:12)
+	at WriteWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:56:45.805 [error] Error: Cannot call write after a stream was destroyed
+	at errorBuffer (node:internal/streams/writable:733:33)
+	at afterWrite (node:internal/streams/writable:714:5)
+	at onwrite (node:internal/streams/writable:688:7)
+	at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:88:12)
+	at WriteWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:57:39.631 [error] Error: Cannot call write after a stream was destroyed
+	at errorBuffer (node:internal/streams/writable:733:33)
+	at afterWrite (node:internal/streams/writable:714:5)
+	at onwrite (node:internal/streams/writable:688:7)
+	at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:88:12)
+	at WriteWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:57:39.631 [error] Error: Cannot call write after a stream was destroyed
+	at errorBuffer (node:internal/streams/writable:733:33)
+	at afterWrite (node:internal/streams/writable:714:5)
+	at onwrite (node:internal/streams/writable:688:7)
+	at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:88:12)
+	at WriteWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:57:39.631 [error] Error: Cannot call write after a stream was destroyed
+	at errorBuffer (node:internal/streams/writable:733:33)
+	at afterWrite (node:internal/streams/writable:714:5)
+	at onwrite (node:internal/streams/writable:688:7)
+	at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:88:12)
+	at WriteWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:58:00.321 [error] Error: read ECONNRESET
+	at Pipe.onStreamRead (node:internal/stream_base_commons:218:20)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:58:00.321 [error] Error: read ECONNRESET
+	at Pipe.onStreamRead (node:internal/stream_base_commons:218:20)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:58:00.321 [error] Error: read ECONNRESET
+	at Pipe.onStreamRead (node:internal/stream_base_commons:218:20)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:58:00.321 [error] Error: read ECONNRESET
+	at Pipe.onStreamRead (node:internal/stream_base_commons:218:20)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:58:00.322 [error] Error: read ECONNRESET
+	at Pipe.onStreamRead (node:internal/stream_base_commons:218:20)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 22:58:00.322 [error] Error: read ECONNRESET
+	at Pipe.onStreamRead (node:internal/stream_base_commons:218:20)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)

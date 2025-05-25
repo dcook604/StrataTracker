@@ -114,3 +114,23 @@
 2025-05-25 22:52:13.408 [info] Uninstalling extension from the profile: eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json
 2025-05-25 22:52:13.484 [info] Marked extension as uninstalled eamodio.gitlens-17.1.1
 2025-05-25 22:52:13.597 [info] Successfully uninstalled extension from the profile eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:56:33.084 [info] [<unknown>][5321d842][ExtensionHostConnection] The client has reconnected.
+2025-05-25 22:57:19.317 [info] [<unknown>][5321d842][ExtensionHostConnection] The client has reconnected.
+2025-05-25 22:58:20.830 [info] [<unknown>][e258540e][ManagementConnection] New connection established.
+2025-05-25 22:58:20.832 [info] [<unknown>][f892785c][ExtensionHostConnection] New connection established.
+2025-05-25 22:58:20.848 [info] [<unknown>][f892785c][ExtensionHostConnection] <846602> Launched Extension Host Process.
+2025-05-25 22:58:25.144 [error] CodeExpectedError: Could not find pty 27 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+2025-05-25 22:58:30.320 [info] [<unknown>][2a56f50d][ManagementConnection] The client has disconnected, will wait for reconnection 3h before disposing...
