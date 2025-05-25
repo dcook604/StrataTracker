@@ -1144,64 +1144,79 @@ export class DatabaseStorage implements IStorage {
   async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
     
-    const sortableColumns: Record<string, SQL<unknown> | undefined> = {
-      unitNumber: propertyUnits.unitNumber,
-      floor: propertyUnits.floor,
-      // Add other sortable base fields of propertyUnits if needed
-      createdAt: propertyUnits.createdAt,
-      updatedAt: propertyUnits.updatedAt,
-      id: propertyUnits.id
-    };
-    
-    let orderByClause: SQL<unknown> | undefined = sortableColumns[sortBy || 'unitNumber'] || propertyUnits.unitNumber;
-    if (orderByClause) {
-      orderByClause = sortOrder === 'asc' ? asc(orderByClause) : desc(orderByClause);
+    // Determine sort order
+    let orderByClause;
+    if (sortBy === 'floor') {
+      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.floor) : desc(propertyUnits.floor);
+    } else if (sortBy === 'createdAt') {
+      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.createdAt) : desc(propertyUnits.createdAt);
+    } else if (sortBy === 'updatedAt') {
+      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.updatedAt) : desc(propertyUnits.updatedAt);
+    } else if (sortBy === 'id') {
+      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.id) : desc(propertyUnits.id);
+    } else {
+      // Default to unitNumber
+      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.unitNumber) : desc(propertyUnits.unitNumber);
     }
 
-    const paginatedUnits = await db.query.propertyUnits.findMany({
-      orderBy: orderByClause,
-      limit: limit,
-      offset: offset,
-      with: {
-        unitRoles: { // This must match the relation name in propertyUnitsRelations
-          with: {
-            person: true // This must match the relation name in unitPersonRolesRelations
-          }
-        },
-        facilities: true // This must match the relation name in propertyUnitsRelations
-      }
-    });
+    // Use regular Drizzle query instead of query builder
+    const paginatedUnits = await db
+      .select({
+        unit: propertyUnits,
+        roles: unitPersonRoles,
+        person: personsTable,
+        facilities: unitFacilities
+      })
+      .from(propertyUnits)
+      .leftJoin(unitPersonRoles, eq(propertyUnits.id, unitPersonRoles.unitId))
+      .leftJoin(personsTable, eq(unitPersonRoles.personId, personsTable.id))
+      .leftJoin(unitFacilities, eq(propertyUnits.id, unitFacilities.unitId))
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset(offset);
 
-    // Process units to structure owners and tenants
-    const unitsWithPeopleAndFacilities = paginatedUnits.map(unit => {
-      const owners: Person[] = [];
-      const tenants: Person[] = [];
-      if (unit.unitRoles) {
-        unit.unitRoles.forEach(role => {
-          if (role.person) { // Ensure person data is loaded
-            const personWithNotificationPref = {
-                ...role.person,
-                receiveEmailNotifications: role.receiveEmailNotifications
-            };
-            if (role.role === 'owner') {
-              owners.push(personWithNotificationPref as Person);
-            } else if (role.role === 'tenant') {
-              tenants.push(personWithNotificationPref as Person);
-            }
-          }
+    // Group the results by unit
+    const unitsMap = new Map<number, any>();
+    
+    paginatedUnits.forEach(row => {
+      const unitId = row.unit.id;
+      
+      if (!unitsMap.has(unitId)) {
+        unitsMap.set(unitId, {
+          ...row.unit,
+          owners: [],
+          tenants: [],
+          facilities: row.facilities || undefined
         });
       }
-      // Remove unitRoles from the final unit object if it's not needed directly by frontend
-      const { unitRoles, ...restOfUnit } = unit;
-      return {
-        ...restOfUnit,
-        facilities: unit.facilities || undefined, // Ensure facilities is there or undefined
-        owners,
-        tenants,
-      };
+      
+      const unit = unitsMap.get(unitId);
+      
+      // Add person to appropriate role array if they exist
+      if (row.person && row.roles) {
+        const personWithNotificationPref = {
+          ...row.person,
+          receiveEmailNotifications: row.roles.receiveEmailNotifications
+        };
+        
+        if (row.roles.role === 'owner') {
+          // Check if person is already added to avoid duplicates
+          if (!unit.owners.find((p: any) => p.id === row.person!.id)) {
+            unit.owners.push(personWithNotificationPref);
+          }
+        } else if (row.roles.role === 'tenant') {
+          // Check if person is already added to avoid duplicates
+          if (!unit.tenants.find((p: any) => p.id === row.person!.id)) {
+            unit.tenants.push(personWithNotificationPref);
+          }
+        }
+      }
     });
 
-    // Count query remains the same for now
+    // Convert map to array
+    const unitsWithPeopleAndFacilities = Array.from(unitsMap.values());
+
+    // Count query
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(propertyUnits);
