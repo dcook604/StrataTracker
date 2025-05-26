@@ -412,34 +412,6 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
               Reject Violation
             </Button>
             
-            {Boolean(user && ((user as any).isCouncilMember || (user as any).isAdmin)) && (
-              <div className="pt-2">
-                <p className="text-sm font-medium text-neutral-700 mb-1">Fine Amount ($)</p>
-                <div className="flex">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={fineAmount}
-                    onChange={(e) => setFineAmount(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                    placeholder="0.00"
-                    className="flex-1 rounded-r-none"
-                  />
-                  <Button
-                    className="flex-shrink-0 rounded-l-none"
-                    onClick={handleSetFine}
-                    disabled={fineMutation.isPending || fineAmount === ""}
-                  >
-                    {fineMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Apply"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
             {violation.status !== "disputed" && (
               <Button
                 className="w-full"

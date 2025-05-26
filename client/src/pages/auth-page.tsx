@@ -62,6 +62,12 @@ export default function AuthPage() {
   const [showExpiredModal, setShowExpiredModal] = useState(false);
 
   useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search.includes('expired=1')) {
       setShowExpiredModal(true);
       // Optional: Clean the URL query parameter
@@ -113,9 +119,9 @@ export default function AuthPage() {
     // Implementation of register submission
   };
 
-  // Redirect if the user is logged in
+  // If user is already set (and useEffect for navigation will run), 
+  // we can return null earlier to prevent rendering the login form briefly.
   if (user) {
-    navigate("/");
     return null;
   }
 

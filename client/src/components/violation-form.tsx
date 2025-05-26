@@ -40,6 +40,7 @@ const violationFormSchema = z.object({
   categoryId: z.string().or(z.number()).refine(val => Number(val) > 0, {
     message: "Please select a category",
   }),
+  violationType: z.string().min(1, { message: "Violation type is required" }),
   violationDate: z.string().min(1, "Date is required"),
   violationTime: z.string().optional(),
   description: z.string().min(10, "Description must be at least 10 characters"),
@@ -89,6 +90,7 @@ export function ViolationForm() {
     defaultValues: {
       unitId: "",
       categoryId: "",
+      violationType: "",
       violationDate: new Date().toISOString().split("T")[0],
       violationTime: "",
       description: "",
@@ -110,6 +112,19 @@ export function ViolationForm() {
   }, [unitSearchTerm, filteredUnits, form]);
 
   const watchUnitId = form.watch("unitId");
+  const watchCategoryId = form.watch("categoryId");
+
+  // Effect to update violationType when categoryId changes
+  useEffect(() => {
+    if (watchCategoryId) {
+      const selectedCategory = safeCategories.find((cat: any) => String(cat.id) === String(watchCategoryId));
+      if (selectedCategory && selectedCategory.name) {
+        form.setValue("violationType", selectedCategory.name);
+      } else {
+        form.setValue("violationType", ""); // Clear if category not found or has no name
+      }
+    }
+  }, [watchCategoryId, safeCategories, form]);
 
   // Submit violation mutation
   const submitViolationMutation = useMutation({
@@ -120,6 +135,7 @@ export function ViolationForm() {
       // Add regular fields
       formData.append("unitId", Number(data.unitId).toString());
       formData.append("categoryId", Number(data.categoryId).toString());
+      formData.append("violationType", data.violationType);
       formData.append("violationDate", data.violationDate);
       formData.append("violationTime", data.violationTime || "");
       formData.append("description", data.description);

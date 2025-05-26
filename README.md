@@ -345,4 +345,33 @@ For issues and questions:
 
 ---
 
-**Note**: This application is now fully containerized and ready for local development and production deployment! 
+## 📄 Documentation
+
+- [Frontend Documentation](docs/FRONTEND.md)
+- [Backend Documentation](docs/BACKEND.md)
+- [Technical Overview](docs/TECHNICAL_OVERVIEW.md)
+- [Migration Guide](docs/MIGRATION_GUIDE.md)
+
+**Note**: This application is now fully containerized and ready for local development and production deployment!
+
+## ▶️ Starting the Frontend & Backend
+
+You can start both the frontend and backend together using Docker (recommended), or run them separately for development:
+
+### With Docker (Recommended)
+- Run: `sudo docker compose up --build`
+- Access the app at: http://localhost:3001
+
+### Local Development (Separate)
+- **Frontend:**
+  - `cd client`
+  - `npm install`
+  - `npm run dev`
+  - App runs on http://localhost:3000 (or as configured)
+- **Backend:**
+  - `cd server`
+  - `npm install`
+  - `npm run dev`
+  - API runs on http://localhost:3001 (or as configured)
+
+See [Frontend Documentation](docs/FRONTEND.md) and [Backend Documentation](docs/BACKEND.md) for more details. 
