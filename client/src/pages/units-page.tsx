@@ -97,9 +97,9 @@ export default function UnitsPage() {
       floor: "",
       phone: "",
       notes: "",
-      parkingSpots: undefined,
-      storageLockers: undefined,
-      bikeLockers: undefined,
+      parkingSpots: "",
+      storageLockers: "",
+      bikeLockers: "",
     }
   });
 
@@ -115,9 +115,9 @@ export default function UnitsPage() {
         floor: "",
         phone: "",
         notes: "",
-        parkingSpots: undefined,
-        storageLockers: undefined,
-        bikeLockers: undefined,
+        parkingSpots: "",
+        storageLockers: "",
+        bikeLockers: "",
       });
       setOwners([{ ...defaultPerson }]);
       setTenants([{ ...defaultPerson }]);
@@ -127,9 +127,9 @@ export default function UnitsPage() {
         floor: editingUnit.floor || "",
         phone: (editingUnit as any).phone || "", 
         notes: (editingUnit as any).notes || "", 
-        parkingSpots: editingUnit.facilities?.parkingSpots ?? undefined,
-        storageLockers: editingUnit.facilities?.storageLockers ?? undefined,
-        bikeLockers: editingUnit.facilities?.bikeLockers ?? undefined,
+        parkingSpots: editingUnit.facilities?.parkingSpots ?? "",
+        storageLockers: editingUnit.facilities?.storageLockers ?? "",
+        bikeLockers: editingUnit.facilities?.bikeLockers ?? "",
       });
       setOwners(
         editingUnit.owners && editingUnit.owners.length > 0
@@ -322,9 +322,9 @@ export default function UnitsPage() {
       floor: unit.floor || "",
       phone: (unit as any).phone || "",
       notes: (unit as any).notes || "",
-      parkingSpots: unit.facilities?.parkingSpots ?? undefined,
-      storageLockers: unit.facilities?.storageLockers ?? undefined,
-      bikeLockers: unit.facilities?.bikeLockers ?? undefined,
+      parkingSpots: unit.facilities?.parkingSpots ?? "",
+      storageLockers: unit.facilities?.storageLockers ?? "",
+      bikeLockers: unit.facilities?.bikeLockers ?? "",
     });
   };
   

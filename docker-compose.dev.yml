@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: spectrum4
+      POSTGRES_USER: spectrum4
+      POSTGRES_PASSWORD: spectrum4password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+      - ./migrations:/docker-entrypoint-initdb.d/migrations
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data: 

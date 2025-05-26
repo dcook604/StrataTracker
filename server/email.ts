@@ -15,7 +15,7 @@ let transporter = nodemailer.createTransport({
 });
 
 // Interface for violation notification
-interface ViolationNotificationParams {
+export interface ViolationNotificationParams {
   violationId: number;
   unitNumber: string;
   violationType: string;

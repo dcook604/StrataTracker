@@ -6,7 +6,11 @@ import rateLimit from 'express-rate-limit';
 import { createServer, type Server } from "http";
 import { storage as dbStorage } from "./storage";
 import { setupAuth } from "./auth";
-import { sendViolationNotification, sendViolationApprovedNotification } from "./email";
+import { 
+  sendViolationNotification, 
+  sendViolationApprovedNotification, 
+  type ViolationNotificationParams 
+} from "./email";
 import { z } from "zod";
 import { format } from 'date-fns'; // Added for CSV date formatting
 import { generateViolationsPdf } from "./pdfGenerator"; // Corrected PDF generator import path
@@ -65,15 +69,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     credentials: true,
   }));
 
-  // Add rate limiting (100 requests per 15 minutes per IP)
-  app.use(rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: 'Too many requests, please try again later.'
-  }));
-
   // Create uploads directory if it doesn't exist
   const uploadsDir = path.join(process.cwd(), "uploads");
   try {
@@ -85,6 +80,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes first
   setupAuth(app);
   
+  // Apply rate limiting specifically to /api routes
+  const apiRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many requests to API, please try again later.'
+  });
+  app.use("/api", apiRateLimiter); // Apply to all /api routes
+  
   // Register user management routes
   app.use("/api/users", userManagementRoutes);
   
@@ -93,6 +98,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Serve uploaded files statically
   app.use('/api/uploads', express.static(uploadsDir));
+
+  // New route for pending approvals
+  app.get("/api/violations/pending-approval", ensureAuthenticated, ensureCouncilMember, async (req, res) => {
+    try {
+      // TODO: Implement dbStorage.getPendingApprovalViolations() or similar
+      // This method should fetch violations with status 'pending_approval'
+      // and ideally join with unit information for display as in layout.tsx
+      const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
+      res.json(pendingViolations);
+    } catch (error: any) {
+      console.error("Failed to fetch pending approval violations:", error);
+      res.status(500).json({ message: "Failed to fetch pending approval violations", details: error.message });
+    }
+  });
 
   // Unit Management API (New)
   app.get("/api/units", ensureAuthenticated, async (req, res) => {
@@ -216,13 +235,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/violations", ensureAuthenticated, upload.array("attachments", 5), async (req, res) => {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
+
     try {
       // Handle file uploads
       const files = req.files as Express.Multer.File[];
       const attachments = files ? files.map(file => file.filename) : [];
       console.log("[Violation Upload] Received files:", files?.map(f => f.originalname), "Saved as:", attachments);
       
-      // Combine form data with file paths
       const violationData = {
         ...req.body,
         reportedById: userId,
@@ -231,73 +250,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unitId: req.body.unitId ? parseInt(req.body.unitId, 10) : undefined,
       };
       
-      // Validate and process the data
       const validatedData = insertViolationSchema.parse({
         ...violationData,
-        violationDate: new Date(violationData.violationDate)
+        violationDate: new Date(violationData.violationDate), 
+        attachments: Array.isArray(violationData.attachments) ? violationData.attachments : [],
       });
-      
-      // Create the violation
+
       const violation = await dbStorage.createViolation(validatedData);
       console.log("[Violation Upload] Created violation with attachments:", violation.attachments);
       
-      // Add to history
-      await dbStorage.addViolationHistory({
-        violationId: violation.id,
-        userId,
-        action: "created",
-        comment: "Violation reported"
-      });
-      
-      // Fetch the unit details for email
       const unit = await dbStorage.getPropertyUnit(violation.unitId);
-      const baseUrl = process.env.PUBLIC_BASE_URL || "http://localhost:3000";
-      const accessLinks: { owner?: string; tenant?: string } = {};
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-      if (unit) {
-        // Generate and store access link for owner
-        if (unit.ownerEmail) {
-          const ownerLink = await dbStorage.createViolationAccessLink({
+      const reporterUser = req.user as User;
+
+      // Attempt to send email notification but don't let it block the response
+      try {
+        if (unit && reporterUser) {
+          const emailParams: ViolationNotificationParams = {
             violationId: violation.id,
-            recipientEmail: unit.ownerEmail,
-            expiresAt,
-            token: undefined, // let DB default
-            usedAt: null,
-          });
-          accessLinks.owner = `${baseUrl}/violation/comment/${ownerLink.token}`;
+            unitId: unit.id,
+            unitNumber: unit.unitNumber,
+            violationType: violation.violationType, 
+            ownerEmail: unit.ownerEmail || "", 
+            ownerName: unit.ownerName || "Owner", 
+            tenantEmail: unit.tenantEmail === null ? undefined : unit.tenantEmail, 
+            tenantName: unit.tenantName === null ? undefined : unit.tenantName,   
+            reporterName: reporterUser.fullName || "System", 
+          };
+          await sendViolationNotification(emailParams);
+          console.log(`[Email] Violation notification email attempt for violation ID: ${violation.id}`);
+        } else {
+          console.warn(`[Email] Could not send violation notification for violation ID: ${violation.id}. Unit: ${!!unit}, Reporter: ${!!reporterUser}`);
         }
-        // Generate and store access link for tenant
-        if (unit.tenantEmail) {
-          const tenantLink = await dbStorage.createViolationAccessLink({
-            violationId: violation.id,
-            recipientEmail: unit.tenantEmail,
-            expiresAt,
-            token: undefined, // let DB default
-            usedAt: null,
-          });
-          accessLinks.tenant = `${baseUrl}/violation/comment/${tenantLink.token}`;
-        }
-        // Send email notification, passing accessLinks
-        await sendViolationNotification({
-          violationId: violation.id,
-          unitNumber: unit.unitNumber,
-          violationType: violation.violationType,
-          ownerEmail: unit.ownerEmail ?? "",
-          ownerName: unit.ownerName ?? "",
-          tenantEmail: unit.tenantEmail ?? undefined,
-          tenantName: unit.tenantName ?? undefined,
-          reporterName: (req.user as any)?.fullName ?? "System",
-          unitId: unit.id,
-          accessLinks,
-        });
+      } catch (emailError: any) {
+        console.error(`[Email Error] Failed to send violation notification for violation ID: ${violation.id}:`, emailError.message);
       }
       
+      await dbStorage.addViolationHistory({
+        violationId: violation.id,
+        userId: userId,
+        action: "created",
+        comment: "Violation reported."
+      });
+      
       res.status(201).json(violation);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
+        console.error("[Validation Error] POST /api/violations:", error.errors);
         return res.status(400).json({ errors: error.errors });
       }
       console.error("Error creating violation:", error);
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' });
+      }
+      if (error.message === "Only images and PDF files are allowed") {
+        return res.status(400).json({ message: error.message });
+      }
       res.status(500).json({ message: "Failed to create violation" });
     }
   });
@@ -464,7 +471,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       console.log('[REPORTS/STATS] Filters:', filters);
-      let stats, violationsByMonth, violationsByType;
+      let stats; // Type will be inferred from dbStorage.getViolationStats
+      let violationsByMonth: { month: string, count: number }[] = []; // Explicitly type
+      let violationsByType: { type: string, count: number }[] = [];   // Explicitly type
       try {
         stats = await dbStorage.getViolationStats(filters);
         console.log('[REPORTS/STATS] Stats:', stats);
@@ -487,14 +496,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('[REPORTS/STATS] ViolationsByMonth:', violationsByMonth);
       } catch (err) {
         console.error('[REPORTS/STATS] getViolationsByMonth error:', err);
-        violationsByMonth = [];
+        violationsByMonth = []; // Ensure it's an empty array on error
       }
       try {
         violationsByType = await dbStorage.getViolationsByType(filters);
         console.log('[REPORTS/STATS] ViolationsByType:', violationsByType);
       } catch (err) {
         console.error('[REPORTS/STATS] getViolationsByType error:', err);
-        violationsByType = [];
+        violationsByType = []; // Ensure it's an empty array on error
       }
       res.json({ stats, violationsByMonth, violationsByType });
     } catch (error) {
