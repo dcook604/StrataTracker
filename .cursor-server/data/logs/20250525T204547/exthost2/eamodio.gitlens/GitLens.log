@@ -1,0 +1,91 @@
+2025-05-25 20:57:46.215 [info] GitLens v17.1.1 activating in Cursor (1.96.2) on the desktop; language='en', logLevel='warn', defaultDateLocale='null' (464ed72cdb6ef453f7bbfc3bbba6b516380aec12fe61c3f9b6c89fd35a1057f9|ee55955b-40e1-4750-9df0-87cb3e2b21841748206642587)
+To enable debug logging, set `"gitlens.outputLevel": "debug"` or run "GitLens: Enable Debug Logging" from the Command Palette
+[2025-05-25 20:57:42.463] Authentication provider 'github' is not registered; User has disabled it
+
+2025-05-25 20:57:49.759 [info] [2025-05-25 20:57:49.270] [GIT          ] [/home/violation] git for-each-ref --format=%1E%(HEAD)%1D%(refname)%1D%(upstream)%1D%(upstream:track)%1D%(objectname)%1D%(committerdate:iso8601)%1D%(worktreepath)%1D refs/heads/ refs/remotes/ • cancelled [365ms]
+
+2025-05-25 21:02:32.574 [info] [2025-05-25 21:02:30.962] Warning(/usr/bin/git -c core.quotepath=false -c color.ui=false push --set-upstream origin hotfit/prodsetup): remote: 
+remote: Create a pull request for 'hotfit/prodsetup' on GitHub by visiting:        
+remote:      https://github.com/dcook604/StrataTracker/pull/new/hotfit/prodsetup        
+remote: 
+To https://github.com/dcook604/StrataTracker.git
+ * [new branch]      hotfit/prodsetup -> hotfit/prodsetup
+
+[2025-05-25 21:02:30.962] [GIT   *1389ms] [/home/violation] git push --set-upstream origin hotfit/prodsetup [*1389ms] (slow)
+
+2025-05-25 21:04:29.835 [info] [2025-05-25 21:04:29.323] [GIT   *2171ms] [/home/violation] git config --get-regex ^branch\.hotfit/prodsetup\. [*2171ms] (slow)
+[2025-05-25 21:04:29.338] [GIT   *2186ms] [/home/violation] git config --get branch.hotfit/prodsetup.gk-merge-target-user [*2186ms] (slow)
+[2025-05-25 21:04:29.338] [GIT   *2147ms] [/home/violation] git config --get branch.hotfit/prodsetup.gk-merge-target-user [*2147ms] (slow, waiting)
+[2025-05-25 21:04:29.368] [GIT   *2215ms] [/home/violation] git config --get branch.hotfit/prodsetup.gk-associated-issues [*2215ms] (slow)
+[2025-05-25 21:04:29.485] [GIT   *2295ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*2295ms] (slow)
+
+2025-05-25 21:04:39.054 [info] [2025-05-25 21:04:38.534] [GIT   *3529ms] [/home/violation] git diff -U3 --staged -- [*3529ms] (slow)
+[2025-05-25 21:04:38.993] 404 (Not Found): Failed to get prompt template 'generate-commitMessage_v2' (https://api.gitkraken.dev/v1/ai-tasks/templates/message-prompt/generate-commitMessage_v2)
+
+2025-05-25 21:04:47.187 [info] [2025-05-25 21:04:45.114] [           21] GitKrakenProvider.sendRequest Cancelled request to Generate Commit Message: (GitKraken AI (Preview))
+Canceled: Operation cancelled
+
+2025-05-25 21:04:49.032 [info] [2025-05-25 21:04:49.030] [GIT   *1863ms] [/home/violation] git diff -U3 --staged -- [*1863ms] (slow)
+
+2025-05-25 21:04:58.284 [info] [2025-05-25 21:04:56.165] [           25] GitKrakenProvider.sendRequest Cancelled request to Generate Commit Message: (GitKraken AI (Preview))
+Canceled: Operation cancelled
+
+2025-05-25 21:05:16.220 [info] [2025-05-25 21:05:15.720] [GIT   *1777ms] [/home/violation] git diff -U3 --staged -- [*1777ms] (slow)
+
+2025-05-25 21:05:20.793 [info] [2025-05-25 21:05:20.469] [           2c] GitKrakenProvider.sendRequest Cancelled request to Generate Commit Message: (GitKraken AI (Preview))
+Canceled: Operation cancelled
+
+2025-05-25 21:05:28.756 [info] [2025-05-25 21:05:28.665] [GIT    *673ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*673ms] (slow)
+
+2025-05-25 21:05:29.932 [info] [2025-05-25 21:05:29.930] [GIT   *4237ms] [/home/violation] git diff -U3 --staged -- [*4237ms] (slow)
+
+2025-05-25 21:05:34.138 [info] [2025-05-25 21:05:32.051] [           31] GitKrakenProvider.sendRequest Cancelled request to Generate Commit Message: (GitKraken AI (Preview))
+Canceled: Operation cancelled
+
+2025-05-25 21:05:39.352 [info] [2025-05-25 21:05:39.352] [GIT   *1782ms] [/home/violation] git check-ignore -z --stdin [*1782ms] (slow)
+
+2025-05-25 21:05:41.894 [info] [2025-05-25 21:05:41.548] [GIT    *831ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*831ms] (slow)
+
+2025-05-25 21:05:53.179 [info] [2025-05-25 21:05:52.678] [GIT    *714ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*714ms] (slow)
+
+2025-05-25 21:06:22.817 [info] [2025-05-25 21:06:20.409] [GIT   *1470ms] [/home/violation] git diff -U3 --staged -- [*1470ms] (slow)
+[2025-05-25 21:06:20.409] [GIT    *906ms] [/home/violation] git diff -U3 --staged -- [*906ms] (slow, waiting)
+[2025-05-25 21:06:22.736] [GIT   *1978ms] [/home/violation] git config --get-regex ^branch\.hotfit/prodsetup\. [*1978ms] (slow)
+[2025-05-25 21:06:22.764] [GIT   *2006ms] [/home/violation] git config --get branch.hotfit/prodsetup.gk-merge-target-user [*2006ms] (slow)
+[2025-05-25 21:06:22.764] [GIT   *1932ms] [/home/violation] git config --get branch.hotfit/prodsetup.gk-merge-target-user [*1932ms] (slow, waiting)
+[2025-05-25 21:06:22.816] [GIT   *2059ms] [/home/violation] git config --get branch.hotfit/prodsetup.gk-associated-issues [*2059ms] (slow)
+
+2025-05-25 21:06:23.327 [info] [2025-05-25 21:06:23.082] [GIT   *2251ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*2251ms] (slow)
+
+2025-05-25 21:06:23.827 [info] [2025-05-25 21:06:23.410] [           4c] GitKrakenProvider.sendRequest Unable to Generate Commit Message: (GitKraken AI (Preview))
+Error: (GitKraken AI (Preview)) 413.0: Payload Too Large
+[2025-05-25 21:06:23.411] GenerateCommitMessageCommand
+Error: Unable to Generate Commit Message: (GitKraken AI (Preview)) (GitKraken AI (Preview)) 413.0: Payload Too Large
+
+2025-05-25 21:06:24.745 [info] [2025-05-25 21:06:24.031] [           4d] GitKrakenProvider.sendRequest Unable to Generate Commit Message: (GitKraken AI (Preview))
+Error: (GitKraken AI (Preview)) 413.0: Payload Too Large
+[2025-05-25 21:06:24.032] GenerateCommitMessageCommand
+Error: Unable to Generate Commit Message: (GitKraken AI (Preview)) (GitKraken AI (Preview)) 413.0: Payload Too Large
+[2025-05-25 21:06:24.743] [GIT   *4283ms] [/home/violation] git diff -U3 --staged -- [*4283ms] (slow)
+
+2025-05-25 21:06:34.299 [info] [2025-05-25 21:06:32.212] [           4e] GitKrakenProvider.sendRequest Cancelled request to Generate Commit Message: (GitKraken AI (Preview))
+Canceled: Operation cancelled
+
+2025-05-25 21:06:41.440 [info] [2025-05-25 21:06:41.142] [GIT    *657ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*657ms] (slow)
+
+2025-05-25 21:06:50.848 [info] [2025-05-25 21:06:50.347] [GIT   *1534ms] [/home/violation] git merge-base hotfit/prodsetup main [*1534ms] (slow)
+[2025-05-25 21:06:50.372] [GIT   *2024ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*2024ms] (slow)
+
+2025-05-25 21:07:01.846 [info] [2025-05-25 21:07:01.345] [GIT   *1525ms] [/home/violation] git merge-base hotfit/prodsetup main [*1525ms] (slow)
+[2025-05-25 21:07:01.376] [GIT   *2052ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*2052ms] (slow)
+
+2025-05-25 21:07:07.143 [info] [2025-05-25 21:07:07.120] [GIT   *1550ms] [/home/violation] git merge-base hotfit/prodsetup main [*1550ms] (slow)
+
+2025-05-25 21:07:07.643 [info] [2025-05-25 21:07:07.148] [GIT   *2071ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*2071ms] (slow)
+
+2025-05-25 21:07:12.746 [info] [2025-05-25 21:07:12.725] [GIT   *1524ms] [/home/violation] git merge-base hotfit/prodsetup main [*1524ms] (slow)
+
+2025-05-25 21:07:13.246 [info] [2025-05-25 21:07:12.749] [GIT   *1950ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*1950ms] (slow)
+
+2025-05-25 21:07:29.486 [info] [2025-05-25 21:07:27.626] [GIT    *536ms] [/home/violation] git status --porcelain=v2 --branch -u --find-renames -- [*536ms] (slow)
+

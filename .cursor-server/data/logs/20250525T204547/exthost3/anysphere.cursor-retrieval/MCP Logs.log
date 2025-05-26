@@ -1,0 +1,101 @@
+2025-05-25 21:14:14.030 [info] -mcp: Handling CreateClient action
+2025-05-25 21:14:14.030 [info] -mcp: Starting new stdio process with command: npx -y @smithery/cli@latest run @upstash/context7-mcp --key 8efdb6e9-c2f9-40c8-980d-f4101b83cd29
+2025-05-25 21:14:14.030 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:14.030 [error] -mcp: No server info found
+2025-05-25 21:14:17.469 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:17.469 [error] -mcp: No server info found
+2025-05-25 21:14:18.396 [info] -mcp: Successfully connected to stdio server
+2025-05-25 21:14:18.396 [info] -mcp: Storing stdio client
+2025-05-25 21:14:18.396 [error] user-context7-mcp: 2025-05-25T21:14:17.725Z [Runner] Connecting to server: {"id":"@upstash/context7-mcp","connectionTypes":["http"]}
+
+2025-05-25 21:14:18.396 [error] user-context7-mcp: 2025-05-25T21:14:17.730Z [Runner] Connecting to Streamable HTTP endpoint: https://server.smithery.ai/@upstash/context7-mcp/mcp
+
+2025-05-25 21:14:18.396 [error] user-context7-mcp: 2025-05-25T21:14:17.731Z [Runner] Streamable HTTP connection initiated
+
+2025-05-25 21:14:18.396 [error] user-context7-mcp: 2025-05-25T21:14:17.732Z [Runner] Streamable HTTP connection established
+
+2025-05-25 21:14:19.597 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:19.597 [info] -mcp: Listing offerings
+2025-05-25 21:14:19.598 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:19.598 [info] -mcp: Listing offerings
+2025-05-25 21:14:19.598 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:19.598 [info] -mcp: Listing offerings
+2025-05-25 21:14:19.598 [info] -mcp: Connected to stdio server, fetching offerings
+2025-05-25 21:14:19.598 [info] -mcp: Connected to stdio server, fetching offerings
+2025-05-25 21:14:19.598 [info] -mcp: Connected to stdio server, fetching offerings
+2025-05-25 21:14:19.944 [info] listOfferings: Found 2 tools
+2025-05-25 21:14:19.944 [info] -mcp: Found 2 tools, 0 resources, and 0 resource templates
+2025-05-25 21:14:20.588 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:20.588 [error] -mcp: No server info found
+2025-05-25 21:14:20.797 [info] listOfferings: Found 2 tools
+2025-05-25 21:14:20.798 [info] -mcp: Found 2 tools, 0 resources, and 0 resource templates
+2025-05-25 21:14:20.842 [info] listOfferings: Found 2 tools
+2025-05-25 21:14:20.842 [info] -mcp: Found 2 tools, 0 resources, and 0 resource templates
+2025-05-25 21:14:21.015 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:21.015 [error] -mcp: No server info found
+2025-05-25 21:14:21.043 [info] -mcp: Handling ListOfferings action
+2025-05-25 21:14:21.043 [error] -mcp: No server info found
+2025-05-25 21:14:47.733 [error] user-context7-mcp: 2025-05-25T21:14:47.732Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:15:17.734 [error] user-context7-mcp: 2025-05-25T21:15:17.733Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:15:47.734 [error] user-context7-mcp: 2025-05-25T21:15:47.733Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:15:58.517 [error] user-context7-mcp: 2025-05-25T21:15:58.517Z [Runner] Streamable HTTP error: Streamable HTTP error: Failed to open SSE stream: <none>
+
+2025-05-25 21:15:58.518 [error] user-context7-mcp: 2025-05-25T21:15:58.517Z [Runner] Streamable HTTP error: Streamable HTTP error: Failed to open SSE stream: <none>
+
+2025-05-25 21:16:17.748 [error] user-context7-mcp: 2025-05-25T21:16:17.748Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:16:47.786 [error] user-context7-mcp: 2025-05-25T21:16:47.773Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:17:17.774 [error] user-context7-mcp: 2025-05-25T21:17:17.772Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:17:48.525 [error] user-context7-mcp: 2025-05-25T21:17:47.798Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:18:17.799 [error] user-context7-mcp: 2025-05-25T21:18:17.798Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:18:47.824 [error] user-context7-mcp: 2025-05-25T21:18:47.823Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:19:17.825 [error] user-context7-mcp: 2025-05-25T21:19:17.824Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:19:47.828 [error] user-context7-mcp: 2025-05-25T21:19:47.827Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:20:17.828 [error] user-context7-mcp: 2025-05-25T21:20:17.827Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:20:47.831 [error] user-context7-mcp: 2025-05-25T21:20:47.830Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:21:17.831 [error] user-context7-mcp: 2025-05-25T21:21:17.830Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:21:47.856 [error] user-context7-mcp: 2025-05-25T21:21:47.855Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:22:17.857 [error] user-context7-mcp: 2025-05-25T21:22:17.856Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:22:47.882 [error] user-context7-mcp: 2025-05-25T21:22:47.881Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:23:17.882 [error] user-context7-mcp: 2025-05-25T21:23:17.881Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:23:47.897 [error] user-context7-mcp: 2025-05-25T21:23:47.889Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:24:17.908 [error] user-context7-mcp: 2025-05-25T21:24:17.907Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:24:47.923 [error] user-context7-mcp: 2025-05-25T21:24:47.923Z [Runner] Sending heartbeat ping...
+
+2025-05-25 21:25:17.932 [error] user-context7-mcp: 2025-05-25T21:25:17.932Z [Runner] Connection idle for 11 minutes, initiating shutdown
+
+2025-05-25 21:25:17.933 [error] user-context7-mcp: 2025-05-25T21:25:17.932Z [Runner] Received exit signal, initiating shutdown...
+
+2025-05-25 21:25:17.934 [error] user-context7-mcp: 2025-05-25T21:25:17.933Z [Runner] Starting cleanup process...
+
+2025-05-25 21:25:17.934 [error] user-context7-mcp: 2025-05-25T21:25:17.934Z [Runner] Terminating session with ID: eyJpIjoiZTgy...
+
+2025-05-25 21:25:18.190 [error] user-context7-mcp: 2025-05-25T21:25:18.189Z [Runner] Session terminated successfully
+2025-05-25T21:25:18.189Z [Runner] Session ID has been cleared
+2025-05-25T21:25:18.189Z [Runner] Attempting to close transport (3s timeout)...
+
+2025-05-25 21:25:18.203 [error] user-context7-mcp: 2025-05-25T21:25:18.202Z [Runner] Streamable HTTP connection closed
+2025-05-25T21:25:18.202Z [Runner] Clean shutdown detected, performing graceful exit
+
+2025-05-25 21:25:18.203 [error] user-context7-mcp: 2025-05-25T21:25:18.203Z [Runner] Final cleanup on exit
+
+2025-05-25 21:25:18.262 [info] -mcp: Client closed for command

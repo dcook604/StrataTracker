@@ -1,0 +1,136 @@
+2025-05-25 20:45:47.662 [info] 
+
+
+
+
+2025-05-25 20:45:47.681 [info] Extension host agent started.
+2025-05-25 20:45:48.108 [error] [<unknown>][61e5dc46][ManagementConnection] Unknown reconnection token (never seen).
+2025-05-25 20:45:48.112 [error] [<unknown>][bbfe03e3][ExtensionHostConnection] Unknown reconnection token (never seen).
+2025-05-25 20:46:08.453 [info] [<unknown>][4b78d871][ExtensionHostConnection] New connection established.
+2025-05-25 20:46:08.465 [info] [<unknown>][0ab80ad4][ManagementConnection] New connection established.
+2025-05-25 20:46:08.589 [info] [<unknown>][4b78d871][ExtensionHostConnection] <775807> Launched Extension Host Process.
+2025-05-25 20:50:47.685 [info] New EH opened, aborting shutdown
+2025-05-25 20:50:47.692 [error] Error: Unexpected SIGPIPE
+    at process.<anonymous> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/server-main.js:178:1060)
+    at process.emit (node:events:530:35)
+2025-05-25 20:57:06.198 [info] [<unknown>][0ab80ad4][ManagementConnection] The client has disconnected gracefully, so the connection will be disposed.
+2025-05-25 20:57:07.374 [info] [<unknown>][4b78d871][ExtensionHostConnection] <775807> Extension Host Process exited with code: 0, signal: null.
+2025-05-25 20:57:07.375 [info] Last EH closed, waiting before shutting down
+2025-05-25 20:57:33.551 [info] [<unknown>][7ec5032d][ManagementConnection] New connection established.
+2025-05-25 20:57:33.559 [info] [<unknown>][37799c99][ExtensionHostConnection] New connection established.
+2025-05-25 20:57:33.568 [info] [<unknown>][37799c99][ExtensionHostConnection] <780182> Launched Extension Host Process.
+2025-05-25 20:57:38.545 [error] CodeExpectedError: Could not find pty 10 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+2025-05-25 21:01:50.720 [info] Getting Manifest... ms-azuretools.vscode-docker
+2025-05-25 21:01:51.192 [info] Installing extension: ms-azuretools.vscode-docker {"isMachineScoped":false,"installOnlyNewlyAddedFromExtensionPack":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"0.50.7","date":"2025-05-24T18:23:35.492Z","vscodeVersion":"1.96.2"}}
+2025-05-25 21:01:51.488 [info] Started downloading extension: ms-azuretools.vscode-docker 1.29.4 file:///home/violation/.cursor-server/data/CachedExtensionVSIXs/cursor-ms-azuretools.vscode-docker-1.29.4
+2025-05-25 21:01:52.156 [info] Extracted extension to file:///home/violation/.cursor-server/extensions/ms-azuretools.vscode-docker-1.29.4: ms-azuretools.vscode-docker
+2025-05-25 21:01:52.185 [info] Renamed to /home/violation/.cursor-server/extensions/ms-azuretools.vscode-docker-1.29.4
+2025-05-25 21:01:52.247 [info] Extension installed successfully: ms-azuretools.vscode-docker file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 21:02:07.377 [info] New EH opened, aborting shutdown
+2025-05-25 21:10:52.309 [info] [<unknown>][37799c99][ExtensionHostConnection] The client has reconnected.
+2025-05-25 21:11:55.227 [info] [<unknown>][37799c99][ExtensionHostConnection] The client has reconnected.
+2025-05-25 21:12:16.088 [info] [<unknown>][37799c99][ExtensionHostConnection] The client has reconnected.
+2025-05-25 21:13:40.113 [info] [<unknown>][37799c99][ExtensionHostConnection] The client has reconnected.
+2025-05-25 21:13:43.308 [info] [<unknown>][7ec5032d][ManagementConnection] The client has disconnected gracefully, so the connection will be disposed.
+2025-05-25 21:13:58.667 [info] [<unknown>][2a56f50d][ManagementConnection] New connection established.
+2025-05-25 21:13:58.669 [info] [<unknown>][5321d842][ExtensionHostConnection] New connection established.
+2025-05-25 21:13:58.678 [info] [<unknown>][5321d842][ExtensionHostConnection] <793525> Launched Extension Host Process.
+2025-05-25 21:14:08.438 [info] Getting Manifest... ms-azuretools.vscode-docker
+2025-05-25 21:14:08.753 [error] CodeExpectedError: Could not find pty 15 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+2025-05-25 21:14:08.762 [info] Installing extension: ms-azuretools.vscode-docker {"productVersion":{"version":"0.50.7","date":"2025-05-24T18:32:30.918Z","vscodeVersion":"1.96.2"},"donotVerifySignature":true,"pinned":false,"operation":3,"isApplicationScoped":false,"context":{"clientTargetPlatform":"win32-x64"},"installOnlyNewlyAddedFromExtensionPack":true,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"}}
+2025-05-25 21:14:09.076 [info] Started downloading extension: ms-azuretools.vscode-docker 1.29.6 file:///home/violation/.cursor-server/data/CachedExtensionVSIXs/cursor-ms-azuretools.vscode-docker-1.29.6
+2025-05-25 21:14:09.562 [info] Extracted extension to file:///home/violation/.cursor-server/extensions/ms-azuretools.vscode-docker-1.29.6: ms-azuretools.vscode-docker
+2025-05-25 21:14:09.582 [info] Renamed to /home/violation/.cursor-server/extensions/ms-azuretools.vscode-docker-1.29.6
+2025-05-25 21:14:09.622 [info] Marked extension as uninstalled ms-azuretools.vscode-docker-1.29.4
+2025-05-25 21:14:09.631 [info] Extension installed successfully: ms-azuretools.vscode-docker file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 21:27:27.265 [warning] [File Watcher (node.js)] Watcher shutdown because watched path got deleted
+2025-05-25 22:18:59.990 [info] Getting Manifest... pimzino.local-snapshots
+2025-05-25 22:19:00.426 [info] Installing extension: pimzino.local-snapshots {"isMachineScoped":false,"installPreReleaseVersion":false,"donotVerifySignature":true,"pinned":false,"context":{"clientTargetPlatform":"win32-x64"},"installOnlyNewlyAddedFromExtensionPack":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"0.50.7","date":"2025-05-24T18:23:35.492Z","vscodeVersion":"1.96.2"}}
+2025-05-25 22:19:00.577 [info] Started downloading extension: pimzino.local-snapshots 0.0.21 file:///home/violation/.cursor-server/data/CachedExtensionVSIXs/cursor-pimzino.local-snapshots-0.0.21-universal
+2025-05-25 22:19:01.599 [info] Extracted extension to file:///home/violation/.cursor-server/extensions/pimzino.local-snapshots-0.0.21-universal: pimzino.local-snapshots
+2025-05-25 22:19:01.615 [info] Renamed to /home/violation/.cursor-server/extensions/pimzino.local-snapshots-0.0.21-universal
+2025-05-25 22:19:01.656 [info] Extension installed successfully: pimzino.local-snapshots file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:23:25.769 [info] Getting Manifest... ms-python.python
+2025-05-25 22:23:26.139 [info] Installing extension: ms-python.python {"isMachineScoped":false,"installOnlyNewlyAddedFromExtensionPack":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"0.50.7","date":"2025-05-24T18:23:35.492Z","vscodeVersion":"1.96.2"}}
+2025-05-25 22:23:27.209 [info] Getting Manifest... ms-python.vscode-pylance
+2025-05-25 22:23:27.486 [info] Getting Manifest... ms-python.debugpy
+2025-05-25 22:23:27.917 [info] Installing extension: ms-python.vscode-pylance {"isMachineScoped":false,"installOnlyNewlyAddedFromExtensionPack":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"0.50.7","date":"2025-05-24T18:23:35.492Z","vscodeVersion":"1.96.2"},"context":{"dependecyOrPackExtensionInstall":true}}
+2025-05-25 22:23:27.918 [info] Installing extension: ms-python.debugpy {"isMachineScoped":false,"installOnlyNewlyAddedFromExtensionPack":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"0.50.7","date":"2025-05-24T18:23:35.492Z","vscodeVersion":"1.96.2"},"context":{"dependecyOrPackExtensionInstall":true}}
+2025-05-25 22:23:27.941 [info] Started downloading extension: ms-python.vscode-pylance 2024.8.1 file:///home/violation/.cursor-server/data/CachedExtensionVSIXs/cursor-ms-python.vscode-pylance-2024.8.1
+2025-05-25 22:23:27.946 [info] Started downloading extension: ms-python.python 2025.6.1 file:///home/violation/.cursor-server/data/CachedExtensionVSIXs/cursor-ms-python.python-2025.6.1-linux-x64
+2025-05-25 22:23:27.950 [info] Started downloading extension: ms-python.debugpy 2025.8.0 file:///home/violation/.cursor-server/data/CachedExtensionVSIXs/cursor-ms-python.debugpy-2025.8.0-linux-x64
+2025-05-25 22:23:30.838 [info] Extracted extension to file:///home/violation/.cursor-server/extensions/ms-python.debugpy-2025.8.0-linux-x64: ms-python.debugpy
+2025-05-25 22:23:30.880 [info] Renamed to /home/violation/.cursor-server/extensions/ms-python.debugpy-2025.8.0-linux-x64
+2025-05-25 22:23:34.999 [info] Extracted extension to file:///home/violation/.cursor-server/extensions/ms-python.python-2025.6.1-linux-x64: ms-python.python
+2025-05-25 22:23:35.264 [info] Renamed to /home/violation/.cursor-server/extensions/ms-python.python-2025.6.1-linux-x64
+2025-05-25 22:23:51.314 [info] Extracted extension to file:///home/violation/.cursor-server/extensions/ms-python.vscode-pylance-2024.8.1: ms-python.vscode-pylance
+2025-05-25 22:23:52.034 [info] Renamed to /home/violation/.cursor-server/extensions/ms-python.vscode-pylance-2024.8.1
+2025-05-25 22:23:52.104 [info] Extension installed successfully: ms-python.debugpy file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:23:52.105 [info] Extension installed successfully: ms-python.python file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:23:52.105 [info] Extension installed successfully: ms-python.vscode-pylance file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:30:32.453 [error] Error: connect ECONNREFUSED 127.0.0.1:5432
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+2025-05-25 22:30:32.458 [error] Error: connect ECONNREFUSED 127.0.0.1:5432
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+2025-05-25 22:30:32.707 [error] Error: connect ECONNREFUSED 127.0.0.1:5432
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+2025-05-25 22:35:20.788 [info] Uninstalling extension from the profile: pimzino.local-snapshots@0.0.21 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:35:20.850 [info] Marked extension as uninstalled pimzino.local-snapshots-0.0.21-universal
+2025-05-25 22:35:20.915 [info] Successfully uninstalled extension from the profile pimzino.local-snapshots@0.0.21 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:35:33.858 [info] [<unknown>][37799c99][ExtensionHostConnection] <780182> Extension Host Process exited with code: 0, signal: null.
+2025-05-25 22:47:16.832 [info] Uninstalling extension from the profile: eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:47:16.917 [info] Marked extension as uninstalled eamodio.gitlens-17.1.1
+2025-05-25 22:47:16.964 [info] Successfully uninstalled extension from the profile eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:47:23.561 [info] Getting Manifest... eamodio.gitlens
+2025-05-25 22:47:23.844 [info] Installing extension: eamodio.gitlens {"isMachineScoped":false,"installPreReleaseVersion":false,"donotVerifySignature":true,"pinned":false,"productVersion":{"version":"0.50.7","date":"2025-05-24T18:32:30.918Z","vscodeVersion":"1.96.2"},"operation":3,"isApplicationScoped":false,"context":{"clientTargetPlatform":"win32-x64"},"installOnlyNewlyAddedFromExtensionPack":true,"profileLocation":{"$mid":1,"fsPath":"/home/violation/.cursor-server/extensions/extensions.json","external":"file:///home/violation/.cursor-server/extensions/extensions.json","path":"/home/violation/.cursor-server/extensions/extensions.json","scheme":"file"}}
+2025-05-25 22:47:23.961 [info] Removed the extension from uninstalled list: eamodio.gitlens
+2025-05-25 22:47:24.019 [info] Extension installed successfully: eamodio.gitlens file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:52:13.408 [info] Uninstalling extension from the profile: eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:52:13.484 [info] Marked extension as uninstalled eamodio.gitlens-17.1.1
+2025-05-25 22:52:13.597 [info] Successfully uninstalled extension from the profile eamodio.gitlens@17.1.1 file:///home/violation/.cursor-server/extensions/extensions.json
+2025-05-25 22:56:33.084 [info] [<unknown>][5321d842][ExtensionHostConnection] The client has reconnected.
+2025-05-25 22:57:19.317 [info] [<unknown>][5321d842][ExtensionHostConnection] The client has reconnected.
+2025-05-25 22:58:20.830 [info] [<unknown>][e258540e][ManagementConnection] New connection established.
+2025-05-25 22:58:20.832 [info] [<unknown>][f892785c][ExtensionHostConnection] New connection established.
+2025-05-25 22:58:20.848 [info] [<unknown>][f892785c][ExtensionHostConnection] <846602> Launched Extension Host Process.
+2025-05-25 22:58:25.144 [error] CodeExpectedError: Could not find pty 27 on pty host
+    at A.W (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:12235)
+    at A.resize (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:8775)
+    at N.s.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:45:2962)
+    at Object.call (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:28:4203)
+    at Qc.s (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:81166)
+    at Qc.q (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80689)
+    at ds.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:80091)
+    at _.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2373)
+    at _.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:26:2591)
+    at process.w (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/platform/terminal/node/ptyHostMain.js:24:29161)
+    at process.emit (node:events:518:28)
+    at emit (node:internal/child_process:950:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+2025-05-25 22:58:30.320 [info] [<unknown>][2a56f50d][ManagementConnection] The client has disconnected, will wait for reconnection 3h before disposing...

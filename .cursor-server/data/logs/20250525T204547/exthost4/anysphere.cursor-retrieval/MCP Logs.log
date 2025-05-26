@@ -1,0 +1,48 @@
+2025-05-25 22:58:28.427 [info] -mcp: Handling CreateClient action
+2025-05-25 22:58:28.427 [info] -mcp: Starting new stdio process with command: npx -y @smithery/cli@latest run @upstash/context7-mcp --key 8efdb6e9-c2f9-40c8-980d-f4101b83cd29
+2025-05-25 22:58:28.427 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:28.427 [error] -mcp: No server info found
+2025-05-25 22:58:28.713 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:28.713 [error] -mcp: No server info found
+2025-05-25 22:58:28.928 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:28.928 [error] -mcp: No server info found
+2025-05-25 22:58:29.178 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:29.178 [error] -mcp: No server info found
+2025-05-25 22:58:33.071 [info] -mcp: Successfully connected to stdio server
+2025-05-25 22:58:33.071 [info] -mcp: Storing stdio client
+2025-05-25 22:58:33.071 [error] user-context7-mcp: 2025-05-25T22:58:32.450Z [Runner] Connecting to server: {"id":"@upstash/context7-mcp","connectionTypes":["http"]}
+
+2025-05-25 22:58:33.072 [error] user-context7-mcp: 2025-05-25T22:58:32.454Z [Runner] Connecting to Streamable HTTP endpoint: https://server.smithery.ai/@upstash/context7-mcp/mcp
+
+2025-05-25 22:58:33.072 [error] user-context7-mcp: 2025-05-25T22:58:32.455Z [Runner] Streamable HTTP connection initiated
+
+2025-05-25 22:58:33.072 [error] user-context7-mcp: 2025-05-25T22:58:32.455Z [Runner] Streamable HTTP connection established
+
+2025-05-25 22:58:33.265 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:33.265 [info] -mcp: Listing offerings
+2025-05-25 22:58:33.267 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:33.267 [info] -mcp: Listing offerings
+2025-05-25 22:58:33.267 [info] -mcp: Connected to stdio server, fetching offerings
+2025-05-25 22:58:33.267 [info] -mcp: Connected to stdio server, fetching offerings
+2025-05-25 22:58:33.346 [info] listOfferings: Found 2 tools
+2025-05-25 22:58:33.347 [info] -mcp: Found 2 tools, 0 resources, and 0 resource templates
+2025-05-25 22:58:33.437 [info] listOfferings: Found 2 tools
+2025-05-25 22:58:33.438 [info] -mcp: Found 2 tools, 0 resources, and 0 resource templates
+2025-05-25 22:58:33.555 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:33.555 [error] -mcp: No server info found
+2025-05-25 22:58:33.683 [info] -mcp: Handling ListOfferings action
+2025-05-25 22:58:33.683 [error] -mcp: No server info found
+2025-05-25 22:59:02.459 [error] user-context7-mcp: 2025-05-25T22:59:02.457Z [Runner] Sending heartbeat ping...
+
+2025-05-25 22:59:32.457 [error] user-context7-mcp: 2025-05-25T22:59:32.456Z [Runner] Sending heartbeat ping...
+
+2025-05-25 23:00:02.459 [error] user-context7-mcp: 2025-05-25T23:00:02.457Z [Runner] Sending heartbeat ping...
+
+2025-05-25 23:00:13.150 [error] user-context7-mcp: 2025-05-25T23:00:13.149Z [Runner] Streamable HTTP error: Streamable HTTP error: Failed to open SSE stream: <none>
+
+2025-05-25 23:00:13.151 [error] user-context7-mcp: 2025-05-25T23:00:13.149Z [Runner] Streamable HTTP error: Streamable HTTP error: Failed to open SSE stream: <none>
+
+2025-05-25 23:00:32.472 [error] user-context7-mcp: 2025-05-25T23:00:32.471Z [Runner] Sending heartbeat ping...
+
+2025-05-25 23:01:02.497 [error] user-context7-mcp: 2025-05-25T23:01:02.496Z [Runner] Sending heartbeat ping...
+

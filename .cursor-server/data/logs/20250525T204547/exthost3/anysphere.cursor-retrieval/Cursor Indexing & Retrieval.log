@@ -1,0 +1,168 @@
+2025-05-25 21:14:14.030 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:14:14.030 [info] Creating Indexing Repo client:  https://repo42.cursor.sh
+2025-05-25 21:14:14.030 [info] Creating repo client with backend url: https://repo42.cursor.sh
+2025-05-25 21:14:14.093 [info] Using existing keys for an index
+2025-05-25 21:14:14.093 [info] InternalRepoInfo constructor with preferredEmbeddingModel 0
+2025-05-25 21:14:17.259 [info] Using existing keys for an index
+2025-05-25 21:14:17.259 [info] InternalRepoInfo constructor with preferredEmbeddingModel 0
+2025-05-25 21:14:19.415 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:14:19.416 [info] Indexing job successfully done or aborted.
+2025-05-25 21:14:19.598 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:14:45.110 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:15:14.763 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:15:20.161 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:15:25.241 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:15:36.366 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:16:29.701 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:17:37.959 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:18:47.937 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:19:03.169 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:19:19.402 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:19:19.402 [info] Aborting indexing job.
+2025-05-25 21:19:19.403 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:19:19.403 [info] Indexing job successfully done or aborted.
+2025-05-25 21:22:20.701 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:23:46.779 [info] Get user commits took 27.922983000054955ms for 10 commits
+2025-05-25 21:23:47.896 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:24:19.401 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:24:19.401 [info] Aborting indexing job.
+2025-05-25 21:24:19.402 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:24:19.402 [info] Indexing job successfully done or aborted.
+2025-05-25 21:27:24.210 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:27:29.635 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:27:45.996 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:28:47.901 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:29:19.401 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:29:19.401 [info] Aborting indexing job.
+2025-05-25 21:29:19.401 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:29:19.401 [info] Indexing job successfully done or aborted.
+2025-05-25 21:29:33.756 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:33:46.791 [info] Get user commits took 32.27284699981101ms for 10 commits
+2025-05-25 21:33:47.899 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:34:19.401 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:34:19.401 [info] Aborting indexing job.
+2025-05-25 21:34:19.401 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:34:19.401 [info] Indexing job successfully done or aborted.
+2025-05-25 21:38:47.907 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:39:19.402 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:39:19.402 [info] Aborting indexing job.
+2025-05-25 21:39:19.402 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:39:19.402 [info] Indexing job successfully done or aborted.
+2025-05-25 21:40:23.627 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:43:46.777 [info] Get user commits took 33.237940000137314ms for 10 commits
+2025-05-25 21:43:47.900 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:44:19.403 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:44:19.403 [info] Aborting indexing job.
+2025-05-25 21:44:19.403 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:44:19.403 [info] Indexing job successfully done or aborted.
+2025-05-25 21:47:51.400 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:48:47.902 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:49:19.403 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:49:19.403 [info] Aborting indexing job.
+2025-05-25 21:49:19.403 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:49:19.404 [info] Indexing job successfully done or aborted.
+2025-05-25 21:53:46.798 [info] Get user commits took 38.58005899982527ms for 10 commits
+2025-05-25 21:53:47.912 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:54:19.404 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:54:19.404 [info] Aborting indexing job.
+2025-05-25 21:54:19.404 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:54:19.404 [info] Indexing job successfully done or aborted.
+2025-05-25 21:56:28.172 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:58:47.896 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 21:59:19.405 [info] multiCodebaseIndexingJob dispose
+2025-05-25 21:59:19.405 [info] Aborting indexing job.
+2025-05-25 21:59:19.405 [error] We currently do not allow indexing the home directory.
+2025-05-25 21:59:19.405 [info] Indexing job successfully done or aborted.
+2025-05-25 22:03:46.790 [info] Get user commits took 31.085434999782592ms for 10 commits
+2025-05-25 22:03:47.918 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:04:06.668 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:04:19.406 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:04:19.406 [info] Aborting indexing job.
+2025-05-25 22:04:19.406 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:04:19.406 [info] Indexing job successfully done or aborted.
+2025-05-25 22:08:47.907 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:09:19.404 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:09:19.404 [info] Aborting indexing job.
+2025-05-25 22:09:19.405 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:09:19.405 [info] Indexing job successfully done or aborted.
+2025-05-25 22:11:31.566 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:13:25.074 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:13:46.780 [info] Get user commits took 35.54394800029695ms for 10 commits
+2025-05-25 22:13:47.916 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:14:19.405 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:14:19.405 [info] Aborting indexing job.
+2025-05-25 22:14:19.405 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:14:19.405 [info] Indexing job successfully done or aborted.
+2025-05-25 22:18:47.894 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:19:09.179 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:19:19.406 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:19:19.406 [info] Aborting indexing job.
+2025-05-25 22:19:19.406 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:19:19.406 [info] Indexing job successfully done or aborted.
+2025-05-25 22:22:03.003 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:22:15.730 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:22:20.663 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:23:46.801 [info] Get user commits took 40.37284199986607ms for 10 commits
+2025-05-25 22:23:47.903 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:23:54.407 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:24:01.075 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:24:19.406 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:24:19.406 [info] Aborting indexing job.
+2025-05-25 22:24:19.406 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:24:19.406 [info] Indexing job successfully done or aborted.
+2025-05-25 22:26:56.700 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:28:47.892 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:29:19.406 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:29:19.406 [info] Aborting indexing job.
+2025-05-25 22:29:19.406 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:29:19.406 [info] Indexing job successfully done or aborted.
+2025-05-25 22:33:25.951 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:33:46.772 [info] Get user commits took 34.662630999460816ms for 10 commits
+2025-05-25 22:33:47.890 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:34:19.406 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:34:19.406 [info] Aborting indexing job.
+2025-05-25 22:34:19.406 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:34:19.406 [info] Indexing job successfully done or aborted.
+2025-05-25 22:34:53.469 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:35:37.390 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:38:47.913 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:39:19.406 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:39:19.406 [info] Aborting indexing job.
+2025-05-25 22:39:19.406 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:39:19.406 [info] Indexing job successfully done or aborted.
+2025-05-25 22:40:14.741 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:41:57.464 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:42:08.562 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:43:46.784 [info] Get user commits took 36.89313599932939ms for 10 commits
+2025-05-25 22:43:47.893 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:44:19.407 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:44:19.407 [info] Aborting indexing job.
+2025-05-25 22:44:19.407 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:44:19.407 [info] Indexing job successfully done or aborted.
+2025-05-25 22:44:43.800 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:44:48.973 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:44:59.542 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:45:17.699 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:45:27.797 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:45:58.856 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:47:31.376 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:47:36.712 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:47:48.979 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:48:17.205 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:48:18.792 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:48:23.084 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:48:47.889 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:49:19.407 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:49:19.407 [info] Aborting indexing job.
+2025-05-25 22:49:19.407 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:49:19.407 [info] Indexing job successfully done or aborted.
+2025-05-25 22:53:46.781 [info] Get user commits took 36.0560510000214ms for 10 commits
+2025-05-25 22:53:47.891 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:54:19.407 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:54:19.408 [info] Aborting indexing job.
+2025-05-25 22:54:19.408 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:54:19.408 [info] Indexing job successfully done or aborted.
+2025-05-25 22:59:19.410 [info] multiCodebaseIndexingJob dispose
+2025-05-25 22:59:19.410 [info] Aborting indexing job.
+2025-05-25 22:59:19.410 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:59:19.410 [info] Indexing job successfully done or aborted.

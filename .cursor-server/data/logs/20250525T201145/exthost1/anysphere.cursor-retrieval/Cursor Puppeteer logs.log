@@ -1,0 +1,21 @@
+2025-05-25 20:11:52.937 [error] Failed to initialize Puppeteer browser: Cannot find module 'puppeteer'
+Require stack:
+- /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/cursor-retrieval/dist/main.js
+- /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js
+2025-05-25 20:11:52.937 [error] Error: Cannot find module 'puppeteer'
+Require stack:
+- /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/cursor-retrieval/dist/main.js
+- /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js
+	at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+	at t._resolveFilename (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:185:23173)
+	at Module._load (node:internal/modules/cjs/loader:1051:27)
+	at s._load (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:10980)
+	at t._load (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:185:22891)
+	at i._load (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:177:21717)
+	at Module.require (node:internal/modules/cjs/loader:1311:19)
+	at require (node:internal/modules/helpers:179:18)
+	at 40758 (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/cursor-retrieval/dist/main.js:2:2981994)
+	at s (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/cursor-retrieval/dist/main.js:2:3713842)
+	at /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/cursor-retrieval/dist/main.js:2:2490717
+	at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+	at async t.PuppeteerService.initializeBrowser (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/cursor-retrieval/dist/main.js:2:2490681)

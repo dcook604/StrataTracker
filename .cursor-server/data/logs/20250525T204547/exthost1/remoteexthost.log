@@ -1,0 +1,399 @@
+2025-05-25 20:46:12.488 [info] Extension host with pid 775807 started
+2025-05-25 20:46:12.488 [error] Error: EEXIST: file already exists, open '/home/violation/.cursor-server/data/User/workspaceStorage/561bb027b69069f2199295d928c67164/vscode.lock'
+2025-05-25 20:46:12.488 [info] Lock '/home/violation/.cursor-server/data/User/workspaceStorage/561bb027b69069f2199295d928c67164/vscode.lock': Could not acquire lock, checking if the file is stale.
+2025-05-25 20:46:12.493 [info] Lock '/home/violation/.cursor-server/data/User/workspaceStorage/561bb027b69069f2199295d928c67164/vscode.lock': The pid 764006 appears to be gone.
+2025-05-25 20:46:12.493 [info] Lock '/home/violation/.cursor-server/data/User/workspaceStorage/561bb027b69069f2199295d928c67164/vscode.lock': Deleting a stale lock.
+2025-05-25 20:46:12.518 [info] Lock '/home/violation/.cursor-server/data/User/workspaceStorage/561bb027b69069f2199295d928c67164/vscode.lock': Lock acquired.
+2025-05-25 20:46:12.998 [info] ExtensionService#_doActivateExtension vscode.emmet, startup: false, activationEvent: 'onLanguage'
+2025-05-25 20:46:12.999 [info] ExtensionService#_doActivateExtension vscode.extension-editing, startup: false, activationEvent: 'onLanguage:markdown'
+2025-05-25 20:46:13.000 [info] ExtensionService#_doActivateExtension vscode.markdown-language-features, startup: false, activationEvent: 'onLanguage:markdown'
+2025-05-25 20:46:13.763 [info] ExtensionService#_doActivateExtension vscode.git-base, startup: true, activationEvent: '*', root cause: vscode.git
+2025-05-25 20:46:13.771 [info] ExtensionService#_doActivateExtension vscode.npm, startup: true, activationEvent: 'workspaceContains:package.json'
+2025-05-25 20:46:14.009 [info] ExtensionService#_doActivateExtension vscode.git, startup: true, activationEvent: '*'
+2025-05-25 20:46:14.010 [info] ExtensionService#_doActivateExtension vscode.github, startup: true, activationEvent: '*'
+2025-05-25 20:46:14.562 [info] Eager extensions activated
+2025-05-25 20:46:14.563 [info] ExtensionService#_doActivateExtension anysphere.cursor-retrieval, startup: false, activationEvent: 'onStartupFinished'
+2025-05-25 20:46:14.563 [info] ExtensionService#_doActivateExtension anysphere.cursor-shadow-workspace, startup: false, activationEvent: 'onStartupFinished'
+2025-05-25 20:46:14.564 [info] ExtensionService#_doActivateExtension anysphere.cursor-tokenize, startup: false, activationEvent: 'onStartupFinished'
+2025-05-25 20:46:14.565 [info] ExtensionService#_doActivateExtension vscode.debug-auto-launch, startup: false, activationEvent: 'onStartupFinished'
+2025-05-25 20:46:14.565 [info] ExtensionService#_doActivateExtension vscode.merge-conflict, startup: false, activationEvent: 'onStartupFinished'
+2025-05-25 20:46:14.566 [info] ExtensionService#_doActivateExtension eamodio.gitlens, startup: false, activationEvent: 'onStartupFinished'
+2025-05-25 20:46:16.185 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5873
+2025-05-25 20:46:18.879 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5873
+2025-05-25 20:46:22.738 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5879
+2025-05-25 20:46:25.347 [info] ExtensionService#_doActivateExtension vscode.configuration-editing, startup: false, activationEvent: 'onLanguage:json'
+2025-05-25 20:46:25.348 [info] ExtensionService#_doActivateExtension vscode.json-language-features, startup: false, activationEvent: 'onLanguage:json'
+2025-05-25 20:46:30.271 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5882
+2025-05-25 20:46:35.539 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5883
+2025-05-25 20:46:40.819 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5884
+2025-05-25 20:46:46.086 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:46:51.355 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:46:56.613 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:47:01.881 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:47:11.798 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:47:43.370 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:47:48.599 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:13.973 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:19.205 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:24.446 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:29.688 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:34.926 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:40.175 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:45.408 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:50.633 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:48:55.897 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:01.147 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:06.380 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:11.643 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:16.899 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:22.118 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:27.341 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:32.596 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:37.838 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:43.056 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:48.290 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:53.528 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:49:58.748 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:03.978 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:09.213 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:14.441 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:19.671 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:24.919 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:30.154 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:35.389 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:40.631 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:45.854 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:51.085 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:50:56.322 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:01.553 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:06.776 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:12.040 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:17.289 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:22.546 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:27.801 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:33.039 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:38.299 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:43.531 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:48.755 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:51:59.173 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:52:04.442 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:53:51.334 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:53:56.600 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:01.838 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:07.059 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:12.308 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:17.580 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:22.802 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:28.054 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:33.324 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:38.558 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:43.787 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:49.028 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:54.282 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:54:59.545 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:04.802 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:10.031 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:15.304 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:20.549 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:25.805 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:31.051 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:36.312 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:41.526 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:46.784 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:52.031 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:55:57.285 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:02.547 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:07.832 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:13.069 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:18.338 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:23.561 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:28.845 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:34.129 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:39.372 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:44.636 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:49.866 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:56:55.106 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:57:00.376 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:57:05.633 [warning] [Decorations] CAPPING events from decorations provider vscode.git 5885
+2025-05-25 20:57:07.220 [info] Extension host terminating: received terminate message from renderer
+2025-05-25 20:57:07.221 [info] Lock '/home/violation/.cursor-server/data/User/workspaceStorage/561bb027b69069f2199295d928c67164/vscode.lock': Marking the lockfile as scheduled to be released in 6000 ms.
+2025-05-25 20:57:07.298 [error] An error occurred when disposing the subscriptions for extension 'eamodio.gitlens':
+2025-05-25 20:57:07.299 [error] TypeError: Cannot read properties of undefined (reading 'dispose')
+	at Object.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:156:1236838)
+	at RY.<anonymous> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20157)
+	at RY.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20253)
+	at Object.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:449:23770)
+	at /home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:726:16074
+	at Array.forEach (<anonymous>)
+	at Object.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:726:16056)
+	at ji (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:706)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:15392
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:1018
+	at Object.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:8:711)
+	at Noe.eb (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:12173)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10127
+	at Array.map (<anonymous>)
+	at Noe.$ (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10115)
+	at Noe.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10358)
+	at dyt.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:138:1435)
+	at Xr (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:15189)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:13337)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at eo.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:9489)
+	at Tz.A (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:12615)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:11033)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at Vrt.acceptChunk (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7970)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7255
+	at Socket.t (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:15498)
+	at Socket.emit (node:events:518:28)
+	at addChunk (node:internal/streams/readable:561:12)
+	at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+	at Readable.push (node:internal/streams/readable:392:5)
+	at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+2025-05-25 20:57:07.305 [error] Canceled: Canceled
+	at new sNt (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:157312)
+	at met.U (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:161950)
+	at n.<computed>.a.charCodeAt.n.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:159442)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32527)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at e.registerCommand.description (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:31361)
+	at dK.h (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:33048)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32124)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at Object.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:175:42605)
+	at h2.N [as value] (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:978108)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2461)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2678)
+	at Object.f [as dispose] (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:999684)
+	at /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:1005806
+	at Array.forEach (<anonymous>)
+	at C.dispose (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:1005792)
+	at RY.<anonymous> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20157)
+	at RY.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20253)
+	at RY.<anonymous> (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:980587)
+	at RY.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20253)
+	at ji (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:706)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:15392
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:1018
+	at Object.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:8:711)
+	at Noe.eb (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:12173)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10127
+	at Array.map (<anonymous>)
+	at Noe.$ (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10115)
+	at Noe.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10358)
+	at dyt.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:138:1435)
+	at Xr (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:15189)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:13337)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at eo.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:9489)
+	at Tz.A (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:12615)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:11033)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at Vrt.acceptChunk (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7970)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7255
+	at Socket.t (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:15498)
+	at Socket.emit (node:events:518:28)
+	at addChunk (node:internal/streams/readable:561:12)
+	at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+	at Readable.push (node:internal/streams/readable:392:5)
+	at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17) setContext undefined
+2025-05-25 20:57:07.306 [error] Canceled: Canceled
+	at new sNt (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:157312)
+	at met.U (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:161950)
+	at n.<computed>.a.charCodeAt.n.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:159442)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32527)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at e.registerCommand.description (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:31361)
+	at dK.h (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:33048)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32124)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at Object.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:175:42605)
+	at set hasGitHubRepositories [as hasGitHubRepositories] (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/github/dist/extension.js:2:328629)
+	at /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/github/dist/extension.js:2:329588
+	at h2.value (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:1096223)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2461)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2678)
+	at Object.f [as dispose] (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:999684)
+	at /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:1005806
+	at Array.forEach (<anonymous>)
+	at C.dispose (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:1005792)
+	at RY.<anonymous> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20157)
+	at RY.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20253)
+	at RY.<anonymous> (/home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/extensions/git/dist/main.js:2:980587)
+	at RY.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:126:20253)
+	at ji (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:706)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:15392
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:1018
+	at Object.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:8:711)
+	at Noe.eb (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:12173)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10127
+	at Array.map (<anonymous>)
+	at Noe.$ (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10115)
+	at Noe.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10358)
+	at dyt.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:138:1435)
+	at Xr (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:15189)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:13337)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at eo.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:9489)
+	at Tz.A (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:12615)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:11033)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at Vrt.acceptChunk (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7970)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7255
+	at Socket.t (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:15498)
+	at Socket.emit (node:events:518:28)
+	at addChunk (node:internal/streams/readable:561:12)
+	at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+	at Readable.push (node:internal/streams/readable:392:5)
+	at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17) setContext undefined
+2025-05-25 20:57:07.307 [error] Canceled: Canceled
+	at new sNt (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:157312)
+	at met.U (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:161950)
+	at n.<computed>.a.charCodeAt.n.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:159442)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32527)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at e.registerCommand.description (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:31361)
+	at dK.h (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:33048)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32124)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at Object.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:175:42605)
+	at w (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1996:6723)
+	at c (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:6:13320)
+	at ActionRunners._updateContextKeys (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:14788)
+	at s (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13232)
+	at RegisteredActionRunner.unregister (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13375)
+	at RegisteredActionRunner.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:12035)
+	at Object.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13469)
+	at ji (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:706)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:15392
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:1018
+	at Object.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:8:711)
+	at Noe.eb (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:12173)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10127
+	at Array.map (<anonymous>)
+	at Noe.$ (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10115)
+	at Noe.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10358)
+	at dyt.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:138:1435)
+	at Xr (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:15189)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:13337)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at eo.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:9489)
+	at Tz.A (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:12615)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:11033)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at Vrt.acceptChunk (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7970)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7255
+	at Socket.t (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:15498)
+	at Socket.emit (node:events:518:28)
+	at addChunk (node:internal/streams/readable:561:12)
+	at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+	at Readable.push (node:internal/streams/readable:392:5)
+	at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17) setContext undefined
+2025-05-25 20:57:07.307 [error] Canceled: Canceled
+	at new sNt (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:157312)
+	at met.U (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:161950)
+	at n.<computed>.a.charCodeAt.n.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:159442)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32527)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at e.registerCommand.description (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:31361)
+	at dK.h (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:33048)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32124)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at Object.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:175:42605)
+	at w (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1996:6723)
+	at c (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:6:13320)
+	at ActionRunners._updateContextKeys (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:14788)
+	at s (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13232)
+	at RegisteredActionRunner.unregister (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13375)
+	at RegisteredActionRunner.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:12035)
+	at Object.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13469)
+	at ji (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:706)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:15392
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:1018
+	at Object.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:8:711)
+	at Noe.eb (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:12173)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10127
+	at Array.map (<anonymous>)
+	at Noe.$ (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10115)
+	at Noe.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10358)
+	at dyt.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:138:1435)
+	at Xr (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:15189)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:13337)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at eo.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:9489)
+	at Tz.A (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:12615)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:11033)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at Vrt.acceptChunk (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7970)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7255
+	at Socket.t (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:15498)
+	at Socket.emit (node:events:518:28)
+	at addChunk (node:internal/streams/readable:561:12)
+	at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+	at Readable.push (node:internal/streams/readable:392:5)
+	at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17) setContext undefined
+2025-05-25 20:57:07.307 [error] Canceled: Canceled
+	at new sNt (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:157312)
+	at met.U (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:161950)
+	at n.<computed>.a.charCodeAt.n.<computed> (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:159442)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32527)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at e.registerCommand.description (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:31361)
+	at dK.h (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:33048)
+	at dK.g (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32124)
+	at dK.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:133:32031)
+	at Object.executeCommand (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:175:42605)
+	at w (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1996:6723)
+	at c (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:6:13320)
+	at ActionRunners._updateContextKeys (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:14788)
+	at s (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13232)
+	at RegisteredActionRunner.unregister (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13375)
+	at RegisteredActionRunner.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:12035)
+	at Object.dispose (/home/violation/.cursor-server/extensions/eamodio.gitlens-17.1.1/dist/gitlens.js:1968:13469)
+	at ji (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:706)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:15392
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:25:1018
+	at Object.dispose (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:8:711)
+	at Noe.eb (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:12173)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10127
+	at Array.map (<anonymous>)
+	at Noe.$ (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10115)
+	at Noe.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:137:10358)
+	at dyt.terminate (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:138:1435)
+	at Xr (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:15189)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:193:13337)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at eo.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:9489)
+	at Tz.A (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:12615)
+	at h2.value (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:11033)
+	at C.B (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2391)
+	at C.fire (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:27:2609)
+	at Vrt.acceptChunk (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7970)
+	at file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:7255
+	at Socket.t (file:///home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/server/out/vs/workbench/api/node/extensionHostProcess.js:42:15498)
+	at Socket.emit (node:events:518:28)
+	at addChunk (node:internal/streams/readable:561:12)
+	at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+	at Readable.push (node:internal/streams/readable:392:5)
+	at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+	at Pipe.callbackTrampoline (node:internal/async_hooks:130:17) setContext undefined
+2025-05-25 20:57:07.312 [info] Extension host with pid 775807 exiting with code 0
