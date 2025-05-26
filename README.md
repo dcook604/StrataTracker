@@ -122,6 +122,27 @@ If you prefer to run without Docker:
 | `npm run check`     | TypeScript type checking              |
 | `npm run db:push`   | Push database schema changes          |
 
+### Starting Development with `start-server.sh`
+
+If you want to start the development server with Onboardbase secrets and automatic port cleanup, use the provided script:
+
+```bash
+./start-server.sh
+```
+
+**What this script does:**
+- Kills any processes running on ports 3001 and 3002 (to avoid conflicts)
+- Waits for ports to be freed
+- Starts the dev server on port 3002 using Onboardbase secrets
+
+**When to use:**
+- If you are using Onboardbase for secret management
+- If you encounter port conflicts or want a clean start
+
+**Note:**
+- Make sure you have `npx` and `onboardbase` installed (see project dependencies)
+- The script is executable; if not, run `chmod +x start-server.sh` first
+
 ---
 
 ## 🐳 Docker Configuration
