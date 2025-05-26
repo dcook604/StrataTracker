@@ -1,8 +1,0 @@
-2025-05-25 22:48:34.800 [info] [2025-05-25 22:48:34.769] [         40ms] [/home/violation/.git] git rev-parse --show-toplevel • FAILED
-2025-05-25 22:48:34.801 [info] 
-Error: fatal: this operation must be run in a work tree
-
-2025-05-25 22:51:07.790 [info] [2025-05-25 22:51:07.790] [         24ms] [/home/violation] git log --format=%x1E%H%x1D -n2 -L1,1:.cursor-server/data/User/History/738a0274/entries.json • FAILED
-2025-05-25 22:51:07.790 [info] 
-Error: fatal: There is no path .cursor-server/data/User/History/738a0274/entries.json in the commit
-
