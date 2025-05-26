@@ -1,0 +1,4 @@
+Listening on 127.0.0.1:33013
+[2025-05-25 22:58:19] info Disposed of connection to running server.
+[2025-05-25 22:58:20] info Checking /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/log.txt and /home/violation/.cursor-server/cli/servers/Stable-02270c8441bdc4b2fdbc30e6f470a589ec78d600/pid.txt for a running server...
+[2025-05-25 22:58:20] info Found running server (pid=775638)

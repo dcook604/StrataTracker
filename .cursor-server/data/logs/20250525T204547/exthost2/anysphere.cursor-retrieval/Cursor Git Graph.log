@@ -1,0 +1,11 @@
+2025-05-25 20:57:46.214 [error] Failed to get git graph client
+2025-05-25 20:57:46.214 [info] Using repo backend url https://repo42.cursor.sh
+2025-05-25 21:02:45.882 [info] Git graph is disabled. shouldIndex: true isEnabled: false
+2025-05-25 22:35:33.668 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.668 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.668 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled
+2025-05-25 22:35:33.669 [error] Error getting server config, using proto default config Canceled

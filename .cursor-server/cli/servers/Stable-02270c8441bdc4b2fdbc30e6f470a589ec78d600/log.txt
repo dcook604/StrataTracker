@@ -1,0 +1,14 @@
+Server bound to /tmp/cursor-354537de-5e13-47c1-947f-70c914b1a12a
+Extension host agent listening on /tmp/cursor-354537de-5e13-47c1-947f-70c914b1a12a
+
+[20:45:47] 
+
+
+
+
+[20:45:47] Extension host agent started.
+[20:45:48] [<unknown>][61e5dc46][ManagementConnection] Unknown reconnection token (never seen).
+[20:45:48] [<unknown>][bbfe03e3][ExtensionHostConnection] Unknown reconnection token (never seen).
+[20:46:08] [<unknown>][4b78d871][ExtensionHostConnection] New connection established.
+[20:46:08] [<unknown>][0ab80ad4][ManagementConnection] New connection established.
+[20:46:08] [<unknown>][4b78d871][ExtensionHostConnection] <775807> Launched Extension Host Process.

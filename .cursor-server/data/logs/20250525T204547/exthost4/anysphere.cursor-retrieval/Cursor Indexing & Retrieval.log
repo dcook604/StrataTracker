@@ -1,0 +1,11 @@
+2025-05-25 22:58:28.408 [info] Creating Indexing Repo client:  https://repo42.cursor.sh
+2025-05-25 22:58:28.408 [info] Creating repo client with backend url: https://repo42.cursor.sh
+2025-05-25 22:58:28.712 [info] Using existing keys for an index
+2025-05-25 22:58:28.712 [info] InternalRepoInfo constructor with preferredEmbeddingModel 0
+2025-05-25 22:58:28.737 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:58:28.928 [info] Using existing keys for an index
+2025-05-25 22:58:28.928 [info] InternalRepoInfo constructor with preferredEmbeddingModel 0
+2025-05-25 22:58:28.934 [error] We currently do not allow indexing the home directory.
+2025-05-25 22:58:28.934 [info] Indexing job successfully done or aborted.
+2025-05-25 22:58:52.095 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
+2025-05-25 22:58:58.608 [error] Git command failed: git rev-parse --show-toplevel A system error occurred (spawn /bin/sh ENOENT)
