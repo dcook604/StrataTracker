@@ -134,11 +134,6 @@ If you want to start the development server with Onboardbase secrets and automat
 - Kills any processes running on ports 3001 and 3002 (to avoid conflicts)
 - Waits for ports to be freed
 - Starts the dev server on port 3002 using Onboardbase secrets
-
-**When to use:**
-- If you are using Onboardbase for secret management
-- If you encounter port conflicts or want a clean start
-
 **Note:**
 - Make sure you have `npx` and `onboardbase` installed (see project dependencies)
 - The script is executable; if not, run `chmod +x start-server.sh` first
@@ -151,17 +146,6 @@ If you want to start the development server with Onboardbase secrets and automat
 
 - **backend**: Node.js application (port 3001 → 3000)
 - **db**: PostgreSQL 15 database (port 5432)
-
-### Database Initialization
-
-The database is automatically set up with:
-1. **Schema Creation**: Drizzle migrations applied automatically
-2. **Admin User**: Created via `db/init/01-init.sql`
-3. **Persistent Storage**: Data stored in Docker volume `db_data`
-
-### Environment Variables
-
-The Docker setup uses these key environment variables:
 
 ```env
 NODE_ENV=production
@@ -226,15 +210,6 @@ This application was successfully migrated from Replit to a local Docker environ
 
 ### Admin Features (Settings Page)
 
-Available to Administrators and Council Members:
-
-- **Email Settings**: Configure notification preferences
-- **System Settings**: General system configuration
-- **SMTP Settings**: Email server configuration with testing
-- **User Management**: Add, edit, lock, or remove users
-
-### Default Admin Account
-
 - **Email**: admin@spectrum4.com
 - **Password**: admin123
 - **⚠️ Change immediately after first login!**
@@ -243,135 +218,9 @@ Available to Administrators and Council Members:
 
 ## 🔧 Troubleshooting
 
-### Common Issues
-
-1. **Port Already in Use**
-   ```bash
-   sudo docker compose down
-   # Wait a moment, then:
-   sudo docker compose up
-   ```
-
-2. **Database Connection Issues**
-   - Ensure PostgreSQL container is running
-   - Check logs: `sudo docker compose logs db`
-
-3. **Build Failures**
-   - Clear Docker cache: `sudo docker system prune -f`
-   - Rebuild: `sudo docker compose build --no-cache`
-
-### Logs
-
-View application logs:
-```bash
-# Backend logs
-sudo docker compose logs backend
-
-# Database logs  
-sudo docker compose logs db
 
 # All logs
 sudo docker compose logs
 ```
 
----
 
-## 🚀 Deployment
-
-### Production Deployment
-
-1. **Environment Configuration**
-   - Set production environment variables
-   - Configure HTTPS with reverse proxy (Nginx/Caddy)
-   - Set up proper database credentials
-
-2. **Security Checklist**
-   - Change default admin password
-   - Configure CORS for production domain
-   - Set secure session secrets
-   - Enable HTTPS
-   - Regular database backups
-
-3. **Monitoring**
-   - Set up application monitoring
-   - Configure log aggregation
-   - Database performance monitoring
-
----
-
-## 📝 Recent Updates
-
-### v2.0.0 - Docker Migration (Latest)
-- ✅ Migrated from Replit to local Docker environment
-- ✅ Replaced Neon database with local PostgreSQL
-- ✅ Fixed ES module compatibility issues
-- ✅ Updated to Docker Compose V2
-- ✅ Automated database schema migrations
-- ✅ Cleaned up Replit-specific dependencies
-
-### Previous Fixes
-- Dashboard statistics display issues resolved
-- Settings page crash fixes (`TypeError: e.find is not a function`)
-- Dialog accessibility improvements
-- Enhanced API error handling and logging
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test with Docker setup
-5. Submit a pull request
-
----
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
----
-
-## 🆘 Support
-
-For issues and questions:
-1. Check the troubleshooting section above
-2. Review Docker logs for error details
-3. Create an issue on GitHub with:
-   - Error messages
-   - Steps to reproduce
-   - Environment details (OS, Docker version)
-
----
-
-## 📄 Documentation
-
-- [Frontend Documentation](docs/FRONTEND.md)
-- [Backend Documentation](docs/BACKEND.md)
-- [Technical Overview](docs/TECHNICAL_OVERVIEW.md)
-- [Migration Guide](docs/MIGRATION_GUIDE.md)
-
-**Note**: This application is now fully containerized and ready for local development and production deployment!
-
-## ▶️ Starting the Frontend & Backend
-
-You can start both the frontend and backend together using Docker (recommended), or run them separately for development:
-
-### With Docker (Recommended)
-- Run: `sudo docker compose up --build`
-- Access the app at: http://localhost:3001
-
-### Local Development (Separate)
-- **Frontend:**
-  - `cd client`
-  - `npm install`
-  - `npm run dev`
-  - App runs on http://localhost:3000 (or as configured)
-- **Backend:**
-  - `cd server`
-  - `npm install`
-  - `npm run dev`
-  - API runs on http://localhost:3001 (or as configured)
-
-See [Frontend Documentation](docs/FRONTEND.md) and [Backend Documentation](docs/BACKEND.md) for more details. 
