@@ -236,7 +236,7 @@ export default function SettingsPage() {
       ];
 
       for (const update of updates) {
-        await apiRequest("PUT", `/api/settings/${update.settingKey}`, { settingValue: update.settingValue });
+        await apiRequest("POST", `/api/settings/${update.settingKey}`, { value: update.settingValue });
       }
 
       return true;
@@ -390,75 +390,94 @@ export default function SettingsPage() {
   // In useEffect, when settings are loaded, populate systemForm and logoUrl
   useEffect(() => {
     if (settings && Array.isArray(settings)) {
-      const sys = {
-        strataName: systemForm.strataName || "",
-        propertyAddress: { ...(systemForm.propertyAddress || { streetLine1: "", city: "", province: "", postalCode: "", country: "Canada" }) },
-        adminFirstName: systemForm.adminFirstName || "",
-        adminLastName: systemForm.adminLastName || "",
-        adminEmail: systemForm.adminEmail || "",
-        adminPhone: systemForm.adminPhone || "",
-        propertyManagers: Array.isArray(systemForm.propertyManagers) ? [...systemForm.propertyManagers] : [],
-        caretakers: Array.isArray(systemForm.caretakers) ? [...systemForm.caretakers] : [],
-        councilMembers: Array.isArray(systemForm.councilMembers) ? [...systemForm.councilMembers] : [],
-        defaultTimezone: systemForm.defaultTimezone || "America/Vancouver",
-        defaultLanguage: systemForm.defaultLanguage || "en",
-        strataLogo: systemForm.strataLogo || "",
-      } as any;
-      
-      let foundLogoPath: string | null = null;
+      const defaultSysValues = {
+        strataName: "",
+        propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
+        adminFirstName: "",
+        adminLastName: "",
+        adminEmail: "",
+        adminPhone: "",
+        propertyManagers: [],
+        caretakers: [],
+        councilMembers: [],
+        defaultTimezone: "America/Vancouver",
+        defaultLanguage: "en",
+        strataLogo: "",
+      };
 
-      settings.forEach((s: SystemSetting) => {
-        if (s.settingKey === 'strata_name') sys.strataName = s.settingValue;
-        if (s.settingKey === 'property_address') {
-          try {
-            const parsedAddress = JSON.parse(s.settingValue || '{}');
-            sys.propertyAddress = {
-              streetLine1: parsedAddress.streetLine1 || "",
-              streetLine2: parsedAddress.streetLine2 || "",
-              city: parsedAddress.city || "",
-              province: parsedAddress.province || "",
-              postalCode: parsedAddress.postalCode || "",
-              country: parsedAddress.country || "Canada",
-            };
-          } catch (e) {
-            console.error("Failed to parse property_address:", e);
+      const loadedSys = settings.reduce((acc, s) => {
+        const assignValue = (key: keyof typeof defaultSysValues, value: string | null) => {
+          if (value === null) { // Explicitly handle null from DB
+            (acc as any)[key] = (defaultSysValues as any)[key]; // Assign default for this key
+            return;
           }
-        }
-        if (s.settingKey === 'admin_first_name') sys.adminFirstName = s.settingValue;
-        if (s.settingKey === 'admin_last_name') sys.adminLastName = s.settingValue;
-        if (s.settingKey === 'admin_email') sys.adminEmail = s.settingValue;
-        if (s.settingKey === 'admin_phone') sys.adminPhone = s.settingValue;
-        if (s.settingKey === 'property_managers') {
-          try {
-            sys.propertyManagers = JSON.parse(s.settingValue || '[]').map((pm: any) => ({ ...pm, receiveAllViolationEmails: !!pm.receiveAllViolationEmails }));
-          } catch (e) { console.error("Failed to parse property_managers", e); sys.propertyManagers = []; }
-        }
-        if (s.settingKey === 'caretakers') {
-          try {
-            sys.caretakers = JSON.parse(s.settingValue || '[]').map((ct: any) => ({ ...ct, receiveAllViolationEmails: !!ct.receiveAllViolationEmails }));
-          } catch (e) { console.error("Failed to parse caretakers", e); sys.caretakers = []; }
-        }
-        if (s.settingKey === 'council_members') {
-          try {
-            sys.councilMembers = JSON.parse(s.settingValue || '[]').map((cm: any) => ({ ...cm, receiveAllViolationEmails: !!cm.receiveAllViolationEmails }));
-          } catch (e) { console.error("Failed to parse council_members", e); sys.councilMembers = []; }
-        }
-        if (s.settingKey === 'default_timezone') sys.defaultTimezone = s.settingValue;
-        if (s.settingKey === 'default_language') sys.defaultLanguage = s.settingValue;
-        if (s.settingKey === 'strata_logo') {
-          sys.strataLogo = s.settingValue;
-          foundLogoPath = s.settingValue;
-        }
-      });
-      setSystemForm(sys);
+          if (key === 'propertyAddress' || key === 'propertyManagers' || key === 'caretakers' || key === 'councilMembers') {
+            try {
+              const jsonString = value && value.trim() !== "" ? value : (key === 'propertyAddress' ? '{}' : '[]');
+              (acc as any)[key] = JSON.parse(jsonString);
+              if (key === 'propertyManagers' || key === 'caretakers' || key === 'councilMembers') {
+                (acc as any)[key] = ((acc as any)[key] || []).map((item: any) => ({ ...item, receiveAllViolationEmails: !!item.receiveAllViolationEmails }));
+              }
+            } catch (e) {
+              console.error(`Failed to parse ${key}:`, e, "Raw value:", value);
+              (acc as any)[key] = (defaultSysValues as any)[key]; 
+            }
+          } else {
+            (acc as any)[key] = value;
+          }
+        };
 
-      if (foundLogoPath) {
-        setLogoUrl(foundLogoPath);
+        if (s.settingKey === 'strata_name') acc.strataName = s.settingValue;
+        else if (s.settingKey === 'property_address') assignValue('propertyAddress', s.settingValue);
+        else if (s.settingKey === 'admin_first_name') acc.adminFirstName = s.settingValue;
+        else if (s.settingKey === 'admin_last_name') acc.adminLastName = s.settingValue;
+        else if (s.settingKey === 'admin_email') acc.adminEmail = s.settingValue;
+        else if (s.settingKey === 'admin_phone') acc.adminPhone = s.settingValue;
+        else if (s.settingKey === 'property_managers') assignValue('propertyManagers', s.settingValue);
+        else if (s.settingKey === 'caretakers') assignValue('caretakers', s.settingValue);
+        else if (s.settingKey === 'council_members') assignValue('councilMembers', s.settingValue);
+        else if (s.settingKey === 'default_timezone') acc.defaultTimezone = s.settingValue;
+        else if (s.settingKey === 'default_language') acc.defaultLanguage = s.settingValue;
+        else if (s.settingKey === 'strata_logo') {
+          acc.strataLogo = s.settingValue || ""; // Ensure strataLogo is string
+          // setLogoUrl is handled below to avoid race condition with acc.strataLogo update
+        }
+        return acc;
+      }, { ...defaultSysValues });
+
+      setSystemForm(loadedSys);
+
+      // Update logoUrl based on the final loadedSys.strataLogo
+      if (loadedSys.strataLogo) {
+        setLogoUrl(loadedSys.strataLogo.startsWith('http') || loadedSys.strataLogo.startsWith('/') ? loadedSys.strataLogo : `/api/uploads/${loadedSys.strataLogo}`);
       } else {
         setLogoUrl(null);
       }
+      // Also update emailForm which depends on settings
+      const emailFormValues = mapSettingsToForm(settings);
+      emailForm.reset(emailFormValues);
+
+    } else if (!isLoadingEmailNotificationSettings && !settings) {
+        setSystemForm({
+            strataName: "",
+            propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
+            adminFirstName: "",
+            adminLastName: "",
+            adminEmail: "",
+            adminPhone: "",
+            propertyManagers: [],
+            caretakers: [],
+            councilMembers: [],
+            defaultTimezone: "America/Vancouver",
+            defaultLanguage: "en",
+            strataLogo: "",
+        });
+        setLogoUrl(null);
+        // Also reset emailForm if settings failed to load
+        emailForm.reset(mapSettingsToForm([]));
     }
-  }, [settings]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [settings, isLoadingEmailNotificationSettings]); // Removed emailForm from deps as it's reset inside
 
   // Add handler for logo upload
   const handleLogoUpload = async (files: File[]) => {
