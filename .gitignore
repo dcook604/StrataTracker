@@ -11,3 +11,6 @@ vite.config.ts.*
 .vscode
 .npm
 .env
+logs/*
+logs/*.log
+.cursor-server/**/node

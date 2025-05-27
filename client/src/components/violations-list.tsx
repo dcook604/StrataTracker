@@ -102,6 +102,7 @@ export function ViolationsList() {
       cell: ({ row }) => <div className="font-semibold">VIO-{row.original.id}</div>,
     },
     {
+      id: "unitNumber",
       accessorKey: "unit.unitNumber",
       header: () => (
         <span className="cursor-pointer" onClick={() => handleSort('unitNumber')}>
@@ -223,7 +224,7 @@ export function ViolationsList() {
             <DataTable 
               columns={columns} 
               data={violations} 
-              searchColumn="unit.unitNumber"
+              searchColumn="unitNumber"
             />
             <div className="py-4 flex justify-center">
               <Pagination>

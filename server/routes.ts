@@ -30,6 +30,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
+import { logger } from "./logger";
 
 // Ensure user is authenticated middleware
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
@@ -340,17 +341,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (status === "approved" && violation.fineAmount) {
         const unit = await dbStorage.getPropertyUnit(violation.unitId);
         if (unit) {
-          await sendViolationApprovedNotification({
-            violationId: String(violation.id),
-            unitNumber: unit.unitNumber,
-            violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail ?? "",
-            ownerName: unit.ownerName ?? "",
-            fineAmount: violation.fineAmount ?? 0,
-            unitId: unit.id,
-            tenantEmail: unit.tenantEmail ?? undefined,
-            tenantName: unit.tenantName ?? undefined
-          });
+          try {
+            await sendViolationApprovedNotification({
+              violationId: String(violation.id),
+              unitNumber: unit.unitNumber,
+              violationType: violation.violationType,
+              ownerEmail: unit.ownerEmail ?? "",
+              ownerName: unit.ownerName ?? "",
+              fineAmount: violation.fineAmount ?? 0,
+              unitId: unit.id,
+              tenantEmail: unit.tenantEmail ?? undefined,
+              tenantName: unit.tenantName ?? undefined
+            });
+            logger.info(`[Email] Violation approval email attempt for violation ID: ${violation.id}`);
+          } catch (emailError: any) {
+            logger.error(`[Email Error] Failed to send violation approval notification for violation ID: ${violation.id}: ${emailError.message}`, { stack: emailError.stack });
+            // Do not re-throw; allow the main operation to succeed
+          }
         }
       }
       

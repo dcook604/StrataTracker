@@ -38,6 +38,15 @@ import { FilterX } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// Validation for comma-separated numbers or empty string
+const commaSeparatedNumbersSchema = z.string().optional().refine(
+  (val) => {
+    if (val === "" || val === undefined) return true; // Allow empty or undefined
+    return val.split(',').every(item => item.trim() === '' || !isNaN(Number(item.trim())));
+  },
+  { message: "Must be a comma-separated list of numbers (e.g., 101, 102) or empty." }
+);
+
 const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   floor: z.string().optional(),
@@ -49,9 +58,9 @@ const formSchema = z.object({
   tenantReceiveNotifications: z.boolean().default(true).optional(),
   phone: z.string().optional(),
   notes: z.string().optional(),
-  parkingSpots: z.coerce.number().int("Must be a whole number").nonnegative("Must be non-negative").optional().or(z.literal("")),
-  storageLockers: z.coerce.number().int("Must be a whole number").nonnegative("Must be non-negative").optional().or(z.literal("")),
-  bikeLockers: z.coerce.number().int("Must be a whole number").nonnegative("Must be non-negative").optional().or(z.literal("")),
+  parkingSpots: commaSeparatedNumbersSchema,
+  storageLockers: commaSeparatedNumbersSchema,
+  bikeLockers: commaSeparatedNumbersSchema,
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -595,45 +604,51 @@ export default function UnitsPage() {
 
                 <h4 className="text-lg font-semibold text-neutral-800 pt-4 pb-2">Facilities</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="parkingSpots"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Parking Spots</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 101, 102" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="storageLockers"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Storage Lockers</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., S1, S2" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="bikeLockers"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bike Lockers</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., B1, B2" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="w-1/3 px-2">
+                    <FormField
+                      control={form.control}
+                      name="parkingSpots"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Parking Spots</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="e.g., 101, 102" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="w-1/3 px-2">
+                    <FormField
+                      control={form.control}
+                      name="storageLockers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Storage Lockers</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="e.g., 11, 12" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="w-1/3 px-2">
+                    <FormField
+                      control={form.control}
+                      name="bikeLockers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bike Lockers</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="e.g., 14, 15" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
                 <h4 className="text-lg font-semibold text-neutral-800 pt-4 space-y-3">Owners</h4>
@@ -798,45 +813,51 @@ export default function UnitsPage() {
 
                 <h4 className="text-lg font-semibold text-neutral-800 pt-4 pb-2">Facilities</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="parkingSpots"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Parking Spots</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 101, 102" {...field} value={field.value ?? ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="storageLockers"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Storage Lockers</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., S1, S2" {...field} value={field.value ?? ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="bikeLockers"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bike Lockers</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., B1, B2" {...field} value={field.value ?? ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="w-1/3 px-2">
+                    <FormField
+                      control={form.control}
+                      name="parkingSpots"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Parking Spots</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="e.g., 101, 102" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="w-1/3 px-2">
+                    <FormField
+                      control={form.control}
+                      name="storageLockers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Storage Lockers</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="e.g., 11, 12" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="w-1/3 px-2">
+                    <FormField
+                      control={form.control}
+                      name="bikeLockers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bike Lockers</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="e.g., 14, 15" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
                 <h4 className="text-lg font-semibold text-neutral-800 pt-4 space-y-3">Owners</h4>
