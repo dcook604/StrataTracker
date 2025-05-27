@@ -611,10 +611,10 @@ export class DatabaseStorage implements IStorage {
       ...violationData,
       unit: {
         ...unitData,
-        ownerName: ownerName ?? undefined,
-        ownerEmail: ownerEmail ?? undefined,
-        tenantName: tenantName ?? undefined,
-        tenantEmail: tenantEmail ?? undefined
+        ownerName: ownerName,
+        ownerEmail: ownerEmail,
+        tenantName: tenantName,
+        tenantEmail: tenantEmail
       }
     };
   }
