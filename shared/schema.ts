@@ -98,9 +98,9 @@ export type InsertPropertyUnit = typeof propertyUnits.$inferInsert;
 export const unitFacilities = pgTable("unit_facilities", {
   id: serial("id").primaryKey(),
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: 'cascade' }).unique(), // Ensure one-to-one
-  parkingSpots: integer("parking_spots").default(0),
-  storageLockers: integer("storage_lockers").default(0),
-  bikeLockers: integer("bike_lockers").default(0),
+  parkingSpots: text("parking_spots"),
+  storageLockers: text("storage_lockers"),
+  bikeLockers: text("bike_lockers"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

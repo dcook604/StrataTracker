@@ -1,0 +1,13 @@
+[2025-05-26T22:14:11.747Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:18:18.224Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:19:27.703Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:22:00.220Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:23:12.368Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:24:55.462Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:25:46.517Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:26:11.793Z] [ERROR] DATABASE_URL environment variable is not set
+[2025-05-26T22:27:22.573Z] [ERROR] Database connection test failed:: {"message":"connect ECONNREFUSED 127.0.0.1:5432","stack":"Error: connect ECONNREFUSED 127.0.0.1:5432\n    at /home/viodb/projects/StrataTracker/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async file:///home/viodb/projects/StrataTracker/dist/index.js:608:24","code":"ECONNREFUSED"}
+[2025-05-26T22:27:22.628Z] [ERROR] Port 3000 is still in use, could not start server
+[2025-05-26T22:28:22.694Z] [ERROR] Database connection test failed:: {"message":"connect ECONNREFUSED 127.0.0.1:5432","stack":"Error: connect ECONNREFUSED 127.0.0.1:5432\n    at /home/viodb/projects/StrataTracker/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async file:///home/viodb/projects/StrataTracker/dist/index.js:608:24","code":"ECONNREFUSED"}
+[2025-05-26T22:30:24.492Z] [ERROR] Port 3000 is still in use, could not start server
+[2025-05-26T22:32:40.231Z] [ERROR] [API] Request failed: GET /api/user: {"statusCode":401,"duration":16,"responseSize":"12","contentType":"text/plain; charset=utf-8","sessionId":"FwrQlYHJ0inukmACEq1Zqz7ED3bTcCkv","response":"Unauthorized"}

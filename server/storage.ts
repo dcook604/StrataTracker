@@ -6,7 +6,7 @@ import {
   systemSettings,
   violations,
   violationHistories,
-  persons as personsTable,
+  persons,
   type User, 
   type InsertUser,
   type Customer,
@@ -95,7 +95,7 @@ export interface IStorage {
   // Violation operations
   getViolation(id: number): Promise<Violation | undefined>;
   getViolationByReference(referenceNumber: string): Promise<Violation | undefined>;
-  getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit }) | undefined>;
+  getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string, ownerEmail?: string, tenantName?: string, tenantEmail?: string } }) | undefined>;
   getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
@@ -566,7 +566,7 @@ export class DatabaseStorage implements IStorage {
     return violation;
   }
 
-  async getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit }) | undefined> {
+  async getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string, ownerEmail?: string, tenantName?: string, tenantEmail?: string } }) | undefined> {
     const result = await db
       .select({
         violation: violations,
@@ -580,9 +580,43 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
     
+    const violationData = result[0].violation;
+    const unitData = result[0].unit;
+
+    // Fetch persons associated with this unit
+    const unitPersons = await db
+      .select({
+        person: persons,
+        role: unitPersonRoles.role
+      })
+      .from(unitPersonRoles)
+      .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
+      .where(eq(unitPersonRoles.unitId, unitData.id));
+
+    let ownerName: string | null = null; 
+    let ownerEmail: string | null = null; 
+    let tenantName: string | null = null; 
+    let tenantEmail: string | null = null;
+
+    for (const up of unitPersons) {
+      if (up.role === 'owner') {
+        ownerName = up.person.fullName;
+        ownerEmail = up.person.email;
+      } else if (up.role === 'tenant') {
+        tenantName = up.person.fullName;
+        tenantEmail = up.person.email;
+      }
+    }
+    
     return {
-      ...result[0].violation,
-      unit: result[0].unit
+      ...violationData,
+      unit: {
+        ...unitData,
+        ownerName,
+        ownerEmail,
+        tenantName,
+        tenantEmail
+      }
     };
   }
   
@@ -1164,12 +1198,12 @@ export class DatabaseStorage implements IStorage {
       .select({
         unit: propertyUnits,
         roles: unitPersonRoles,
-        person: personsTable,
+        person: persons,
         facilities: unitFacilities
       })
       .from(propertyUnits)
       .leftJoin(unitPersonRoles, eq(propertyUnits.id, unitPersonRoles.unitId))
-      .leftJoin(personsTable, eq(unitPersonRoles.personId, personsTable.id))
+      .leftJoin(persons, eq(unitPersonRoles.personId, persons.id))
       .leftJoin(unitFacilities, eq(propertyUnits.id, unitFacilities.unitId))
       .orderBy(orderByClause)
       .limit(limit)
@@ -1289,9 +1323,9 @@ export class DatabaseStorage implements IStorage {
       // 3. For each person, create or find by email, and update pet info
       const personIds: { [email: string]: number } = {};
       for (const p of unitData.persons) {
-        let [person] = await trx.select().from(personsTable).where(eq(personsTable.email, p.email));
+        let [person] = await trx.select().from(persons).where(eq(persons.email, p.email));
         if (!person) {
-          [person] = await trx.insert(personsTable).values({
+          [person] = await trx.insert(persons).values({
             fullName: p.fullName,
             email: p.email,
             phone: p.phone,
@@ -1299,13 +1333,13 @@ export class DatabaseStorage implements IStorage {
             hasDog: p.hasDog
           }).returning();
         } else {
-          [person] = await trx.update(personsTable).set({
+          [person] = await trx.update(persons).set({
             fullName: p.fullName,
             phone: p.phone,
             hasCat: p.hasCat,
             hasDog: p.hasDog,
             updatedAt: new Date()
-          }).where(eq(personsTable.id, person.id)).returning();
+          }).where(eq(persons.id, person.id)).returning();
         }
         personIds[p.email] = person.id;
       }
@@ -1333,7 +1367,7 @@ export class DatabaseStorage implements IStorage {
       }
       // 5. Return the unit, facilities, and all associated persons/roles
       const roles = await trx.select().from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unit.id));
-      const personList: Person[] = roles.length > 0 ? await trx.select().from(personsTable).where(or(...roles.map(r => eq(personsTable.id, r.personId)))) : [];
+      const personList: Person[] = roles.length > 0 ? await trx.select().from(persons).where(or(...roles.map(r => eq(persons.id, r.personId)))) : [];
       
       return {
         unit,
