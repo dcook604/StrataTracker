@@ -41,16 +41,15 @@ import { promisify } from "util";
 import session from "express-session";
 import memorystore from "memorystore";
 import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
-import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, PgTransaction } from 'drizzle-orm/pg-core';
 import { drizzle, NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
-import { PgTransaction } from 'drizzle-orm/pg-core';
-import { Pool } from 'pg';
 import connectPgSimple from 'connect-pg-simple';
 import logger from './utils/logger';
+import { Buffer } from 'buffer';
 
 const scryptAsync = promisify(scrypt);
 
-const MemoryStore = memorystore(session);
+const MemoryStore = memorystore(session) as any;
 
 export interface IStorage {
   // User operations
@@ -95,7 +94,7 @@ export interface IStorage {
   // Violation operations
   getViolation(id: number): Promise<Violation | undefined>;
   getViolationByReference(referenceNumber: string): Promise<Violation | undefined>;
-  getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string, ownerEmail?: string, tenantName?: string, tenantEmail?: string } }) | undefined>;
+  getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined>;
   getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
@@ -566,7 +565,7 @@ export class DatabaseStorage implements IStorage {
     return violation;
   }
 
-  async getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string, ownerEmail?: string, tenantName?: string, tenantEmail?: string } }) | undefined> {
+  async getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined> {
     const result = await db
       .select({
         violation: violations,
@@ -612,10 +611,10 @@ export class DatabaseStorage implements IStorage {
       ...violationData,
       unit: {
         ...unitData,
-        ownerName,
-        ownerEmail,
-        tenantName,
-        tenantEmail
+        ownerName: ownerName ?? undefined,
+        ownerEmail: ownerEmail ?? undefined,
+        tenantName: tenantName ?? undefined,
+        tenantEmail: tenantEmail ?? undefined
       }
     };
   }
@@ -630,7 +629,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .orderBy(desc(violations.createdAt));
     
-    return result.map(r => ({
+    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
       ...r.violation,
       unit: r.unit
     }));
@@ -648,7 +647,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(violations.status, status))
         .orderBy(desc(violations.createdAt));
     
-      return result.map(r => ({
+      return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
         ...r.violation,
         unit: r.unit
       }));
@@ -693,7 +692,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(violations.createdAt))
       .limit(limit);
       
-    return result.map(r => ({
+    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
       ...r.violation,
       unit: r.unit
     }));
@@ -791,10 +790,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(violationHistories.violationId, violationId))
       .orderBy(desc(violationHistories.createdAt));
 
-    return historyItems.map(item => ({
+    return historyItems.map((item: { id: number; violationId: number; userId: number | null; action: string; comment: string | null; commenterName: string | null; createdAt: Date; userFullName: string | null; }) => ({
       id: item.id,
       violationId: item.violationId,
-      userId: item.userId,
+      userId: item.userId ?? 1, // Default to system user ID 1 if null
       action: item.action,
       comment: item.comment,
       commenterName: item.commenterName,
@@ -825,7 +824,7 @@ export class DatabaseStorage implements IStorage {
       .having(sql`count(*) >= ${minCount}`);
       
     // Get unit numbers for each unit ID
-    const unitIds = result.map(r => r.unitId);
+    const unitIds = result.map(r => r.unitId as number);
     
     if (unitIds.length === 0) {
       return [];
@@ -838,22 +837,22 @@ export class DatabaseStorage implements IStorage {
       })
       .from(propertyUnits)
       .where(
-        or(...unitIds.map(id => eq(propertyUnits.id, id)))
+        or(...unitIds.map((id: number) => eq(propertyUnits.id, id)))
       );
     
     // Create a map of unit IDs to unit numbers
-    const unitMap = new Map();
-    units.forEach(unit => {
+    const unitMap = new Map<number, string>();
+    units.forEach((unit: { id: number; unitNumber: string }) => {
       unitMap.set(unit.id, unit.unitNumber);
     });
     
     // Create the final result
-    return result.map(r => ({
+    return result.map((r: { unitId: number; count: number | string; lastViolation: Date }) => ({
       unitId: r.unitId,
       unitNumber: unitMap.get(r.unitId) || 'Unknown',
       count: Number(r.count),
       lastViolationDate: r.lastViolation
-    })).sort((a, b) => b.count - a.count);
+    })).sort((a: { count: number }, b: { count: number }) => b.count - a.count);
   }
   
   async getViolationStats(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{
@@ -925,7 +924,7 @@ export class DatabaseStorage implements IStorage {
         .where(whereClause ? and(whereClause, eq(violations.status, 'resolved')) : eq(violations.status, 'resolved'));
 
       let totalResolutionTimeMs = 0;
-      resolvedViolationsData.forEach(v => {
+      resolvedViolationsData.forEach((v: { createdAt?: Date; updatedAt?: Date }) => {
         if (v.createdAt && v.updatedAt) {
           totalResolutionTimeMs += v.updatedAt.getTime() - v.createdAt.getTime();
         }
@@ -1037,8 +1036,8 @@ export class DatabaseStorage implements IStorage {
     .groupBy(violationCategories.name)
     .orderBy(desc(drizzleCount(sql`*`)));
 
-    return result.map(r => ({ 
-      type: r.type ?? 'Unknown', // Use nullish coalescing for default type
+    return result.map((r: { type: string | null; count: number | string }) => ({ 
+      type: r.type ?? 'Unknown', // Ensure type is always string
       count: Number(r.count) 
     }));
   }
@@ -1065,7 +1064,7 @@ export class DatabaseStorage implements IStorage {
       .where(whereClause)
       .orderBy(desc(violations.createdAt)); // Or any other order suitable for the report
     
-    return result.map(r => ({
+    return result.map((r: { violation: Violation; unit: PropertyUnit; category: ViolationCategory | null }) => ({
       ...r.violation,
       unit: r.unit,
       category: r.category || undefined // Handle cases where category might be null
@@ -1212,7 +1211,7 @@ export class DatabaseStorage implements IStorage {
     // Group the results by unit
     const unitsMap = new Map<number, any>();
     
-    paginatedUnits.forEach(row => {
+    paginatedUnits.forEach((row: any) => {
       const unitId = row.unit.id;
       
       if (!unitsMap.has(unitId)) {
@@ -1367,7 +1366,7 @@ export class DatabaseStorage implements IStorage {
       }
       // 5. Return the unit, facilities, and all associated persons/roles
       const roles = await trx.select().from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unit.id));
-      const personList: Person[] = roles.length > 0 ? await trx.select().from(persons).where(or(...roles.map(r => eq(persons.id, r.personId)))) : [];
+      const personList: Person[] = roles.length > 0 ? await trx.select().from(persons).where(or(...roles.map((r: UnitPersonRole) => eq(persons.id, r.personId)))) : [];
       
       return {
         unit,

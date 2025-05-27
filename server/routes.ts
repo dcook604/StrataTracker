@@ -30,7 +30,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
-import { logger } from "./logger";
+import { logger } from "./utils/logger";
 
 // Ensure user is authenticated middleware
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
