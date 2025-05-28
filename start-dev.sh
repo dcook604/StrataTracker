@@ -12,17 +12,17 @@ find_available_port() {
 
   for i in $(seq 0 $MAX_PORT_SEARCH_ATTEMPTS); do
     CURRENT_PORT=$((BASE_PORT + i))
-    echo "[INFO] [$SERVICE_NAME] Checking if port $CURRENT_PORT is available..."
+    echo "[INFO] [$SERVICE_NAME] Checking if port $CURRENT_PORT is available..." >&2
     if ! lsof -i :$CURRENT_PORT | grep LISTEN > /dev/null; then
-      echo "[INFO] [$SERVICE_NAME] Port $CURRENT_PORT is available."
+      echo "[INFO] [$SERVICE_NAME] Port $CURRENT_PORT is available." >&2
       echo $CURRENT_PORT # Return the available port
       return 0
     else
-      echo "[INFO] [$SERVICE_NAME] Port $CURRENT_PORT is in use."
+      echo "[INFO] [$SERVICE_NAME] Port $CURRENT_PORT is in use." >&2
     fi
   done
 
-  echo "[ERROR] [$SERVICE_NAME] Could not find an available port after trying $MAX_PORT_SEARCH_ATTEMPTS ports starting from $BASE_PORT."
+  echo "[ERROR] [$SERVICE_NAME] Could not find an available port after trying $MAX_PORT_SEARCH_ATTEMPTS ports starting from $BASE_PORT." >&2
   return 1 # Indicate failure
 }
 

@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "nodemon --watch server --exec \"esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && node dist/index.js\"",
+    "dev:backend": "nodemon --watch server --exec \"esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && PORT=$PORT node dist/index.js\"",
     "check-conflicts": "find . -type f \\( -name '*.tsx' -o -name '*.ts' -o -name '*.jsx' -o -name '*.js' \\) -exec grep -H '<<<<<<< HEAD' {} + || true",
     "build": "npm run check-conflicts && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
