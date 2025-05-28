@@ -90,7 +90,14 @@ async function startServer() {
 
 // Graceful shutdown handler
 async function shutdown(signal: string) {
-  logger.info(`Received ${signal}, starting graceful shutdown...`);
+  console.log(`[SHUTDOWN] Received ${signal}, starting graceful shutdown...`);
+
+  // Try to log shutdown, but fallback to console if logger fails
+  try {
+    logger.info(`Received ${signal}, starting graceful shutdown...`);
+  } catch (err) {
+    console.error('[SHUTDOWN] Logger unavailable during shutdown:', err);
+  }
 
   // Stop the performance monitoring
   if (resourceMonitor) {
@@ -99,26 +106,34 @@ async function shutdown(signal: string) {
 
   // Close the server first
   if (server) {
-    logger.info('Closing HTTP server...');
-    await new Promise<void>((resolve) => {
-      server.close(() => {
-        logger.info('HTTP server closed');
-        resolve();
+    console.log('[SHUTDOWN] Closing HTTP server...');
+    try {
+      await new Promise<void>((resolve) => {
+        server.close(() => {
+          console.log('[SHUTDOWN] HTTP server closed');
+          resolve();
+        });
       });
-    });
+    } catch (err) {
+      console.error('[SHUTDOWN] Error closing HTTP server:', err);
+    }
   }
 
   // Close database connections
   try {
-    logger.info('Closing database connections...');
+    console.log('[SHUTDOWN] Closing database connections...');
     await pool.end();
-    logger.info('Database connections closed');
+    console.log('[SHUTDOWN] Database connections closed');
   } catch (err) {
-    logger.error('Error closing database connections:', err);
+    console.error('[SHUTDOWN] Error closing database connections:', err);
   }
 
+  // Give logger time to flush pending writes
+  console.log('[SHUTDOWN] Waiting for logger to flush...');
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
   // Exit the process
-  logger.info('Shutdown complete');
+  console.log('[SHUTDOWN] Shutdown complete');
   process.exit(0);
 }
 
@@ -129,13 +144,40 @@ process.on('SIGHUP', () => shutdown('SIGHUP'));
 
 // Handle uncaught errors
 process.on('uncaughtException', (error: Error) => {
-  logger.error('Uncaught exception:', error);
-  shutdown('uncaught exception');
+  // Use console.error as fallback in case logger is the source of the issue
+  console.error('[CRITICAL] Uncaught exception:', error.message);
+  console.error('[CRITICAL] Stack:', error.stack);
+  
+  // Try to log with logger, but don't crash if it fails
+  try {
+    logger.error('Uncaught exception:', error);
+  } catch (logError) {
+    console.error('[CRITICAL] Logger failed during uncaught exception:', logError);
+  }
+  
+  // Start graceful shutdown
+  shutdown('uncaught exception').catch(() => {
+    console.error('[CRITICAL] Graceful shutdown failed, forcing exit');
+    process.exit(1);
+  });
 });
 
 process.on('unhandledRejection', (reason: any) => {
-  logger.error('Unhandled Rejection, reason:', reason);
-  shutdown('unhandled rejection');
+  // Use console.error as fallback
+  console.error('[CRITICAL] Unhandled Rejection:', reason);
+  
+  // Try to log with logger, but don't crash if it fails
+  try {
+    logger.error('Unhandled Rejection, reason:', reason);
+  } catch (logError) {
+    console.error('[CRITICAL] Logger failed during unhandled rejection:', logError);
+  }
+  
+  // Start graceful shutdown
+  shutdown('unhandled rejection').catch(() => {
+    console.error('[CRITICAL] Graceful shutdown failed, forcing exit');
+    process.exit(1);
+  });
 });
 
 // Start the server

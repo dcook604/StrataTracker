@@ -138,15 +138,15 @@ export default function UnitsPage() {
     }
   });
 
-  const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray({
+  const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray<FormValues, "parkingSpots">({
     control: form.control,
     name: "parkingSpots",
   });
-  const { fields: storageFields, append: appendStorage, remove: removeStorage } = useFieldArray({
+  const { fields: storageFields, append: appendStorage, remove: removeStorage } = useFieldArray<FormValues, "storageLockers">({
     control: form.control,
     name: "storageLockers",
   });
-  const { fields: bikeFields, append: appendBike, remove: removeBike } = useFieldArray({
+  const { fields: bikeFields, append: appendBike, remove: removeBike } = useFieldArray<FormValues, "bikeLockers">({
     control: form.control,
     name: "bikeLockers",
   });
