@@ -64,7 +64,18 @@ export const propertyUnits = pgTable("property_units", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").references(() => customers.id),
   unitNumber: text("unit_number").notNull().unique(),
+  strataLot: text("strata_lot"),
   floor: text("floor"),
+  // Mailing address fields
+  mailingStreet1: text("mailing_street1"),
+  mailingStreet2: text("mailing_street2"),
+  mailingCity: text("mailing_city"),
+  mailingStateProvince: text("mailing_state_province"),
+  mailingPostalCode: text("mailing_postal_code"),
+  mailingCountry: text("mailing_country"),
+  // Contact and notes
+  phone: text("phone"),
+  notes: text("notes"),
   // ownerName, ownerEmail, tenantName, tenantEmail are deprecated and will be removed.
   // Use the persons and unitPersonRoles tables instead.
   ownerName: text("owner_name"), // Deprecated
@@ -88,13 +99,70 @@ export const insertCustomerSchema = createInsertSchema(customers).pick({
 
 export const insertPropertyUnitSchema = createInsertSchema(propertyUnits).pick({
   unitNumber: true,
+  strataLot: true,
   floor: true,
+  mailingStreet1: true,
+  mailingStreet2: true,
+  mailingCity: true,
+  mailingStateProvince: true,
+  mailingPostalCode: true,
+  mailingCountry: true,
+  phone: true,
+  notes: true,
   // Deprecated fields are not included in insert schema for new units
 });
 export type PropertyUnit = typeof propertyUnits.$inferSelect;
 export type InsertPropertyUnit = typeof propertyUnits.$inferInsert;
 
-// UnitFacilities table
+// Parking spots table
+export const parkingSpots = pgTable("parking_spots", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: 'cascade' }),
+  identifier: text("identifier").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertParkingSpotSchema = createInsertSchema(parkingSpots).pick({
+  unitId: true,
+  identifier: true,
+});
+export type ParkingSpot = typeof parkingSpots.$inferSelect;
+export type InsertParkingSpot = typeof parkingSpots.$inferInsert;
+
+// Storage lockers table
+export const storageLockers = pgTable("storage_lockers", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: 'cascade' }),
+  identifier: text("identifier").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertStorageLockerSchema = createInsertSchema(storageLockers).pick({
+  unitId: true,
+  identifier: true,
+});
+export type StorageLocker = typeof storageLockers.$inferSelect;
+export type InsertStorageLocker = typeof storageLockers.$inferInsert;
+
+// Bike lockers table
+export const bikeLockers = pgTable("bike_lockers", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: 'cascade' }),
+  identifier: text("identifier").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertBikeLockerSchema = createInsertSchema(bikeLockers).pick({
+  unitId: true,
+  identifier: true,
+});
+export type BikeLocker = typeof bikeLockers.$inferSelect;
+export type InsertBikeLocker = typeof bikeLockers.$inferInsert;
+
+// DEPRECATED: Old UnitFacilities table - to be removed after migration
 export const unitFacilities = pgTable("unit_facilities", {
   id: serial("id").primaryKey(),
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: 'cascade' }).unique(), // Ensure one-to-one
@@ -235,10 +303,39 @@ export const propertyUnitsRelations = relations(propertyUnits, ({ one, many }) =
     references: [customers.id],
   }),
   unitRoles: many(unitPersonRoles),
+  // New facility relations
+  parkingSpots: many(parkingSpots),
+  storageLockers: many(storageLockers),
+  bikeLockers: many(bikeLockers),
+  // Deprecated - will be removed
   facilities: one(unitFacilities, {
     fields: [propertyUnits.id],
     references: [unitFacilities.unitId],
   })
+}));
+
+// Define relationships for parking spots
+export const parkingSpotsRelations = relations(parkingSpots, ({ one }) => ({
+  propertyUnit: one(propertyUnits, {
+    fields: [parkingSpots.unitId],
+    references: [propertyUnits.id],
+  }),
+}));
+
+// Define relationships for storage lockers
+export const storageLockersRelations = relations(storageLockers, ({ one }) => ({
+  propertyUnit: one(propertyUnits, {
+    fields: [storageLockers.unitId],
+    references: [propertyUnits.id],
+  }),
+}));
+
+// Define relationships for bike lockers
+export const bikeLockersRelations = relations(bikeLockers, ({ one }) => ({
+  propertyUnit: one(propertyUnits, {
+    fields: [bikeLockers.unitId],
+    references: [propertyUnits.id],
+  }),
 }));
 
 // Define relationships for system settings

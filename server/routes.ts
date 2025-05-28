@@ -821,13 +821,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Unit with Persons (owners/tenants) and Facilities
   app.post("/api/units-with-persons", ensureAuthenticated, async (req, res) => {
     try {
-      // Validate input
-      const unitSchema = insertPropertyUnitSchema.pick({ unitNumber: true, floor: true }); // Only unitNumber and floor from unit
+      // Validate input - include all new fields
+      const unitSchema = insertPropertyUnitSchema.pick({ 
+        unitNumber: true, 
+        strataLot: true,
+        floor: true,
+        mailingStreet1: true,
+        mailingStreet2: true,
+        mailingCity: true,
+        mailingStateProvince: true,
+        mailingPostalCode: true,
+        mailingCountry: true,
+        phone: true,
+        notes: true
+      });
       
-      const facilitiesSchema = insertUnitFacilitySchema.pick({
-        parkingSpots: true,
-        storageLockers: true,
-        bikeLockers: true
+      // Update facilities schema to accept arrays of strings
+      const facilitiesSchema = z.object({
+        parkingSpots: z.array(z.string()).optional(),
+        storageLockers: z.array(z.string()).optional(),
+        bikeLockers: z.array(z.string()).optional()
       });
 
       const personSchema = z.object({
