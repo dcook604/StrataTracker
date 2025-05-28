@@ -138,17 +138,17 @@ export default function UnitsPage() {
     }
   });
 
-  const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray<FormValues, "parkingSpots">({
+  const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray({
     control: form.control,
-    name: "parkingSpots",
+    name: "parkingSpots" as const,
   });
-  const { fields: storageFields, append: appendStorage, remove: removeStorage } = useFieldArray<FormValues, "storageLockers">({
+  const { fields: storageFields, append: appendStorage, remove: removeStorage } = useFieldArray({
     control: form.control,
-    name: "storageLockers",
+    name: "storageLockers" as const,
   });
-  const { fields: bikeFields, append: appendBike, remove: removeBike } = useFieldArray<FormValues, "bikeLockers">({
+  const { fields: bikeFields, append: appendBike, remove: removeBike } = useFieldArray({
     control: form.control,
-    name: "bikeLockers",
+    name: "bikeLockers" as const,
   });
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);

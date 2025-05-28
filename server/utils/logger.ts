@@ -169,16 +169,16 @@ class Logger {
   private isProduction: boolean = process.env.NODE_ENV === 'production';
   
   constructor() {
-    // Set production-optimized log levels
+    // Set production-optimized log levels - more conservative to prevent EIO
     if (this.isProduction) {
-      // Production: Only log WARN and ERROR to reduce volume and improve performance
-      this.minLevel = 'WARN';
+      // Production: Only log ERROR to reduce volume and improve performance
+      this.minLevel = 'ERROR';
     } else if (process.env.NODE_ENV === 'test') {
       // Test: Only errors to keep test output clean
       this.minLevel = 'ERROR';
     } else {
-      // Development: Allow more verbose logging
-      this.minLevel = 'DEBUG';
+      // Development: Allow more verbose logging but still be conservative
+      this.minLevel = 'WARN';
     }
     
     // Override with LOG_LEVEL environment variable if set
@@ -186,12 +186,11 @@ class Logger {
       this.minLevel = process.env.LOG_LEVEL as LogLevel;
     }
     
-    // Only log configuration in development
+    // Only log configuration in development and not too frequently
     if (!this.isProduction) {
       console.log(`${colors.cyan}[LOGGER] Environment: ${process.env.NODE_ENV || 'development'}${colors.reset}`);
       console.log(`${colors.cyan}[LOGGER] Log level: ${this.minLevel}${colors.reset}`);
       console.log(`${colors.cyan}[LOGGER] Log files will be written to: ${logDir}${colors.reset}`);
-      console.log(`${colors.cyan}[LOGGER] Log rotation enabled: max size ${MAX_LOG_SIZE / 1024 / 1024}MB, max files ${MAX_LOG_FILES}${colors.reset}`);
     }
   }
   
@@ -207,7 +206,7 @@ class Logger {
   }
   
   /**
-   * Log a message with production optimizations
+   * Log a message with production optimizations and EIO error prevention
    */
   private log(level: LogLevel, message: string, data?: any): void {
     if (!this.shouldLog(level)) return;
@@ -215,38 +214,30 @@ class Logger {
     const formattedMessage = formatLogMessage(level, message, data);
     
     // Console output with colors (always synchronous for immediate feedback)
-    console.log(`${levelColors[level]}${formattedMessage}${colors.reset}`);
+    // Use stderr for errors to separate from stdout
+    if (level === 'ERROR') {
+      console.error(`${levelColors[level]}${formattedMessage}${colors.reset}`);
+    } else {
+      console.log(`${levelColors[level]}${formattedMessage}${colors.reset}`);
+    }
     
-    // In production, only write ERROR logs to files to reduce I/O
-    // In development, write more verbose logs
-    const shouldWriteToFile = this.isProduction ? level === 'ERROR' : true;
+    // Be extremely conservative with file writes to prevent EIO errors
+    // Only write ERROR level logs to files, and only if absolutely necessary
+    const shouldWriteToFile = level === 'ERROR';
     
     if (shouldWriteToFile) {
       // Queue async file writes to prevent blocking
       this.writeQueue = this.writeQueue.then(async () => {
         try {
-          // Write to main app log
-          await writeToFile(logFilePaths.app, formattedMessage);
-          
-          // Also write to error log if level is ERROR
-          if (level === 'ERROR') {
-            await writeToFile(logFilePaths.error, formattedMessage);
-          }
-          
-          // In development, write to server log for INFO and higher
-          // In production, only write ERROR to server log
-          if (!this.isProduction && level !== 'DEBUG') {
-            await writeToFile(logFilePaths.server, formattedMessage);
-          } else if (this.isProduction && level === 'ERROR') {
-            await writeToFile(logFilePaths.server, formattedMessage);
-          }
+          // Only write to error log for ERROR level
+          await writeToFile(logFilePaths.error, formattedMessage);
         } catch (err) {
-          // Last resort - output to console only
-          console.error(`[LOGGER] Critical: Failed to queue log write:`, err instanceof Error ? err.message : String(err));
+          // Last resort - output to stderr only, don't try to log the logging error
+          console.error(`[LOGGER] Critical: Failed to write log (${err instanceof Error ? err.message : String(err)})`);
         }
       }).catch(err => {
-        // Prevent unhandled promise rejections
-        console.error(`[LOGGER] Critical: Log write queue error:`, err instanceof Error ? err.message : String(err));
+        // Prevent unhandled promise rejections, output to stderr only
+        console.error(`[LOGGER] Critical: Log write queue error (${err instanceof Error ? err.message : String(err)})`);
       });
     }
   }

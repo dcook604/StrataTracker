@@ -52,34 +52,30 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     const duration = Date.now() - start;
     const statusCode = res.statusCode;
     
-    // For all routes, log basic info
-    logger.info(`[API] ${method} ${path} ${statusCode} ${duration}ms`);
-    
-    // Additional detailed logging for API routes
-    if (path.startsWith('/api')) {
-      const logData = {
-        statusCode,
-        duration,
-        responseSize: res.get('content-length') || 'unknown',
-        contentType: res.get('content-type'),
-        userId: req.user?.id,
-        sessionId: req.sessionID
-      };
+    // Only log errors and warnings to prevent EIO issues
+    // Skip successful requests in both development and production
+    if (statusCode >= 400) {
+      logger.warn(`[API] ${method} ${path} ${statusCode} ${duration}ms`);
+      
+      // Additional detailed logging for API routes with errors
+      if (path.startsWith('/api')) {
+        const logData = {
+          statusCode,
+          duration,
+          responseSize: res.get('content-length') || 'unknown',
+          contentType: res.get('content-type'),
+          userId: req.user?.id,
+          sessionId: req.sessionID
+        };
 
-      if (statusCode >= 400) {
         logger.error(`[API] Request failed: ${method} ${path}`, {
           ...logData,
           response: responseBody,
           requestBody: Object.keys(requestBody).length ? requestBody : undefined
         });
-      } else if (statusCode >= 200 && statusCode < 300) {
-        logger.debug(`[API] Success: ${method} ${path}`, {
-          ...logData,
-          response: responseBody && typeof responseBody === 'object' ? 
-            Object.keys(responseBody).length : 'response_sent'
-        });
       }
     }
+    // Remove all successful request logging to prevent EIO issues
   });
   
   next();
