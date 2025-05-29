@@ -26,6 +26,7 @@ import {
 } from "@shared/schema";
 import userManagementRoutes from "./routes/user-management";
 import emailConfigRoutes from "./routes/email-config";
+import communicationsRoutes from "./routes/communications";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -96,6 +97,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register email configuration routes
   app.use("/api/email-config", emailConfigRoutes);
+  
+  // Register communications routes
+  app.use("/api/communications", communicationsRoutes);
 
   // Serve uploaded files statically
   app.use('/api/uploads', express.static(uploadsDir));

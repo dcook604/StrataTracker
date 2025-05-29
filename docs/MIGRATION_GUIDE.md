@@ -453,4 +453,154 @@ For issues related to this migration:
 
 ---
 
-**Migration completed successfully on December 2024. StrataTracker is now fully containerized and ready for local development and production deployment.** 
+**Migration completed successfully on December 2024. StrataTracker is now fully containerized and ready for local development and production deployment.**
+
+---
+
+## 📧 Communications Feature Addition (May 2025)
+
+### Overview
+After the successful Docker migration, a comprehensive Communications feature was added to enable newsletter and announcement management for administrators and council members.
+
+### Database Schema Changes
+
+#### New Tables Added
+```sql
+-- Migration file: 0003_communications_schema.sql
+
+-- Communication campaigns table
+CREATE TABLE communication_campaigns (
+  id SERIAL PRIMARY KEY,
+  uuid UUID DEFAULT gen_random_uuid() NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL, -- 'newsletter', 'announcement', 'update', 'emergency'
+  status TEXT DEFAULT 'draft' NOT NULL,
+  subject TEXT NOT NULL,
+  content TEXT NOT NULL,
+  plain_text_content TEXT,
+  scheduled_at TIMESTAMP,
+  sent_at TIMESTAMP,
+  created_by_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Campaign recipients tracking table
+CREATE TABLE communication_recipients (
+  id SERIAL PRIMARY KEY,
+  campaign_id INTEGER NOT NULL REFERENCES communication_campaigns(id) ON DELETE CASCADE,
+  recipient_type TEXT NOT NULL,
+  unit_id INTEGER REFERENCES property_units(id),
+  person_id INTEGER REFERENCES persons(id),
+  email TEXT NOT NULL,
+  recipient_name TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' NOT NULL,
+  sent_at TIMESTAMP,
+  error_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Email templates table
+CREATE TABLE communication_templates (
+  id SERIAL PRIMARY KEY,
+  uuid UUID DEFAULT gen_random_uuid() NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  content TEXT NOT NULL,
+  is_default BOOLEAN DEFAULT false NOT NULL,
+  created_by_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+### Migration Application
+```bash
+# Manual migration application (if needed)
+sudo docker exec -i stratatracker-db-1 psql -U spectrum4 -d spectrum4 < migrations/0003_communications_schema.sql
+
+# Verification
+sudo docker exec -i stratatracker-db-1 psql -U spectrum4 -d spectrum4 -c "\\dt" | grep communication
+```
+
+### Backend Integration
+
+#### New API Routes
+- `/api/communications/campaigns` - Campaign management
+- `/api/communications/templates` - Template management  
+- `/api/communications/recipients` - Recipient management
+- `/api/communications/units` - Unit selection
+
+#### SMTP Integration
+- Automatically uses existing SMTP settings from system_settings table
+- No additional configuration required
+- Falls back to safe defaults if SMTP not configured
+
+### Frontend Changes
+
+#### Navigation Update
+- Added "Communications" menu item under "All Violations"
+- Restricted to Admin and Council members only
+- Uses Mail icon for visual identification
+
+#### New Pages
+- `client/src/pages/communications-page.tsx` - Main communications interface
+- Tabbed interface for campaigns and templates
+- Modern UI with comprehensive form validation
+
+### Development Setup Impact
+
+#### Important Development Note
+**Critical**: Always use the startup script for development:
+```bash
+# Correct way to start development environment
+sh start-dev.sh
+
+# This replaces individual npm commands:
+# npm run dev          (frontend only - NOT recommended)
+# npm run dev:backend  (backend only - NOT recommended)
+```
+
+#### Port Management
+- Script automatically finds available ports
+- Backend typically on 3001, frontend on next available port
+- No manual port configuration needed
+
+### Security Implementation
+- All communications routes require authentication
+- Admin/Council role validation on all endpoints
+- Email address validation before sending
+- Campaign creation attribution tracking
+
+### Performance Considerations
+- Asynchronous email sending prevents blocking
+- 100ms delay between emails to avoid SMTP overwhelm
+- Comprehensive error handling and retry logic
+- Database indexes for optimal performance
+
+### Verification Steps
+```bash
+# 1. Verify tables exist
+sudo docker exec -i stratatracker-db-1 psql -U spectrum4 -d spectrum4 -c "SELECT tablename FROM pg_tables WHERE tablename LIKE 'communication%';"
+
+# 2. Test API endpoints (requires authentication)
+curl -s -w "%{http_code}" http://localhost:3001/api/communications/campaigns
+# Should return 403 (requires auth) - indicates endpoint is working
+
+# 3. Check frontend access
+curl -s -w "%{http_code}" http://localhost:5175/communications  
+# Should return 200 - indicates page loads
+```
+
+### Integration Success
+- ✅ Database migration applied successfully
+- ✅ API routes integrated with authentication system
+- ✅ Frontend components added to navigation
+- ✅ SMTP integration uses existing email settings
+- ✅ Comprehensive recipient management system
+- ✅ Role-based access control implemented
+
+---
+
+**Communications feature successfully added May 2025. StrataTracker now includes comprehensive newsletter and announcement capabilities integrated with existing SMTP settings and user management system.** 

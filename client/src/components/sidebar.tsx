@@ -14,6 +14,9 @@ import {
   Menu,
   Users,
   Tags,
+  Mail,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +28,7 @@ export function Sidebar({ className }: SidebarProps) {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -32,6 +36,10 @@ export function Sidebar({ className }: SidebarProps) {
 
   const isActive = (path: string) => {
     return location === path;
+  };
+
+  const toggleSidebar = () => {
+    setIsCollapsed(!isCollapsed);
   };
 
   const navItems = [
@@ -49,6 +57,12 @@ export function Sidebar({ className }: SidebarProps) {
       title: "All Violations",
       icon: <FileText className="h-5 w-5" />,
       href: "/violations",
+    },
+    {
+      title: "Communications",
+      icon: <Mail className="h-5 w-5" />,
+      href: "/communications",
+      adminOrCouncil: true,
     },
     {
       title: "Reports",
@@ -75,63 +89,106 @@ export function Sidebar({ className }: SidebarProps) {
     },
   ];
 
-  const NavContent = () => (
+  const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div className="flex h-full flex-col">
-      <div className="flex flex-col items-center justify-center h-20 px-4 border-b border-neutral-200 dark:border-neutral-800 select-none">
-        <span className="font-bold text-2xl leading-tight">Spectrum 4</span>
-        <span className="text-xl font-normal opacity-80" style={{ fontSize: '90%' }}>Violation System</span>
+      {/* Header with toggle button */}
+      <div className={cn(
+        "flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 select-none",
+        collapsed ? "h-16 px-2" : "h-16 px-3"
+      )}>
+        {!collapsed && (
+          <div className="flex flex-col">
+            <span className="font-bold text-lg leading-tight">Spectrum 4</span>
+            <span className="text-sm font-normal opacity-80">Violation System</span>
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleSidebar}
+          className="h-8 w-8 p-0 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
       </div>
-      <ScrollArea className="flex-1 px-4 py-4">
+
+      {/* Navigation */}
+      <ScrollArea className={cn("flex-1 py-3", collapsed ? "px-2" : "px-3")}>
         <nav className="flex flex-col gap-1">
           {navItems
-            .filter(item => !item.adminOnly || (user && user.isAdmin))
+            .filter(item => {
+              if (item.adminOnly) return user && user.isAdmin;
+              if (item.adminOrCouncil) return user && (user.isAdmin || user.isCouncilMember);
+              return true;
+            })
             .map((item) => (
               <Link key={item.href} href={item.href}>
                 <Button
                   variant="ghost"
                   tabIndex={0}
                   className={cn(
-                    "w-full justify-start gap-2 transition-colors font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                    "w-full gap-3 transition-colors font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                    collapsed ? "h-10 px-2 justify-center" : "h-10 px-3 justify-start",
                     isActive(item.href)
                       ? "bg-blue-700 text-white font-bold border-l-4 border-blue-500 shadow"
                       : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
                   )}
                   aria-current={isActive(item.href) ? "page" : undefined}
                   onClick={() => setOpen(false)}
+                  title={collapsed ? item.title : undefined}
                 >
                   {item.icon}
-                  {item.title}
+                  {!collapsed && <span className="truncate">{item.title}</span>}
                 </Button>
               </Link>
             ))}
-          <div className="mt-auto pt-4 border-t border-neutral-200 dark:border-neutral-800 mt-4">
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-2 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-5 w-5" />
-              Logout
-            </Button>
-          </div>
         </nav>
       </ScrollArea>
+
+      {/* Footer */}
+      <div className={cn(
+        "border-t border-neutral-200 dark:border-neutral-800",
+        collapsed ? "p-2" : "p-3"
+      )}>
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full gap-3 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100",
+            collapsed ? "h-10 px-2 justify-center" : "h-10 px-3 justify-start"
+          )}
+          onClick={handleLogout}
+          title={collapsed ? "Logout" : undefined}
+        >
+          <LogOut className="h-5 w-5" />
+          {!collapsed && <span>Logout</span>}
+        </Button>
+      </div>
     </div>
   );
 
   return (
     <>
-      <aside className={cn("hidden md:flex flex-col w-64 border-r border-neutral-200 dark:border-neutral-800", className)}>
-        <NavContent />
+      {/* Desktop Sidebar */}
+      <aside className={cn(
+        "hidden md:flex flex-col border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300",
+        isCollapsed ? "w-16" : "w-56",
+        className
+      )}>
+        <NavContent collapsed={isCollapsed} />
       </aside>
 
+      {/* Mobile Sidebar */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="md:hidden">
             <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0">
+        <SheetContent side="left" className="p-0 w-64">
           <NavContent />
         </SheetContent>
       </Sheet>
