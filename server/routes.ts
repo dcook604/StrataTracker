@@ -963,12 +963,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // It should ideally call a dedicated updateUnitWithPersons function in dbStorage.
       // For now, we will adapt its payload to match createUnitWithPersons, but this needs review.
 
-      const unitSchema = insertPropertyUnitSchema.pick({ unitNumber: true, floor: true });
-      const facilitiesSchema = insertUnitFacilitySchema.pick({
-        parkingSpots: true,
-        storageLockers: true,
-        bikeLockers: true
+      const unitSchema = insertPropertyUnitSchema.pick({ 
+        unitNumber: true, 
+        strataLot: true,
+        floor: true,
+        mailingStreet1: true,
+        mailingStreet2: true,
+        mailingCity: true,
+        mailingStateProvince: true,
+        mailingPostalCode: true,
+        mailingCountry: true,
+        phone: true,
+        notes: true
       });
+      
+      // Update facilities schema to accept arrays of strings (new structure)
+      const facilitiesSchema = z.object({
+        parkingSpots: z.array(z.string()).optional(),
+        storageLockers: z.array(z.string()).optional(),
+        bikeLockers: z.array(z.string()).optional()
+      });
+      
       const personSchema = z.object({
         fullName: z.string().min(1),
         email: z.string().email(),
