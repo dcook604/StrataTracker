@@ -144,13 +144,15 @@ export default function SettingsPage() {
   const [smtpTestMessage, setSmtpTestMessage] = useState('');
   const [isSavingSystemSettings, setIsSavingSystemSettings] = useState<boolean>(false);
 
-  const { data: settings, isLoading: isLoadingEmailNotificationSettings } = useQuery<SystemSetting[]>({
+  const { data: settingsResponse, isLoading: isLoadingEmailNotificationSettings } = useQuery<{settings: SystemSetting[], logoUrl?: string}>({
     queryKey: ["/api/settings"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/settings");
       return res.json();
     },
   });
+
+  const settings = settingsResponse?.settings;
 
   const emailForm = useForm<EmailSettingsFormValues>({
     resolver: zodResolver(emailSettingsSchema),
@@ -208,7 +210,7 @@ export default function SettingsPage() {
         port: smtpConfig.port || 587,
         secure: !!smtpConfig.secure,
         authUser: smtpConfig.auth?.user || '',
-        authPass: '', // Do not populate password
+        authPass: smtpConfig.auth?.pass === '********' ? '********' : '', // Show masked password if exists
         from: smtpConfig.from || ''
       });
     }
@@ -287,7 +289,6 @@ export default function SettingsPage() {
         title: 'Success',
         description: 'SMTP configuration saved successfully.',
       });
-      smtpForm.setValue('authPass', ''); // Clear password field after save
     },
     onError: (error: Error) => {
       toast({
@@ -346,15 +347,13 @@ export default function SettingsPage() {
   };
 
   const onSmtpConfigSubmit = (data: SmtpConfigFormData) => {
-    // Mask password in form data if not changed, to avoid sending '********'
-    const currentValues = smtpForm.getValues();
-    if (data.authPass === '' && smtpConfig?.auth?.user === data.authUser) {
-      // If password field is empty and user hasn't changed, don't send password
-      // This relies on backend to keep existing password if not provided.
-      // Or, make authPass truly optional in payload if user doesn't want to change it.
-      // For now, we'll let the mutationFn handle empty authPass.
+    // If password is still the masked value, don't send it (let backend keep existing)
+    const submitData = { ...data };
+    if (data.authPass === '********') {
+      // Don't include the password in the payload if it's still masked
+      submitData.authPass = '********';
     }
-    saveSmtpConfigMutation.mutate(data);
+    saveSmtpConfigMutation.mutate(submitData);
   };
 
   const onSmtpTestSubmit = (data: SmtpTestEmailFormData) => {
@@ -427,17 +426,17 @@ export default function SettingsPage() {
           }
         };
 
-        if (s.settingKey === 'strata_name') acc.strataName = s.settingValue;
+        if (s.settingKey === 'strata_name') acc.strataName = s.settingValue || '';
         else if (s.settingKey === 'property_address') assignValue('propertyAddress', s.settingValue);
-        else if (s.settingKey === 'admin_first_name') acc.adminFirstName = s.settingValue;
-        else if (s.settingKey === 'admin_last_name') acc.adminLastName = s.settingValue;
-        else if (s.settingKey === 'admin_email') acc.adminEmail = s.settingValue;
-        else if (s.settingKey === 'admin_phone') acc.adminPhone = s.settingValue;
+        else if (s.settingKey === 'admin_first_name') acc.adminFirstName = s.settingValue || '';
+        else if (s.settingKey === 'admin_last_name') acc.adminLastName = s.settingValue || '';
+        else if (s.settingKey === 'admin_email') acc.adminEmail = s.settingValue || '';
+        else if (s.settingKey === 'admin_phone') acc.adminPhone = s.settingValue || '';
         else if (s.settingKey === 'property_managers') assignValue('propertyManagers', s.settingValue);
         else if (s.settingKey === 'caretakers') assignValue('caretakers', s.settingValue);
         else if (s.settingKey === 'council_members') assignValue('councilMembers', s.settingValue);
-        else if (s.settingKey === 'default_timezone') acc.defaultTimezone = s.settingValue;
-        else if (s.settingKey === 'default_language') acc.defaultLanguage = s.settingValue;
+        else if (s.settingKey === 'default_timezone') acc.defaultTimezone = s.settingValue || 'America/Vancouver';
+        else if (s.settingKey === 'default_language') acc.defaultLanguage = s.settingValue || 'en';
         else if (s.settingKey === 'strata_logo') {
           acc.strataLogo = s.settingValue || ""; // Ensure strataLogo is string
           // setLogoUrl is handled below to avoid race condition with acc.strataLogo update
@@ -447,8 +446,10 @@ export default function SettingsPage() {
 
       setSystemForm(loadedSys);
 
-      // Update logoUrl based on the final loadedSys.strataLogo
-      if (loadedSys.strataLogo) {
+      // Update logoUrl based on the backend response or the final loadedSys.strataLogo
+      if (settingsResponse?.logoUrl) {
+        setLogoUrl(settingsResponse.logoUrl);
+      } else if (loadedSys.strataLogo) {
         setLogoUrl(loadedSys.strataLogo.startsWith('http') || loadedSys.strataLogo.startsWith('/') ? loadedSys.strataLogo : `/api/uploads/${loadedSys.strataLogo}`);
       } else {
         setLogoUrl(null);
@@ -457,7 +458,7 @@ export default function SettingsPage() {
       const emailFormValues = mapSettingsToForm(settings);
       emailForm.reset(emailFormValues);
 
-    } else if (!isLoadingEmailNotificationSettings && !settings) {
+    } else if (!isLoadingEmailNotificationSettings && !settingsResponse) {
         setSystemForm({
             strataName: "",
             propertyAddress: { streetLine1: "", streetLine2: "", city: "", province: "", postalCode: "", country: "Canada" },
@@ -477,7 +478,7 @@ export default function SettingsPage() {
         emailForm.reset(mapSettingsToForm([]));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [settings, isLoadingEmailNotificationSettings]); // Removed emailForm from deps as it's reset inside
+  }, [settingsResponse, isLoadingEmailNotificationSettings]); // Updated to use settingsResponse instead of settings
 
   // Add handler for logo upload
   const handleLogoUpload = async (files: File[]) => {
@@ -789,7 +790,11 @@ export default function SettingsPage() {
                         <FormItem>
                           <FormLabel>SMTP Password</FormLabel>
                           <FormControl>
-                            <Input type="password" placeholder="Leave blank to keep existing" {...field} />
+                            <Input 
+                              type="password" 
+                              placeholder={field.value === '********' ? 'Password saved (leave unchanged or enter new password)' : 'Enter password'} 
+                              {...field} 
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

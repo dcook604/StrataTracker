@@ -28,7 +28,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, TrashIcon as DeleteIcon, BuildingIcon, Trash2 } from "lucide-react";
+import { PencilIcon, TrashIcon as DeleteIcon, BuildingIcon, Trash2, EyeIcon } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -78,9 +78,9 @@ const formSchema = z.object({
   mailingStateProvince: z.string().optional(),
   mailingPostalCode: z.string().optional(),
   mailingCountry: z.string().optional(),
-  parkingSpots: z.array(z.string()),
-  storageLockers: z.array(z.string()),
-  bikeLockers: z.array(z.string()),
+  parkingSpots: z.array(z.object({ identifier: z.string() })),
+  storageLockers: z.array(z.object({ identifier: z.string() })),
+  bikeLockers: z.array(z.object({ identifier: z.string() })),
   ownerName: z.string().min(1, "Owner name is required").optional(),
   ownerEmail: z.string().email("Invalid email").min(1, "Owner email is required").optional(),
   ownerReceiveNotifications: z.boolean().default(true).optional(),
@@ -116,6 +116,7 @@ type UnitWithPeopleAndFacilities = PatchedPropertyUnit & {
 export default function UnitsPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
+  const [isViewMode, setIsViewMode] = useState(false);
   const { toast } = useToast();
   const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
@@ -131,7 +132,7 @@ export default function UnitsPage() {
     defaultValues: {
       unitNumber: "", strataLot: "", floor: "",
       mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
-      parkingSpots: [], storageLockers: [], bikeLockers: [],
+      parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
       ownerName: "", ownerEmail: "", ownerReceiveNotifications: true,
       tenantName: "", tenantEmail: "", tenantReceiveNotifications: true,
       phone: "", notes: "",
@@ -140,15 +141,15 @@ export default function UnitsPage() {
 
   const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray({
     control: form.control,
-    name: "parkingSpots",
+    name: "parkingSpots" as const,
   });
   const { fields: storageFields, append: appendStorage, remove: removeStorage } = useFieldArray({
     control: form.control,
-    name: "storageLockers",
+    name: "storageLockers" as const,
   });
   const { fields: bikeFields, append: appendBike, remove: removeBike } = useFieldArray({
     control: form.control,
-    name: "bikeLockers",
+    name: "bikeLockers" as const,
   });
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
@@ -160,7 +161,7 @@ export default function UnitsPage() {
       form.reset({
         unitNumber: "", strataLot: "", floor: "",
         mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
-        parkingSpots: [""], storageLockers: [""], bikeLockers: [],
+        parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
         ownerName: "", ownerEmail: "", ownerReceiveNotifications: true,
         tenantName: "", tenantEmail: "", tenantReceiveNotifications: true,
         phone: "", notes: "",
@@ -183,9 +184,9 @@ export default function UnitsPage() {
         mailingStateProvince: editingUnit.mailingStateProvince || "",
         mailingPostalCode: editingUnit.mailingPostalCode || "",
         mailingCountry: editingUnit.mailingCountry || "",
-        parkingSpots: parkingSpots.length > 0 ? parkingSpots : [""],
-        storageLockers: storageLockers.length > 0 ? storageLockers : [""],
-        bikeLockers,
+        parkingSpots: parkingSpots.length > 0 ? parkingSpots.map(p => ({ identifier: p })) : [{ identifier: "" }],
+        storageLockers: storageLockers.length > 0 ? storageLockers.map(s => ({ identifier: s })) : [{ identifier: "" }],
+        bikeLockers: bikeLockers.length > 0 ? bikeLockers.map(b => ({ identifier: b })) : [{ identifier: "" }],
         phone: editingUnit.phone || "",
         notes: editingUnit.notes || "",
         ownerName: editingUnit.owners?.[0]?.fullName || "",
@@ -295,9 +296,9 @@ export default function UnitsPage() {
     };
 
     const facilitiesPayload = {
-      parkingSpots: values.parkingSpots.filter(ps => ps.trim() !== ""),
-      storageLockers: values.storageLockers.filter(sl => sl.trim() !== ""),
-      bikeLockers: values.bikeLockers.filter(bl => bl.trim() !== ""),
+      parkingSpots: values.parkingSpots.filter(ps => ps.identifier.trim() !== "").map(p => p.identifier),
+      storageLockers: values.storageLockers.filter(sl => sl.identifier.trim() !== "").map(s => s.identifier),
+      bikeLockers: values.bikeLockers.filter(bl => bl.identifier.trim() !== "").map(b => b.identifier),
     };
 
     const personsPayload = [
@@ -328,28 +329,14 @@ export default function UnitsPage() {
   
   const handleEdit = (unit: UnitWithPeopleAndFacilities) => {
     setEditingUnit(unit);
-    form.reset({
-      unitNumber: unit.unitNumber,
-      strataLot: unit.strataLot || "",
-      floor: unit.floor || "",
-      mailingStreet1: unit.mailingStreet1 || "",
-      mailingStreet2: unit.mailingStreet2 || "",
-      mailingCity: unit.mailingCity || "",
-      mailingStateProvince: unit.mailingStateProvince || "",
-      mailingPostalCode: unit.mailingPostalCode || "",
-      mailingCountry: unit.mailingCountry || "",
-      parkingSpots: unit.facilities?.parkingSpots?.map(p => p.identifier || "") || [],
-      storageLockers: unit.facilities?.storageLockers?.map(s => s.identifier || "") || [],
-      bikeLockers: unit.facilities?.bikeLockers?.map(b => b.identifier || "") || [],
-      phone: unit.phone || "",
-      notes: unit.notes || "",
-      ownerName: unit.owners?.[0]?.fullName || "",
-      ownerEmail: unit.owners?.[0]?.email || "",
-      ownerReceiveNotifications: unit.owners?.[0]?.receiveEmailNotifications ?? true,
-      tenantName: unit.tenants?.[0]?.fullName || "",
-      tenantEmail: unit.tenants?.[0]?.email || "",
-      tenantReceiveNotifications: unit.tenants?.[0]?.receiveEmailNotifications ?? true,
-    });
+    setIsViewMode(false);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleView = (unit: UnitWithPeopleAndFacilities) => {
+    setEditingUnit(unit);
+    setIsViewMode(true);
+    setIsAddDialogOpen(true);
   };
   
   const handleSort = (column: string) => {
@@ -450,7 +437,16 @@ export default function UnitsPage() {
       );
     } },
     { accessorKey: "phone", header: "Phone", cell: ({ row }) => row.original.phone || "" },
-    { id: "actions", cell: ({ row }) => <div className="flex items-center gap-2"><Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)}><PencilIcon className="h-4 w-4" /></Button></div> }
+    { id: "actions", cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => handleView(row.original)} title="View Unit">
+          <EyeIcon className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Edit Unit">
+          <PencilIcon className="h-4 w-4" />
+        </Button>
+      </div>
+    ) }
   ];
   
   const total = unitData?.total ?? 0;
@@ -462,11 +458,12 @@ export default function UnitsPage() {
     index: number, 
     value: string,
     fields: any[],
-    appendFn: (value: string) => void
+    appendFn: (value: { identifier: string }) => void
   ) => {
-    form.setValue(`${fieldName}.${index}` as any, value);
+    form.setValue(`${fieldName}.${index}.identifier` as any, value);
+    // Only auto-add if this is the last field and user typed something
     if (index === fields.length - 1 && value.trim() !== "") {
-      appendFn("");
+      appendFn({ identifier: "" });
     }
   };
 
@@ -475,7 +472,8 @@ export default function UnitsPage() {
       <div className="space-y-6">
         <div className="flex justify-end">
           <Button onClick={() => {
-            form.reset();
+            setEditingUnit(null);
+            setIsViewMode(false);
             setIsAddDialogOpen(true);
           }}>
             Add Unit
@@ -551,12 +549,23 @@ export default function UnitsPage() {
         }
       </div>
       
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+        setIsAddDialogOpen(open);
+        if (!open) {
+          setEditingUnit(null);
+          setIsViewMode(false);
+        }
+      }}>
         <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col">
           <DialogHeader className="p-6 pb-4 border-b">
-            <DialogTitle>{editingUnit ? "Edit Unit" : "Add New Unit"}</DialogTitle>
+            <DialogTitle>
+              {isViewMode ? "View Unit" : editingUnit ? "Edit Unit" : "Add New Unit"}
+            </DialogTitle>
             <DialogDescription>
-              Enter the details for the new unit, including facilities, owners, and tenants.
+              {isViewMode 
+                ? "View the details of this unit."
+                : "Enter the details for the new unit, including facilities, owners, and tenants."
+              }
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -571,7 +580,7 @@ export default function UnitsPage() {
                       <FormItem className="sm:col-span-1">
                         <FormLabel>Unit Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 203" {...field} />
+                          <Input placeholder="e.g. 203" {...field} disabled={isViewMode} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -584,7 +593,7 @@ export default function UnitsPage() {
                       <FormItem className="sm:col-span-1">
                         <FormLabel>Strata Lot</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 15" {...field} />
+                          <Input placeholder="e.g. 15" {...field} disabled={isViewMode} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -597,7 +606,7 @@ export default function UnitsPage() {
                       <FormItem className="sm:col-span-1">
                         <FormLabel>Floor</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 2" {...field} />
+                          <Input placeholder="e.g. 2" {...field} disabled={isViewMode} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -612,7 +621,7 @@ export default function UnitsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Street Address 1</FormLabel>
-                      <FormControl><Input placeholder="e.g. 123 Main St" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g. 123 Main St" {...field} disabled={isViewMode} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -623,7 +632,7 @@ export default function UnitsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Street Address 2 (Optional)</FormLabel>
-                      <FormControl><Input placeholder="e.g. Apt #100" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g. Apt #100" {...field} disabled={isViewMode} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -635,7 +644,7 @@ export default function UnitsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>City</FormLabel>
-                        <FormControl><Input placeholder="e.g. Vancouver" {...field} /></FormControl>
+                        <FormControl><Input placeholder="e.g. Vancouver" {...field} disabled={isViewMode} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -646,7 +655,7 @@ export default function UnitsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>State/Province</FormLabel>
-                        <FormControl><Input placeholder="e.g. BC" {...field} /></FormControl>
+                        <FormControl><Input placeholder="e.g. BC" {...field} disabled={isViewMode} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -657,7 +666,7 @@ export default function UnitsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Postal/Zip Code</FormLabel>
-                        <FormControl><Input placeholder="e.g. V6A 1A1" {...field} /></FormControl>
+                        <FormControl><Input placeholder="e.g. V6A 1A1" {...field} disabled={isViewMode} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -669,7 +678,7 @@ export default function UnitsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country</FormLabel>
-                      <FormControl><Input placeholder="e.g. Canada" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g. Canada" {...field} disabled={isViewMode} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -682,22 +691,50 @@ export default function UnitsPage() {
                     <div key={item.id} className="flex items-center gap-2 mb-2">
                       <FormField
                         control={form.control}
-                        name={`parkingSpots.${index}`}
+                        name={`parkingSpots.${index}.identifier`}
                         render={({ field }) => (
                           <FormItem className="flex-grow">
                             <FormControl>
-                              <Input placeholder={`Parking Spot ${index + 1}`} {...field} onChange={(e) => handleFacilityInputChange("parkingSpots", index, e.target.value, parkingFields, appendParking)} />
+                              <Input 
+                                placeholder={`Parking Spot ${index + 1}`} 
+                                {...field} 
+                                disabled={isViewMode}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  if (!isViewMode) {
+                                    handleFacilityInputChange("parkingSpots", index, e.target.value, parkingFields, appendParking);
+                                  }
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <Button type="button" variant="outline" size="sm" onClick={() => removeParking(index)} disabled={parkingFields.length === 1 && form.getValues(`parkingSpots.${index}`) === ''}>
-                        Remove
-                      </Button>
+                      {!isViewMode && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => removeParking(index)} 
+                          disabled={parkingFields.length === 1}
+                        >
+                          Remove
+                        </Button>
+                      )}
                     </div>
                   ))}
-                  {parkingFields.length === 0 && <Button type="button" variant="outline" size="sm" onClick={() => appendParking("")} className="mt-1">Add Parking Spot</Button>}
+                  {!isViewMode && parkingFields.length === 0 && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => appendParking({ identifier: "" })} 
+                      className="mt-1"
+                    >
+                      Add Parking Spot
+                    </Button>
+                  )}
                 </div>
 
                 <div className="mt-4">
@@ -706,22 +743,50 @@ export default function UnitsPage() {
                     <div key={item.id} className="flex items-center gap-2 mb-2">
                       <FormField
                         control={form.control}
-                        name={`storageLockers.${index}`}
+                        name={`storageLockers.${index}.identifier`}
                         render={({ field }) => (
                           <FormItem className="flex-grow">
                             <FormControl>
-                              <Input placeholder={`Storage Locker ${index + 1}`} {...field} onChange={(e) => handleFacilityInputChange("storageLockers", index, e.target.value, storageFields, appendStorage)} />
+                              <Input 
+                                placeholder={`Storage Locker ${index + 1}`} 
+                                {...field} 
+                                disabled={isViewMode}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  if (!isViewMode) {
+                                    handleFacilityInputChange("storageLockers", index, e.target.value, storageFields, appendStorage);
+                                  }
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <Button type="button" variant="outline" size="sm" onClick={() => removeStorage(index)} disabled={storageFields.length === 1 && form.getValues(`storageLockers.${index}`) === ''}>
-                        Remove
-                      </Button>
+                      {!isViewMode && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => removeStorage(index)} 
+                          disabled={storageFields.length === 1}
+                        >
+                          Remove
+                        </Button>
+                      )}
                     </div>
                   ))}
-                  {storageFields.length === 0 && <Button type="button" variant="outline" size="sm" onClick={() => appendStorage("")} className="mt-1">Add Storage Locker</Button>}
+                  {!isViewMode && storageFields.length === 0 && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => appendStorage({ identifier: "" })} 
+                      className="mt-1"
+                    >
+                      Add Storage Locker
+                    </Button>
+                  )}
                 </div>
 
                 <div className="mt-4">
@@ -730,43 +795,229 @@ export default function UnitsPage() {
                     <div key={item.id} className="flex items-center gap-2 mb-2">
                       <FormField
                         control={form.control}
-                        name={`bikeLockers.${index}`}
+                        name={`bikeLockers.${index}.identifier`}
                         render={({ field }) => (
                           <FormItem className="flex-grow">
                             <FormControl>
-                              <Input placeholder={`Bike Locker ${index + 1}`} {...field} onChange={(e) => handleFacilityInputChange("bikeLockers", index, e.target.value, bikeFields, appendBike)} />
+                              <Input 
+                                placeholder={`Bike Locker ${index + 1}`} 
+                                {...field} 
+                                disabled={isViewMode}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  if (!isViewMode) {
+                                    handleFacilityInputChange("bikeLockers", index, e.target.value, bikeFields, appendBike);
+                                  }
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <Button type="button" variant="outline" size="sm" onClick={() => removeBike(index)} disabled={bikeFields.length === 1 && form.getValues(`bikeLockers.${index}`) === ''}>
-                        Remove
-                      </Button>
+                      {!isViewMode && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => removeBike(index)} 
+                          disabled={bikeFields.length === 1}
+                        >
+                          Remove
+                        </Button>
+                      )}
                     </div>
                   ))}
-                  {bikeFields.length === 0 && <Button type="button" variant="outline" size="sm" onClick={() => appendBike("")} className="mt-1">Add Bike Locker</Button>}
+                  {!isViewMode && bikeFields.length === 0 && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => appendBike({ identifier: "" })} 
+                      className="mt-1"
+                    >
+                      Add Bike Locker
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="pt-4 space-y-3">
-                <div className="flex justify-between items-center"><h4 className="text-lg font-semibold text-neutral-800">Owners</h4><Button type="button" variant="outline" size="sm" onClick={addOwner}>Add Owner</Button></div>
-                {owners.map((owner, idx) => (<div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm"><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><Input placeholder="Full Name *" aria-label={`Owner ${idx + 1} Full Name`} value={owner.fullName} onChange={(e) => updateOwner(idx, 'fullName', e.target.value)} /><Input placeholder="Email *" aria-label={`Owner ${idx + 1} Email`} type="email" value={owner.email} onChange={(e) => updateOwner(idx, 'email', e.target.value)} /></div><Input placeholder="Phone (Optional)" aria-label={`Owner ${idx + 1} Phone`} value={owner.phone} onChange={(e) => updateOwner(idx, 'phone', e.target.value)} /><div className="flex items-center space-x-2 pt-1"><Checkbox id={`ownerNotif${idx}`} checked={owner.receiveEmailNotifications} onCheckedChange={(checked) => updateOwner(idx, 'receiveEmailNotifications', Boolean(checked))} /><label htmlFor={`ownerNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Receive Email Notifications</label></div><div className="flex items-center space-x-4 pt-1"><div className="flex items-center space-x-2"><Checkbox id={`ownerHasCat${idx}`} checked={!!owner.hasCat} onCheckedChange={(checked) => updateOwner(idx, 'hasCat', Boolean(checked))} /><label htmlFor={`ownerHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Cat 🐱</label></div><div className="flex items-center space-x-2"><Checkbox id={`ownerHasDog${idx}`} checked={!!owner.hasDog} onCheckedChange={(checked) => updateOwner(idx, 'hasDog', Boolean(checked))} /><label htmlFor={`ownerHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Dog 🐶</label></div></div>{owners.length > 1 && <div className="flex justify-end pt-2"><Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOwner(idx)}><Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" /></Button></div>}</div>))}
+                <div className="flex justify-between items-center">
+                  <h4 className="text-lg font-semibold text-neutral-800">Owners</h4>
+                  {!isViewMode && <Button type="button" variant="outline" size="sm" onClick={addOwner}>Add Owner</Button>}
+                </div>
+                {owners.map((owner, idx) => (
+                  <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input 
+                        placeholder="Full Name *" 
+                        aria-label={`Owner ${idx + 1} Full Name`} 
+                        value={owner.fullName} 
+                        onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'fullName', e.target.value)}
+                        disabled={isViewMode}
+                      />
+                      <Input 
+                        placeholder="Email *" 
+                        aria-label={`Owner ${idx + 1} Email`} 
+                        type="email" 
+                        value={owner.email} 
+                        onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'email', e.target.value)}
+                        disabled={isViewMode}
+                      />
+                    </div>
+                    <Input 
+                      placeholder="Phone (Optional)" 
+                      aria-label={`Owner ${idx + 1} Phone`} 
+                      value={owner.phone} 
+                      onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'phone', e.target.value)}
+                      disabled={isViewMode}
+                    />
+                    <div className="flex items-center space-x-2 pt-1">
+                      <Checkbox 
+                        id={`ownerNotif${idx}`} 
+                        checked={owner.receiveEmailNotifications} 
+                        onCheckedChange={isViewMode ? undefined : (checked) => updateOwner(idx, 'receiveEmailNotifications', Boolean(checked))}
+                        disabled={isViewMode}
+                      />
+                      <label htmlFor={`ownerNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
+                        Receive Email Notifications
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-4 pt-1">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`ownerHasCat${idx}`} 
+                          checked={!!owner.hasCat} 
+                          onCheckedChange={isViewMode ? undefined : (checked) => updateOwner(idx, 'hasCat', Boolean(checked))}
+                          disabled={isViewMode}
+                        />
+                        <label htmlFor={`ownerHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
+                          Has Cat 🐱
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`ownerHasDog${idx}`} 
+                          checked={!!owner.hasDog} 
+                          onCheckedChange={isViewMode ? undefined : (checked) => updateOwner(idx, 'hasDog', Boolean(checked))}
+                          disabled={isViewMode}
+                        />
+                        <label htmlFor={`ownerHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
+                          Has Dog 🐶
+                        </label>
+                      </div>
+                    </div>
+                    {!isViewMode && owners.length > 1 && (
+                      <div className="flex justify-end pt-2">
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOwner(idx)}>
+                          <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
               <div className="pt-4 space-y-3">
-                <div className="flex justify-between items-center"><h4 className="text-lg font-semibold text-neutral-800">Tenants (Optional)</h4><Button type="button" variant="outline" size="sm" onClick={addTenant}>Add Tenant</Button></div>
-                {tenants.map((tenant, idx) => (<div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm"><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><Input placeholder="Full Name" aria-label={`Tenant ${idx + 1} Full Name`} value={tenant.fullName} onChange={(e) => updateTenant(idx, 'fullName', e.target.value)} /><Input placeholder="Email" aria-label={`Tenant ${idx + 1} Email`} type="email" value={tenant.email} onChange={(e) => updateTenant(idx, 'email', e.target.value)} /></div><Input placeholder="Phone (Optional)" aria-label={`Tenant ${idx + 1} Phone`} value={tenant.phone} onChange={(e) => updateTenant(idx, 'phone', e.target.value)} /><div className="flex items-center space-x-2 pt-1"><Checkbox id={`tenantNotif${idx}`} checked={tenant.receiveEmailNotifications} onCheckedChange={(checked) => updateTenant(idx, 'receiveEmailNotifications', Boolean(checked))} /><label htmlFor={`tenantNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Receive Email Notifications</label></div><div className="flex items-center space-x-4 pt-1"><div className="flex items-center space-x-2"><Checkbox id={`tenantHasCat${idx}`} checked={!!tenant.hasCat} onCheckedChange={(checked) => updateTenant(idx, 'hasCat', Boolean(checked))} /><label htmlFor={`tenantHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Cat 🐱</label></div><div className="flex items-center space-x-2"><Checkbox id={`tenantHasDog${idx}`} checked={!!tenant.hasDog} onCheckedChange={(checked) => updateTenant(idx, 'hasDog', Boolean(checked))} /><label htmlFor={`tenantHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">Has Dog 🐶</label></div></div>{tenants.length > 1 && (<div className="flex justify-end pt-2"><Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTenant(idx)}><Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" /></Button></div>)}</div>))}
-                {tenants.length === 1 && !tenants[0].fullName && !tenants[0].email && (<p className="text-xs text-neutral-500 italic">No tenants added. Click 'Add Tenant' to include tenant details.</p>)}
+                <div className="flex justify-between items-center">
+                  <h4 className="text-lg font-semibold text-neutral-800">Tenants (Optional)</h4>
+                  {!isViewMode && <Button type="button" variant="outline" size="sm" onClick={addTenant}>Add Tenant</Button>}
+                </div>
+                {tenants.map((tenant, idx) => (
+                  <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input 
+                        placeholder="Full Name" 
+                        aria-label={`Tenant ${idx + 1} Full Name`} 
+                        value={tenant.fullName} 
+                        onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'fullName', e.target.value)}
+                        disabled={isViewMode}
+                      />
+                      <Input 
+                        placeholder="Email" 
+                        aria-label={`Tenant ${idx + 1} Email`} 
+                        type="email" 
+                        value={tenant.email} 
+                        onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'email', e.target.value)}
+                        disabled={isViewMode}
+                      />
+                    </div>
+                    <Input 
+                      placeholder="Phone (Optional)" 
+                      aria-label={`Tenant ${idx + 1} Phone`} 
+                      value={tenant.phone} 
+                      onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'phone', e.target.value)}
+                      disabled={isViewMode}
+                    />
+                    <div className="flex items-center space-x-2 pt-1">
+                      <Checkbox 
+                        id={`tenantNotif${idx}`} 
+                        checked={tenant.receiveEmailNotifications} 
+                        onCheckedChange={isViewMode ? undefined : (checked) => updateTenant(idx, 'receiveEmailNotifications', Boolean(checked))}
+                        disabled={isViewMode}
+                      />
+                      <label htmlFor={`tenantNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
+                        Receive Email Notifications
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-4 pt-1">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`tenantHasCat${idx}`} 
+                          checked={!!tenant.hasCat} 
+                          onCheckedChange={isViewMode ? undefined : (checked) => updateTenant(idx, 'hasCat', Boolean(checked))}
+                          disabled={isViewMode}
+                        />
+                        <label htmlFor={`tenantHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
+                          Has Cat 🐱
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`tenantHasDog${idx}`} 
+                          checked={!!tenant.hasDog} 
+                          onCheckedChange={isViewMode ? undefined : (checked) => updateTenant(idx, 'hasDog', Boolean(checked))}
+                          disabled={isViewMode}
+                        />
+                        <label htmlFor={`tenantHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
+                          Has Dog 🐶
+                        </label>
+                      </div>
+                    </div>
+                    {!isViewMode && tenants.length > 1 && (
+                      <div className="flex justify-end pt-2">
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTenant(idx)}>
+                          <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {tenants.length === 1 && !tenants[0].fullName && !tenants[0].email && (
+                  <p className="text-xs text-neutral-500 italic">No tenants added. Click 'Add Tenant' to include tenant details.</p>
+                )}
               </div>
-              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Unit Contact Phone (Optional)</FormLabel><FormControl><Input placeholder="e.g. 555-1234" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Input placeholder="e.g. Entry code #123" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Unit Contact Phone (Optional)</FormLabel><FormControl><Input placeholder="e.g. 555-1234" {...field} disabled={isViewMode} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Input placeholder="e.g. Entry code #123" {...field} disabled={isViewMode} /></FormControl><FormMessage /></FormItem>)} />
 
               <DialogFooter className="px-6 py-4 border-t sticky bottom-0 bg-white z-10">
-                <Button type="button" variant="outline" onClick={() => editingUnit ? setEditingUnit(null) : setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={(editingUnit ? updateMutation : createMutation).isPending || isCheckingDuplicate}>
-                  {(editingUnit ? updateMutation : createMutation).isPending || isCheckingDuplicate ? "Saving..." : "Save"}
-                </Button>
+                {isViewMode ? (
+                  <Button type="button" onClick={() => {
+                    setIsAddDialogOpen(false);
+                    setEditingUnit(null);
+                    setIsViewMode(false);
+                  }}>
+                    Close
+                  </Button>
+                ) : (
+                  <>
+                    <Button type="button" variant="outline" onClick={() => editingUnit ? setEditingUnit(null) : setIsAddDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={(editingUnit ? updateMutation : createMutation).isPending || isCheckingDuplicate}>
+                      {(editingUnit ? updateMutation : createMutation).isPending || isCheckingDuplicate ? "Saving..." : "Save"}
+                    </Button>
+                  </>
+                )}
               </DialogFooter>
             </form>
           </Form>
