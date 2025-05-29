@@ -13,7 +13,7 @@ import {
   CommunicationType,
   RecipientType
 } from '@shared/schema';
-import { eq, desc, and, inArray, or } from 'drizzle-orm';
+import { eq, desc, and, inArray, or, sql } from 'drizzle-orm';
 import { sendEmail } from '../email-service';
 import { Request, Response } from 'express';
 
@@ -62,9 +62,9 @@ router.get('/campaigns', async (req, res) => {
       const recipientCounts = await db
         .select({
           campaignId: communicationRecipients.campaignId,
-          totalRecipients: db.$count(communicationRecipients.id),
-          sentCount: db.$count(communicationRecipients.id, eq(communicationRecipients.status, 'sent')),
-          failedCount: db.$count(communicationRecipients.id, eq(communicationRecipients.status, 'failed'))
+          totalRecipients: sql<number>`COUNT(*)`.as('totalRecipients'),
+          sentCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'sent' THEN 1 END)`.as('sentCount'),
+          failedCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'failed' THEN 1 END)`.as('failedCount')
         })
         .from(communicationRecipients)
         .where(inArray(communicationRecipients.campaignId, campaignIds))
