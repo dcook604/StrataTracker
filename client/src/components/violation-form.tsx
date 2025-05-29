@@ -165,6 +165,7 @@ export function ViolationForm() {
         title: "Violation submitted",
         description: "The violation has been submitted successfully",
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/violations"] });
       navigate("/violations");
     },
     onError: (error: Error) => {

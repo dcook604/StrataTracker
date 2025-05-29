@@ -226,6 +226,61 @@ This application was successfully migrated from Replit to a local Docker environ
 
 ---
 
+## 🏢 Unit Facility Management (Form Structure)
+
+### Facility Fields Structure (Parking, Storage, Bike Lockers)
+
+- **Frontend Form:**
+  - Facilities (parking spots, storage lockers, bike lockers) are managed as arrays of objects, each with an `identifier` property.
+  - This is required for compatibility with React Hook Form's `useFieldArray`, which does not support flat arrays of strings.
+  - Example (form state):
+    ```ts
+    // TypeScript type for form values
+    type FacilityItem = { identifier: string };
+    type FormValues = {
+      ...
+      parkingSpots: FacilityItem[];
+      storageLockers: FacilityItem[];
+      bikeLockers: FacilityItem[];
+      ...
+    }
+    // Example value:
+    {
+      parkingSpots: [ { identifier: "P1" }, { identifier: "P2" } ],
+      storageLockers: [ { identifier: "S1" } ],
+      bikeLockers: [ { identifier: "B1" }, { identifier: "B2" } ]
+    }
+    ```
+
+- **Interactive Features:**
+  - **Editable Fields**: All facility identifier fields are fully editable input fields when in edit mode
+  - **Remove Functionality**: Each facility item has a "Remove" button that deletes the specific entry (disabled when only one field remains)
+  - **Auto-Add**: When typing in the last field of any facility type, a new empty field is automatically added
+  - **Add Buttons**: When no fields exist for a facility type, an "Add [Facility]" button is shown to create the first entry
+  - **View Mode**: In view mode, all fields are disabled and remove buttons are hidden
+
+- **Backend API:**
+  - The frontend transforms these arrays of objects into arrays of strings (just the `identifier` values) before sending to the backend API.
+  - Example (API payload):
+    ```json
+    {
+      "facilities": {
+        "parkingSpots": ["P1", "P2"],
+        "storageLockers": ["S1"],
+        "bikeLockers": ["B1", "B2"]
+      }
+    }
+    ```
+
+- **Why this structure?**
+  - React Hook Form's `useFieldArray` requires arrays of objects to track field state and keys. Flat arrays (e.g., `string[]`) are not supported and will cause TypeScript errors.
+  - This approach ensures dynamic add/remove/edit for facility fields works reliably in the UI.
+  - The object structure maintains proper form state management and re-rendering when fields are added, removed, or modified.
+
+**For more details, see the implementation in `client/src/pages/units-page.tsx`.**
+
+---
+
 ## 🔒 Security Features
 
 - **HTTP Security Headers**: Helmet.js integration
@@ -302,6 +357,54 @@ This section covers common issues encountered during local development setup (bo
 # All logs
 # (This seems to be the old content, the line above is more specific)
 # sudo docker compose logs
-```
+
+---
+
+## 📧 SMTP Configuration & Password Handling
+
+### SMTP Password Security Features
+
+- **Password Masking**: When an SMTP password is saved, it's displayed as masked characters (`********`) in the password field for security
+- **Password Preservation**: If you don't change the password field (leave it as `********`), the existing password is preserved
+- **Password Updates**: To change the password, simply clear the field and enter the new password
+- **Backend Security**: The actual password is never returned from the server - only a masked placeholder is shown
+
+### SMTP Settings Workflow
+
+1. **Initial Setup**: Enter all SMTP details including password
+2. **After Save**: Password field shows `********` indicating a password is saved
+3. **Editing Settings**: 
+   - Leave password as `********` to keep existing password
+   - Clear and enter new password to update it
+   - The placeholder text provides guidance on current state
+
+**For implementation details, see `client/src/pages/settings-page.tsx` and `server/routes/email-config.ts`.**
+
+---
+
+## ⚙️ System Settings Management & Data Structure
+
+### Settings Data Flow
+
+- **Backend Response**: The `/api/settings` endpoint returns `{ settings: SystemSetting[], logoUrl?: string }`
+- **Frontend Processing**: Settings are parsed from the response and used to populate form fields
+- **Save Mechanism**: Individual settings are saved via `POST /api/settings/:key` with the setting value
+
+### System Settings Features
+
+- **General Settings**: Strata name, property address, admin contact information
+- **Staff Management**: Property managers, caretakers, and council members with email notification preferences
+- **Logo Management**: Upload and display of strata logo with automatic URL generation
+- **Localization**: Default timezone and language settings
+
+### Recent Bug Fixes
+
+- **Data Structure Issue**: Fixed frontend to properly extract settings array from backend response object
+- **Form State Management**: Corrected settings loading and form population logic
+- **Logo URL Handling**: Improved logo URL resolution using backend-provided URLs
+
+**For implementation details, see `client/src/pages/settings-page.tsx` and `server/routes.ts`.**
+
+---
 
 

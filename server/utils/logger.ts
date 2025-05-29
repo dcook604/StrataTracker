@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { promisify } from 'util';
 
 // Define log levels and colors
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
@@ -38,6 +39,16 @@ const logFilePaths = {
   error: path.join(logDir, 'error.log'),
   server: path.join(logDir, 'server.log'),
 };
+
+// Log rotation settings
+const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_LOG_FILES = 5;
+
+// Async file operations
+const appendFile = promisify(fs.appendFile);
+const stat = promisify(fs.stat);
+const rename = promisify(fs.rename);
+const unlink = promisify(fs.unlink);
 
 /**
  * Format a log message for output
@@ -101,13 +112,51 @@ function replacer(key: string, value: any): any {
 }
 
 /**
- * Write log entry to file
+ * Rotate log file if it exceeds maximum size
  */
-function writeToFile(filePath: string, message: string): void {
+async function rotateLogFile(filePath: string): Promise<void> {
   try {
-    fs.appendFileSync(filePath, message + '\n');
+    const stats = await stat(filePath);
+    if (stats.size > MAX_LOG_SIZE) {
+      // Rotate existing files
+      for (let i = MAX_LOG_FILES - 1; i > 0; i--) {
+        const oldFile = `${filePath}.${i}`;
+        const newFile = `${filePath}.${i + 1}`;
+        
+        if (fs.existsSync(oldFile)) {
+          if (i === MAX_LOG_FILES - 1) {
+            await unlink(oldFile); // Delete oldest file
+          } else {
+            await rename(oldFile, newFile);
+          }
+        }
+      }
+      
+      // Move current log to .1
+      await rename(filePath, `${filePath}.1`);
+    }
   } catch (err) {
-    console.error(`Failed to write to log file (${filePath}):`, err);
+    // Don't log this error to prevent recursion - just output to console
+    console.error(`[LOGGER] Failed to rotate log file ${filePath}:`, err instanceof Error ? err.message : String(err));
+  }
+}
+
+/**
+ * Write log entry to file asynchronously with error handling
+ */
+async function writeToFile(filePath: string, message: string): Promise<void> {
+  try {
+    // Check if rotation is needed
+    if (fs.existsSync(filePath)) {
+      await rotateLogFile(filePath);
+    }
+    
+    // Write to file asynchronously
+    await appendFile(filePath, message + '\n');
+  } catch (err) {
+    // Don't use logger.error here to prevent infinite recursion
+    // Just output to console as a fallback
+    console.error(`[LOGGER] Failed to write to log file (${filePath}):`, err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -116,11 +165,20 @@ function writeToFile(filePath: string, message: string): void {
  */
 class Logger {
   private minLevel: LogLevel = 'INFO';
+  private writeQueue: Promise<void> = Promise.resolve();
+  private isProduction: boolean = process.env.NODE_ENV === 'production';
   
   constructor() {
-    // Set minimum log level based on environment
-    if (process.env.NODE_ENV === 'development') {
-      this.minLevel = 'DEBUG';
+    // Set production-optimized log levels - more conservative to prevent EIO
+    if (this.isProduction) {
+      // Production: Only log ERROR to reduce volume and improve performance
+      this.minLevel = 'ERROR';
+    } else if (process.env.NODE_ENV === 'test') {
+      // Test: Only errors to keep test output clean
+      this.minLevel = 'ERROR';
+    } else {
+      // Development: Allow more verbose logging but still be conservative
+      this.minLevel = 'WARN';
     }
     
     // Override with LOG_LEVEL environment variable if set
@@ -128,9 +186,12 @@ class Logger {
       this.minLevel = process.env.LOG_LEVEL as LogLevel;
     }
     
-    // Log the current logging configuration
-    console.log(`${colors.cyan}[LOGGER] Debug logging enabled. Log level: ${this.minLevel}${colors.reset}`);
-    console.log(`${colors.cyan}[LOGGER] Log files will be written to: ${logDir}${colors.reset}`);
+    // Only log configuration in development and not too frequently
+    if (!this.isProduction) {
+      console.log(`${colors.cyan}[LOGGER] Environment: ${process.env.NODE_ENV || 'development'}${colors.reset}`);
+      console.log(`${colors.cyan}[LOGGER] Log level: ${this.minLevel}${colors.reset}`);
+      console.log(`${colors.cyan}[LOGGER] Log files will be written to: ${logDir}${colors.reset}`);
+    }
   }
   
   /**
@@ -145,41 +206,58 @@ class Logger {
   }
   
   /**
-   * Log a message
+   * Log a message with production optimizations and EIO error prevention
    */
   private log(level: LogLevel, message: string, data?: any): void {
     if (!this.shouldLog(level)) return;
     
     const formattedMessage = formatLogMessage(level, message, data);
     
-    // Console output with colors
-    console.log(`${levelColors[level]}${formattedMessage}${colors.reset}`);
-    
-    // Write to app log
-    writeToFile(logFilePaths.app, formattedMessage);
-    
-    // Also write to error log if level is ERROR
+    // Console output with colors (always synchronous for immediate feedback)
+    // Use stderr for errors to separate from stdout
     if (level === 'ERROR') {
-      writeToFile(logFilePaths.error, formattedMessage);
+      console.error(`${levelColors[level]}${formattedMessage}${colors.reset}`);
+    } else {
+      console.log(`${levelColors[level]}${formattedMessage}${colors.reset}`);
     }
     
-    // Write to server log for INFO and higher
-    if (level !== 'DEBUG') {
-      writeToFile(logFilePaths.server, formattedMessage);
+    // Be extremely conservative with file writes to prevent EIO errors
+    // Only write ERROR level logs to files, and only if absolutely necessary
+    const shouldWriteToFile = level === 'ERROR';
+    
+    if (shouldWriteToFile) {
+      // Queue async file writes to prevent blocking
+      this.writeQueue = this.writeQueue.then(async () => {
+        try {
+          // Only write to error log for ERROR level
+          await writeToFile(logFilePaths.error, formattedMessage);
+        } catch (err) {
+          // Last resort - output to stderr only, don't try to log the logging error
+          console.error(`[LOGGER] Critical: Failed to write log (${err instanceof Error ? err.message : String(err)})`);
+        }
+      }).catch(err => {
+        // Prevent unhandled promise rejections, output to stderr only
+        console.error(`[LOGGER] Critical: Log write queue error (${err instanceof Error ? err.message : String(err)})`);
+      });
     }
   }
   
   /**
-   * Debug level log (lowest priority)
+   * Debug level log (lowest priority) - disabled in production
    */
   debug(message: string, data?: any): void {
+    // Skip debug logs in production entirely for performance
+    if (this.isProduction) return;
     this.log('DEBUG', message, data);
   }
   
   /**
-   * Trace level logging for very detailed debugging
+   * Trace level logging for very detailed debugging - disabled in production
    */
   trace(message: string, data?: any): void {
+    // Skip trace logs in production entirely for performance
+    if (this.isProduction) return;
+    
     if (!this.shouldLog('DEBUG')) return;
     
     // Include stack trace for trace-level logging
@@ -189,15 +267,18 @@ class Logger {
   }
   
   /**
-   * Performance logging
+   * Performance logging - disabled in production to reduce noise
    */
   perf(operation: string, startTime: number, data?: any): void {
+    // Skip performance logs in production
+    if (this.isProduction) return;
+    
     const duration = Date.now() - startTime;
     this.debug(`[PERF] ${operation} completed in ${duration}ms`, data);
   }
   
   /**
-   * Info level log (normal operation)
+   * Info level log (normal operation) - limited in production
    */
   info(message: string, data?: any): void {
     this.log('INFO', message, data);
@@ -211,54 +292,67 @@ class Logger {
   }
   
   /**
-   * Error level log (runtime errors)
+   * Error level log (runtime errors) - always logged
    */
   error(message: string, data?: any): void {
     this.log('ERROR', message, data);
   }
   
   /**
-   * Log HTTP request details
+   * Log HTTP request details - simplified for production
    */
   logRequest(req: any): void {
+    // In production, only log failed requests or skip entirely
+    if (this.isProduction) return;
+    
     if (!this.shouldLog('DEBUG')) return;
     
     const requestInfo = {
       method: req.method,
       url: req.originalUrl || req.url,
-      query: req.query,
-      params: req.params,
+      query: Object.keys(req.query || {}).length > 0 ? '[REDACTED]' : undefined,
+      params: Object.keys(req.params || {}).length > 0 ? '[REDACTED]' : undefined,
       ip: req.ip || req.connection?.remoteAddress,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent']?.slice(0, 100) // Truncate long user agents
     };
     
     this.debug(`Request: ${req.method} ${req.originalUrl || req.url}`, requestInfo);
   }
   
   /**
-   * Log HTTP response details
+   * Log HTTP response details - production optimized
    */
   logResponse(req: any, res: any, responseTime: number): void {
     const method = req.method;
     const url = req.originalUrl || req.url;
     const status = res.statusCode;
     
+    // In production, only log failed requests (4xx, 5xx)
+    if (this.isProduction && status < 400) return;
+    
     // Log failed requests with higher priority
     if (status >= 400) {
       this.error(`Request failed: ${method} ${url}`, {
         statusCode: status,
         duration: responseTime,
-        response: res.body || res.locals.responseBody
+        // Don't log response body in production to avoid sensitive data leaks
+        response: this.isProduction ? undefined : (res.body || res.locals.responseBody)
       });
     } else {
-      this.info(`${method} ${url} ${status} ${responseTime}ms`);
+      // Only log successful requests in development
+      if (!this.isProduction) {
+        this.info(`${method} ${url} ${status} ${responseTime}ms`);
+      }
     }
   }
   
   /**
-   * Log database query for debugging
+   * Log database query for debugging - disabled in production
    */
   logQuery(query: string, params?: any[], duration?: number): void {
+    // Skip database query logging in production for security and performance
+    if (this.isProduction) return;
+    
     if (!this.shouldLog('DEBUG')) return;
     
     let message = `DB Query: ${query.substr(0, 100)}${query.length > 100 ? '...' : ''}`;
@@ -266,7 +360,31 @@ class Logger {
       message += ` (${duration}ms)`;
     }
     
-    this.debug(message, params);
+    // Don't log actual parameters to avoid sensitive data exposure
+    this.debug(message, { paramCount: params?.length || 0 });
+  }
+  
+  /**
+   * Security-focused logging for audit trails
+   */
+  security(event: string, data?: any): void {
+    // Security events should always be logged regardless of level
+    const securityMessage = `[SECURITY] ${event}`;
+    const formattedMessage = formatLogMessage('ERROR', securityMessage, data);
+    
+    // Always output security events to console
+    console.log(`${colors.red}${formattedMessage}${colors.reset}`);
+    
+    // Always write security events to files
+    this.writeQueue = this.writeQueue.then(async () => {
+      try {
+        await writeToFile(logFilePaths.app, formattedMessage);
+        await writeToFile(logFilePaths.error, formattedMessage);
+        await writeToFile(logFilePaths.server, formattedMessage);
+      } catch (err) {
+        console.error(`[LOGGER] Critical: Failed to write security log:`, err instanceof Error ? err.message : String(err));
+      }
+    });
   }
 }
 

@@ -14,3 +14,4 @@ vite.config.ts.*
 logs/*
 logs/*.log
 .cursor-server/**/node
+logs

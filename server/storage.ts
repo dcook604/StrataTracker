@@ -32,7 +32,13 @@ import {
   type InsertViolationAccessLink,
   unitFacilities,
   type InsertUnitFacility,
-  type UnitFacility
+  type UnitFacility,
+  parkingSpots,
+  storageLockers,
+  bikeLockers,
+  type ParkingSpot,
+  type StorageLocker,
+  type BikeLocker
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray } from "drizzle-orm";
@@ -41,16 +47,15 @@ import { promisify } from "util";
 import session from "express-session";
 import memorystore from "memorystore";
 import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
-import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, PgTransaction } from 'drizzle-orm/pg-core';
 import { drizzle, NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
-import { PgTransaction } from 'drizzle-orm/pg-core';
-import { Pool } from 'pg';
 import connectPgSimple from 'connect-pg-simple';
 import logger from './utils/logger';
+import { Buffer } from 'buffer';
 
 const scryptAsync = promisify(scrypt);
 
-const MemoryStore = memorystore(session);
+const MemoryStore = memorystore(session) as any;
 
 export interface IStorage {
   // User operations
@@ -95,7 +100,7 @@ export interface IStorage {
   // Violation operations
   getViolation(id: number): Promise<Violation | undefined>;
   getViolationByReference(referenceNumber: string): Promise<Violation | undefined>;
-  getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string, ownerEmail?: string, tenantName?: string, tenantEmail?: string } }) | undefined>;
+  getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined>;
   getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
@@ -142,12 +147,16 @@ export interface IStorage {
 
   /**
    * Create a unit with multiple persons/roles (owners/tenants) and facilities in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, facilities: InsertUnitFacility, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
+   * @param unitData - { unit: InsertPropertyUnit, facilities: { parkingSpots?: string[], storageLockers?: string[], bikeLockers?: string[] }, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
    * @returns The created unit, facilities, and associated persons/roles.
    */
   createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
-    facilities: Omit<InsertUnitFacility, 'unitId' | 'id' | 'createdAt' | 'updatedAt'>,
+    facilities: {
+      parkingSpots?: string[],
+      storageLockers?: string[],
+      bikeLockers?: string[]
+    },
     persons: Array<{
       fullName: string;
       email: string;
@@ -157,7 +166,7 @@ export interface IStorage {
       hasCat?: boolean;
       hasDog?: boolean;
     }>
-  }): Promise<{ unit: PropertyUnit; facilities: UnitFacility; persons: Person[]; roles: UnitPersonRole[] }>;
+  }): Promise<{ unit: PropertyUnit; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; persons: Person[]; roles: UnitPersonRole[] }>;
 
   // Violation access link operations
   createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink>;
@@ -566,7 +575,7 @@ export class DatabaseStorage implements IStorage {
     return violation;
   }
 
-  async getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string, ownerEmail?: string, tenantName?: string, tenantEmail?: string } }) | undefined> {
+  async getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined> {
     const result = await db
       .select({
         violation: violations,
@@ -612,10 +621,10 @@ export class DatabaseStorage implements IStorage {
       ...violationData,
       unit: {
         ...unitData,
-        ownerName,
-        ownerEmail,
-        tenantName,
-        tenantEmail
+        ownerName: ownerName,
+        ownerEmail: ownerEmail,
+        tenantName: tenantName,
+        tenantEmail: tenantEmail
       }
     };
   }
@@ -630,7 +639,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .orderBy(desc(violations.createdAt));
     
-    return result.map(r => ({
+    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
       ...r.violation,
       unit: r.unit
     }));
@@ -648,7 +657,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(violations.status, status))
         .orderBy(desc(violations.createdAt));
     
-      return result.map(r => ({
+      return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
         ...r.violation,
         unit: r.unit
       }));
@@ -693,7 +702,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(violations.createdAt))
       .limit(limit);
       
-    return result.map(r => ({
+    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
       ...r.violation,
       unit: r.unit
     }));
@@ -791,10 +800,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(violationHistories.violationId, violationId))
       .orderBy(desc(violationHistories.createdAt));
 
-    return historyItems.map(item => ({
+    return historyItems.map((item: { id: number; violationId: number; userId: number | null; action: string; comment: string | null; commenterName: string | null; createdAt: Date; userFullName: string | null; }) => ({
       id: item.id,
       violationId: item.violationId,
-      userId: item.userId,
+      userId: item.userId ?? 1, // Default to system user ID 1 if null
       action: item.action,
       comment: item.comment,
       commenterName: item.commenterName,
@@ -825,7 +834,7 @@ export class DatabaseStorage implements IStorage {
       .having(sql`count(*) >= ${minCount}`);
       
     // Get unit numbers for each unit ID
-    const unitIds = result.map(r => r.unitId);
+    const unitIds = result.map(r => r.unitId as number);
     
     if (unitIds.length === 0) {
       return [];
@@ -838,22 +847,22 @@ export class DatabaseStorage implements IStorage {
       })
       .from(propertyUnits)
       .where(
-        or(...unitIds.map(id => eq(propertyUnits.id, id)))
+        or(...unitIds.map((id: number) => eq(propertyUnits.id, id)))
       );
     
     // Create a map of unit IDs to unit numbers
-    const unitMap = new Map();
-    units.forEach(unit => {
+    const unitMap = new Map<number, string>();
+    units.forEach((unit: { id: number; unitNumber: string }) => {
       unitMap.set(unit.id, unit.unitNumber);
     });
     
     // Create the final result
-    return result.map(r => ({
+    return result.map((r: { unitId: number; count: number | string; lastViolation: Date }) => ({
       unitId: r.unitId,
       unitNumber: unitMap.get(r.unitId) || 'Unknown',
       count: Number(r.count),
       lastViolationDate: r.lastViolation
-    })).sort((a, b) => b.count - a.count);
+    })).sort((a: { count: number }, b: { count: number }) => b.count - a.count);
   }
   
   async getViolationStats(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{
@@ -925,7 +934,7 @@ export class DatabaseStorage implements IStorage {
         .where(whereClause ? and(whereClause, eq(violations.status, 'resolved')) : eq(violations.status, 'resolved'));
 
       let totalResolutionTimeMs = 0;
-      resolvedViolationsData.forEach(v => {
+      resolvedViolationsData.forEach((v: { createdAt?: Date; updatedAt?: Date }) => {
         if (v.createdAt && v.updatedAt) {
           totalResolutionTimeMs += v.updatedAt.getTime() - v.createdAt.getTime();
         }
@@ -1037,8 +1046,8 @@ export class DatabaseStorage implements IStorage {
     .groupBy(violationCategories.name)
     .orderBy(desc(drizzleCount(sql`*`)));
 
-    return result.map(r => ({ 
-      type: r.type ?? 'Unknown', // Use nullish coalescing for default type
+    return result.map((r: { type: string | null; count: number | string }) => ({ 
+      type: r.type ?? 'Unknown', // Ensure type is always string
       count: Number(r.count) 
     }));
   }
@@ -1065,7 +1074,7 @@ export class DatabaseStorage implements IStorage {
       .where(whereClause)
       .orderBy(desc(violations.createdAt)); // Or any other order suitable for the report
     
-    return result.map(r => ({
+    return result.map((r: { violation: Violation; unit: PropertyUnit; category: ViolationCategory | null }) => ({
       ...r.violation,
       unit: r.unit,
       category: r.category || undefined // Handle cases where category might be null
@@ -1193,26 +1202,47 @@ export class DatabaseStorage implements IStorage {
       orderByClause = sortOrder === 'asc' ? asc(propertyUnits.unitNumber) : desc(propertyUnits.unitNumber);
     }
 
-    // Use regular Drizzle query instead of query builder
+    // Get units with persons
     const paginatedUnits = await db
       .select({
         unit: propertyUnits,
         roles: unitPersonRoles,
-        person: persons,
-        facilities: unitFacilities
+        person: persons
       })
       .from(propertyUnits)
       .leftJoin(unitPersonRoles, eq(propertyUnits.id, unitPersonRoles.unitId))
       .leftJoin(persons, eq(unitPersonRoles.personId, persons.id))
-      .leftJoin(unitFacilities, eq(propertyUnits.id, unitFacilities.unitId))
       .orderBy(orderByClause)
       .limit(limit)
       .offset(offset);
 
+    // Get all unit IDs from the paginated results
+    const unitIdsMap: { [key: number]: boolean } = {};
+    paginatedUnits.forEach(row => {
+      unitIdsMap[row.unit.id] = true;
+    });
+    const unitIds = Object.keys(unitIdsMap).map(Number);
+
+    // Fetch facilities for all units
+    const parkingSpotsData = unitIds.length > 0 ? await db
+      .select()
+      .from(parkingSpots)
+      .where(sql`${parkingSpots.unitId} IN (${sql.join(unitIds, sql`, `)})`) : [];
+
+    const storageLockersData = unitIds.length > 0 ? await db
+      .select()
+      .from(storageLockers)
+      .where(sql`${storageLockers.unitId} IN (${sql.join(unitIds, sql`, `)})`) : [];
+
+    const bikeLockersData = unitIds.length > 0 ? await db
+      .select()
+      .from(bikeLockers)
+      .where(sql`${bikeLockers.unitId} IN (${sql.join(unitIds, sql`, `)})`) : [];
+
     // Group the results by unit
     const unitsMap = new Map<number, any>();
     
-    paginatedUnits.forEach(row => {
+    paginatedUnits.forEach((row: any) => {
       const unitId = row.unit.id;
       
       if (!unitsMap.has(unitId)) {
@@ -1220,7 +1250,11 @@ export class DatabaseStorage implements IStorage {
           ...row.unit,
           owners: [],
           tenants: [],
-          facilities: row.facilities || undefined
+          facilities: {
+            parkingSpots: parkingSpotsData.filter((p: ParkingSpot) => p.unitId === unitId),
+            storageLockers: storageLockersData.filter((s: StorageLocker) => s.unitId === unitId),
+            bikeLockers: bikeLockersData.filter((b: BikeLocker) => b.unitId === unitId)
+          }
         });
       }
       
@@ -1256,7 +1290,7 @@ export class DatabaseStorage implements IStorage {
       .from(propertyUnits);
 
     return {
-      units: unitsWithPeopleAndFacilities as (PropertyUnit & { owners: Person[], tenants: Person[], facilities?: UnitFacility })[],
+      units: unitsWithPeopleAndFacilities as (PropertyUnit & { owners: Person[], tenants: Person[], facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] } })[],
       total: Number(count)
     };
   }
@@ -1276,12 +1310,16 @@ export class DatabaseStorage implements IStorage {
 
   /**
    * Create a unit with multiple persons/roles (owners/tenants) and facilities in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, facilities: InsertUnitFacility, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
+   * @param unitData - { unit: InsertPropertyUnit, facilities: { parkingSpots?: string[], storageLockers?: string[], bikeLockers?: string[] }, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
    * @returns The created unit, facilities, and associated persons/roles.
    */
   async createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
-    facilities: Omit<InsertUnitFacility, 'unitId' | 'id' | 'createdAt' | 'updatedAt'>,
+    facilities: {
+      parkingSpots?: string[],
+      storageLockers?: string[],
+      bikeLockers?: string[]
+    },
     persons: Array<{
       fullName: string;
       email: string;
@@ -1291,7 +1329,7 @@ export class DatabaseStorage implements IStorage {
       hasCat?: boolean;
       hasDog?: boolean;
     }>
-  }): Promise<{ unit: PropertyUnit; facilities: UnitFacility; persons: Person[]; roles: UnitPersonRole[] }> {
+  }): Promise<{ unit: PropertyUnit; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; persons: Person[]; roles: UnitPersonRole[] }> {
     return await db.transaction(async (trx) => {
       // 1. Create or find the unit
       let [unit] = await trx.select().from(propertyUnits).where(eq(propertyUnits.unitNumber, unitData.unit.unitNumber));
@@ -1303,21 +1341,41 @@ export class DatabaseStorage implements IStorage {
         // but we will update/create persons, roles, and facilities.
       }
 
-      // 2. Create or update unit facilities
-      let facilitiesRecord: UnitFacility | undefined;
-      const existingFacilities = await trx.select().from(unitFacilities).where(eq(unitFacilities.unitId, unit.id)).limit(1);
-      if (existingFacilities.length > 0) {
-        [facilitiesRecord] = await trx.update(unitFacilities)
-          .set({ ...unitData.facilities, updatedAt: new Date() })
-          .where(eq(unitFacilities.unitId, unit.id))
-          .returning();
-      } else {
-        [facilitiesRecord] = await trx.insert(unitFacilities)
-          .values({ ...unitData.facilities, unitId: unit.id })
-          .returning();
+      // 2. Create facilities in the new tables
+      // Delete existing facilities for this unit first
+      await trx.delete(parkingSpots).where(eq(parkingSpots.unitId, unit.id));
+      await trx.delete(storageLockers).where(eq(storageLockers.unitId, unit.id));
+      await trx.delete(bikeLockers).where(eq(bikeLockers.unitId, unit.id));
+
+      // Insert new facilities
+      const createdParkingSpots: ParkingSpot[] = [];
+      if (unitData.facilities.parkingSpots && unitData.facilities.parkingSpots.length > 0) {
+        const parkingData = unitData.facilities.parkingSpots.map(identifier => ({
+          unitId: unit.id,
+          identifier
+        }));
+        const inserted = await trx.insert(parkingSpots).values(parkingData).returning();
+        createdParkingSpots.push(...inserted);
       }
-      if (!facilitiesRecord) {
-        throw new Error("Failed to create or update unit facilities.");
+
+      const createdStorageLockers: StorageLocker[] = [];
+      if (unitData.facilities.storageLockers && unitData.facilities.storageLockers.length > 0) {
+        const storageData = unitData.facilities.storageLockers.map(identifier => ({
+          unitId: unit.id,
+          identifier
+        }));
+        const inserted = await trx.insert(storageLockers).values(storageData).returning();
+        createdStorageLockers.push(...inserted);
+      }
+
+      const createdBikeLockers: BikeLocker[] = [];
+      if (unitData.facilities.bikeLockers && unitData.facilities.bikeLockers.length > 0) {
+        const bikeData = unitData.facilities.bikeLockers.map(identifier => ({
+          unitId: unit.id,
+          identifier
+        }));
+        const inserted = await trx.insert(bikeLockers).values(bikeData).returning();
+        createdBikeLockers.push(...inserted);
       }
 
       // 3. For each person, create or find by email, and update pet info
@@ -1367,11 +1425,15 @@ export class DatabaseStorage implements IStorage {
       }
       // 5. Return the unit, facilities, and all associated persons/roles
       const roles = await trx.select().from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unit.id));
-      const personList: Person[] = roles.length > 0 ? await trx.select().from(persons).where(or(...roles.map(r => eq(persons.id, r.personId)))) : [];
+      const personList: Person[] = roles.length > 0 ? await trx.select().from(persons).where(or(...roles.map((r: UnitPersonRole) => eq(persons.id, r.personId)))) : [];
       
       return {
         unit,
-        facilities: facilitiesRecord,
+        facilities: {
+          parkingSpots: createdParkingSpots,
+          storageLockers: createdStorageLockers,
+          bikeLockers: createdBikeLockers
+        },
         persons: personList,
         roles
       };
