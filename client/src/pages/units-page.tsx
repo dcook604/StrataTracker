@@ -140,15 +140,15 @@ export default function UnitsPage() {
 
   const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray({
     control: form.control,
-    name: "parkingSpots" as const,
+    name: "parkingSpots" as FieldPath<FormValues>,
   });
   const { fields: storageFields, append: appendStorage, remove: removeStorage } = useFieldArray({
     control: form.control,
-    name: "storageLockers" as const,
+    name: "storageLockers" as FieldPath<FormValues>,
   });
   const { fields: bikeFields, append: appendBike, remove: removeBike } = useFieldArray({
     control: form.control,
-    name: "bikeLockers" as const,
+    name: "bikeLockers" as FieldPath<FormValues>,
   });
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
@@ -341,9 +341,9 @@ export default function UnitsPage() {
       mailingStateProvince: unit.mailingStateProvince || "",
       mailingPostalCode: unit.mailingPostalCode || "",
       mailingCountry: unit.mailingCountry || "",
-      parkingSpots: unit.facilities?.parkingSpots?.map(p => p.identifier) || [],
-      storageLockers: unit.facilities?.storageLockers?.map(s => s.identifier) || [],
-      bikeLockers: unit.facilities?.bikeLockers?.map(b => b.identifier) || [],
+      parkingSpots: unit.facilities?.parkingSpots?.map(p => p.identifier || "") || [],
+      storageLockers: unit.facilities?.storageLockers?.map(s => s.identifier || "") || [],
+      bikeLockers: unit.facilities?.bikeLockers?.map(b => b.identifier || "") || [],
       phone: unit.phone || "",
       notes: unit.notes || "",
       ownerName: unit.owners?.[0]?.fullName || "",
