@@ -140,15 +140,15 @@ export default function UnitsPage() {
 
   const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray({
     control: form.control,
-    name: "parkingSpots" as FieldPath<FormValues>,
+    name: "parkingSpots",
   });
   const { fields: storageFields, append: appendStorage, remove: removeStorage } = useFieldArray({
     control: form.control,
-    name: "storageLockers" as FieldPath<FormValues>,
+    name: "storageLockers",
   });
   const { fields: bikeFields, append: appendBike, remove: removeBike } = useFieldArray({
     control: form.control,
-    name: "bikeLockers" as FieldPath<FormValues>,
+    name: "bikeLockers",
   });
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
@@ -160,22 +160,19 @@ export default function UnitsPage() {
       form.reset({
         unitNumber: "", strataLot: "", floor: "",
         mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
-        parkingSpots: [], storageLockers: [], bikeLockers: [],
+        parkingSpots: [""], storageLockers: [""], bikeLockers: [],
         ownerName: "", ownerEmail: "", ownerReceiveNotifications: true,
         tenantName: "", tenantEmail: "", tenantReceiveNotifications: true,
         phone: "", notes: "",
       });
-      // Clear existing field arrays and add one empty field for each
-      while (parkingFields.length > 0) removeParking(0);
-      appendParking("");
-      while (storageFields.length > 0) removeStorage(0);
-      appendStorage("");
-      while (bikeFields.length > 0) removeBike(0);
-      appendBike("");
 
       setOwners([{ ...defaultPerson }]);
       setTenants([{ ...defaultPerson }]);
     } else if (editingUnit) {
+      const parkingSpots = editingUnit.facilities?.parkingSpots?.map(p => p.identifier || "") || [];
+      const storageLockers = editingUnit.facilities?.storageLockers?.map(s => s.identifier || "") || [];
+      const bikeLockers = editingUnit.facilities?.bikeLockers?.map(b => b.identifier || "") || [];
+      
       form.reset({
         unitNumber: editingUnit.unitNumber,
         strataLot: editingUnit.strataLot || "",
@@ -186,9 +183,9 @@ export default function UnitsPage() {
         mailingStateProvince: editingUnit.mailingStateProvince || "",
         mailingPostalCode: editingUnit.mailingPostalCode || "",
         mailingCountry: editingUnit.mailingCountry || "",
-        parkingSpots: editingUnit.facilities?.parkingSpots?.map(p => p.identifier || "") || [],
-        storageLockers: editingUnit.facilities?.storageLockers?.map(s => s.identifier || "") || [],
-        bikeLockers: editingUnit.facilities?.bikeLockers?.map(b => b.identifier || "") || [],
+        parkingSpots: parkingSpots.length > 0 ? parkingSpots : [""],
+        storageLockers: storageLockers.length > 0 ? storageLockers : [""],
+        bikeLockers,
         phone: editingUnit.phone || "",
         notes: editingUnit.notes || "",
         ownerName: editingUnit.owners?.[0]?.fullName || "",
@@ -201,7 +198,7 @@ export default function UnitsPage() {
       setOwners(editingUnit.owners && editingUnit.owners.length > 0 ? editingUnit.owners.map(o => ({ ...defaultPerson, ...o, phone: typeof o.phone === 'string' ? o.phone : "" })) : [{ ...defaultPerson }]);
       setTenants(editingUnit.tenants && editingUnit.tenants.length > 0 ? editingUnit.tenants.map(t => ({ ...defaultPerson, ...t, phone: typeof t.phone === 'string' ? t.phone : "" })) : [{ ...defaultPerson }]);
     }
-  }, [editingUnit, isAddDialogOpen, form, defaultPerson, removeParking, appendParking, removeStorage, appendStorage, removeBike, appendBike, parkingFields.length, storageFields.length, bikeFields.length]);
+  }, [editingUnit, isAddDialogOpen, form, defaultPerson]);
 
   const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeopleAndFacilities[], total: number }>({
     queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder }],

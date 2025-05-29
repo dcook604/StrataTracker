@@ -13,20 +13,21 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
   if (requestBody.token) requestBody.token = '[REDACTED]';
   
   // Log the incoming request with comprehensive details
-  logger.debug(`[API] Incoming ${method} ${path}`, {
-    headers: {
-      contentType: req.get('content-type'),
-      authorization: req.get('authorization') ? '[PRESENT]' : '[MISSING]',
-      userAgent: req.get('user-agent')
-    },
-    query: req.query,
-    body: Object.keys(requestBody).length ? requestBody : undefined,
-    params: req.params,
-    ip: req.ip,
-    sessionId: req.sessionID,
-    authenticated: !!req.user,
-    userId: req.user?.id
-  });
+  // Temporarily disabled to prevent excessive logging that caused 8GB log files
+  // logger.debug(`[API] Incoming ${method} ${path}`, {
+  //   headers: {
+  //     contentType: req.get('content-type'),
+  //     authorization: req.get('authorization') ? '[PRESENT]' : '[MISSING]',
+  //     userAgent: req.get('user-agent')
+  //   },
+  //   query: req.query,
+  //   body: Object.keys(requestBody).length ? requestBody : undefined,
+  //   params: req.params,
+  //   ip: req.ip,
+  //   sessionId: req.sessionID,
+  //   authenticated: !!req.user,
+  //   userId: req.user?.id
+  // });
   
   // Capture the original response methods
   const originalJson = res.json;
