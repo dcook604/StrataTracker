@@ -1,7 +1,8 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
+import { unique } from "drizzle-orm/pg-core";
 
 // User schema
 export const users = pgTable("users", {
@@ -450,4 +451,291 @@ export const unitFacilitiesRelations = relations(unitFacilities, ({ one }) => ({
     references: [propertyUnits.id],
   }),
 }));
+
+// Communications Schema
+export const communicationCampaigns = pgTable("communication_campaigns", {
+  id: serial("id").primaryKey(),
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
+  title: text("title").notNull(),
+  type: text("type").notNull(), // 'newsletter', 'announcement', 'update', 'emergency'
+  status: text("status").default("draft").notNull(), // 'draft', 'scheduled', 'sending', 'sent', 'failed'
+  subject: text("subject").notNull(),
+  content: text("content").notNull(), // HTML content
+  plainTextContent: text("plain_text_content"), // Plain text version
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const communicationRecipients = pgTable("communication_recipients", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => communicationCampaigns.id, { onDelete: 'cascade' }),
+  recipientType: text("recipient_type").notNull(), // 'all', 'owners', 'tenants', 'units', 'individual', 'manual'
+  unitId: integer("unit_id").references(() => propertyUnits.id),
+  personId: integer("person_id").references(() => persons.id),
+  email: text("email").notNull(),
+  recipientName: text("recipient_name").notNull(),
+  status: text("status").default("pending").notNull(), // 'pending', 'sent', 'failed', 'bounced'
+  sentAt: timestamp("sent_at"),
+  errorMessage: text("error_message"),
+  trackingId: text("tracking_id").unique(), // Unique tracking ID for this recipient
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const communicationTemplates = pgTable("communication_templates", {
+  id: serial("id").primaryKey(),
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'newsletter', 'announcement', 'update', 'emergency'
+  subject: text("subject").notNull(),
+  content: text("content").notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Relations
+export const communicationCampaignsRelations = relations(communicationCampaigns, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [communicationCampaigns.createdById],
+    references: [users.id],
+  }),
+  recipients: many(communicationRecipients),
+}));
+
+export const communicationRecipientsRelations = relations(communicationRecipients, ({ one }) => ({
+  campaign: one(communicationCampaigns, {
+    fields: [communicationRecipients.campaignId],
+    references: [communicationCampaigns.id],
+  }),
+  unit: one(propertyUnits, {
+    fields: [communicationRecipients.unitId],
+    references: [propertyUnits.id],
+  }),
+  person: one(persons, {
+    fields: [communicationRecipients.personId],
+    references: [persons.id],
+  }),
+}));
+
+export const communicationTemplatesRelations = relations(communicationTemplates, ({ one }) => ({
+  createdBy: one(users, {
+    fields: [communicationTemplates.createdById],
+    references: [users.id],
+  }),
+}));
+
+// Insert schemas
+export const insertCommunicationCampaignSchema = createInsertSchema(communicationCampaigns).pick({
+  title: true,
+  type: true,
+  subject: true,
+  content: true,
+  plainTextContent: true,
+  scheduledAt: true,
+});
+
+export const insertCommunicationTemplateSchema = createInsertSchema(communicationTemplates).pick({
+  name: true,
+  type: true,
+  subject: true,
+  content: true,
+  isDefault: true,
+});
+
+// Select schemas
+export const selectCommunicationCampaignSchema = createSelectSchema(communicationCampaigns);
+export const selectCommunicationTemplateSchema = createSelectSchema(communicationTemplates);
+export const selectCommunicationRecipientSchema = createSelectSchema(communicationRecipients);
+
+// Types
+export type CommunicationCampaign = typeof communicationCampaigns.$inferSelect;
+export type InsertCommunicationCampaign = typeof communicationCampaigns.$inferInsert;
+export type CommunicationTemplate = typeof communicationTemplates.$inferSelect;
+export type InsertCommunicationTemplate = typeof communicationTemplates.$inferInsert;
+export type CommunicationRecipient = typeof communicationRecipients.$inferSelect;
+export type InsertCommunicationRecipient = typeof communicationRecipients.$inferInsert;
+
+export type CommunicationType = 'newsletter' | 'announcement' | 'update' | 'emergency';
+export type CommunicationStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+export type RecipientType = 'all' | 'owners' | 'tenants' | 'units' | 'individual' | 'manual';
+export type RecipientStatus = 'pending' | 'sent' | 'failed' | 'bounced';
+
+// Bylaws Schema
+export const bylawCategories = pgTable("bylaw_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  displayOrder: integer("display_order").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const bylaws = pgTable("bylaws", {
+  id: serial("id").primaryKey(),
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
+  sectionNumber: text("section_number").notNull().unique(), // e.g., "3.4.2", "Section 10"
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  parentSectionId: integer("parent_section_id").references(() => bylaws.id),
+  sectionOrder: integer("section_order").notNull(),
+  partNumber: text("part_number"), // e.g., "PART 2", "PART 10"
+  partTitle: text("part_title"), // e.g., "DUTIES OF OWNERS, TENANTS, OCCUPANTS AND VISITORS"
+  isActive: boolean("is_active").default(true).notNull(),
+  effectiveDate: date("effective_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  updatedById: integer("updated_by_id").references(() => users.id),
+});
+
+export const bylawCategoryLinks = pgTable("bylaw_category_links", {
+  id: serial("id").primaryKey(),
+  bylawId: integer("bylaw_id").notNull().references(() => bylaws.id, { onDelete: 'cascade' }),
+  categoryId: integer("category_id").notNull().references(() => bylawCategories.id, { onDelete: 'cascade' }),
+}, (table) => ({
+  uniqueLink: unique().on(table.bylawId, table.categoryId),
+}));
+
+export const bylawRevisions = pgTable("bylaw_revisions", {
+  id: serial("id").primaryKey(),
+  bylawId: integer("bylaw_id").notNull().references(() => bylaws.id, { onDelete: 'cascade' }),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  revisionNotes: text("revision_notes"),
+  effectiveDate: date("effective_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+});
+
+// Insert schemas for bylaws
+export const insertBylawCategorySchema = createInsertSchema(bylawCategories).pick({
+  name: true,
+  description: true,
+  displayOrder: true,
+  isActive: true,
+});
+
+export const insertBylawSchema = createInsertSchema(bylaws).pick({
+  sectionNumber: true,
+  title: true,
+  content: true,
+  parentSectionId: true,
+  sectionOrder: true,
+  partNumber: true,
+  partTitle: true,
+  isActive: true,
+  effectiveDate: true,
+});
+
+export const insertBylawRevisionSchema = createInsertSchema(bylawRevisions).pick({
+  bylawId: true,
+  title: true,
+  content: true,
+  revisionNotes: true,
+  effectiveDate: true,
+});
+
+// Relations
+export const bylawsRelations = relations(bylaws, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [bylaws.createdById],
+    references: [users.id],
+  }),
+  updatedBy: one(users, {
+    fields: [bylaws.updatedById],
+    references: [users.id],
+  }),
+  parentSection: one(bylaws, {
+    fields: [bylaws.parentSectionId],
+    references: [bylaws.id],
+  }),
+  childSections: many(bylaws),
+  categoryLinks: many(bylawCategoryLinks),
+  revisions: many(bylawRevisions),
+}));
+
+export const bylawCategoriesRelations = relations(bylawCategories, ({ many }) => ({
+  categoryLinks: many(bylawCategoryLinks),
+}));
+
+export const bylawCategoryLinksRelations = relations(bylawCategoryLinks, ({ one }) => ({
+  bylaw: one(bylaws, {
+    fields: [bylawCategoryLinks.bylawId],
+    references: [bylaws.id],
+  }),
+  category: one(bylawCategories, {
+    fields: [bylawCategoryLinks.categoryId],
+    references: [bylawCategories.id],
+  }),
+}));
+
+export const bylawRevisionsRelations = relations(bylawRevisions, ({ one }) => ({
+  bylaw: one(bylaws, {
+    fields: [bylawRevisions.bylawId],
+    references: [bylaws.id],
+  }),
+  createdBy: one(users, {
+    fields: [bylawRevisions.createdById],
+    references: [users.id],
+  }),
+}));
+
+// Types
+export type BylawCategory = typeof bylawCategories.$inferSelect;
+export type InsertBylawCategory = z.infer<typeof insertBylawCategorySchema>;
+export type Bylaw = typeof bylaws.$inferSelect;
+export type InsertBylaw = z.infer<typeof insertBylawSchema>;
+export type BylawCategoryLink = typeof bylawCategoryLinks.$inferSelect;
+export type BylawRevision = typeof bylawRevisions.$inferSelect;
+export type InsertBylawRevision = z.infer<typeof insertBylawRevisionSchema>;
+
+// New table for email tracking events
+export const emailTrackingEvents = pgTable("email_tracking_events", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => communicationCampaigns.id, { onDelete: 'cascade' }),
+  recipientId: integer("recipient_id").notNull().references(() => communicationRecipients.id, { onDelete: 'cascade' }),
+  trackingId: text("tracking_id").notNull(),
+  eventType: text("event_type").notNull(), // 'open', 'click', 'bounce', 'unsubscribe'
+  eventData: jsonb("event_data"), // Additional event data (IP, user agent, location, etc.)
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
+// New table for manual email recipients (individual entries)
+export const manualEmailRecipients = pgTable("manual_email_recipients", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => communicationCampaigns.id, { onDelete: 'cascade' }),
+  email: text("email").notNull(),
+  name: text("name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const emailTrackingEventsRelations = relations(emailTrackingEvents, ({ one }) => ({
+  campaign: one(communicationCampaigns, {
+    fields: [emailTrackingEvents.campaignId],
+    references: [communicationCampaigns.id],
+  }),
+  recipient: one(communicationRecipients, {
+    fields: [emailTrackingEvents.recipientId],
+    references: [communicationRecipients.id],
+  }),
+}));
+
+export const manualEmailRecipientsRelations = relations(manualEmailRecipients, ({ one }) => ({
+  campaign: one(communicationCampaigns, {
+    fields: [manualEmailRecipients.campaignId],
+    references: [communicationCampaigns.id],
+  }),
+}));
+
+// Types
+export type EmailTrackingEvent = typeof emailTrackingEvents.$inferSelect;
+export type InsertEmailTrackingEvent = typeof emailTrackingEvents.$inferInsert;
+export type ManualEmailRecipient = typeof manualEmailRecipients.$inferSelect;
+export type InsertManualEmailRecipient = typeof manualEmailRecipients.$inferInsert;
 

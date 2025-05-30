@@ -247,6 +247,291 @@ CREATE TABLE units (
 
 ---
 
+## 📧 Communications Feature
+
+### Overview
+The Communications feature enables administrators and council members to send newsletters, announcements, and updates to residents. It integrates with the existing SMTP settings configured in the system and provides comprehensive recipient management based on property units and person roles.
+
+### Database Schema
+
+#### Communications Tables
+```sql
+-- Communication campaigns (newsletters, announcements, etc.)
+CREATE TABLE communication_campaigns (
+  id SERIAL PRIMARY KEY,
+  uuid UUID DEFAULT gen_random_uuid() NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL, -- 'newsletter', 'announcement', 'update', 'emergency'
+  status TEXT DEFAULT 'draft' NOT NULL, -- 'draft', 'scheduled', 'sending', 'sent', 'failed'
+  subject TEXT NOT NULL,
+  content TEXT NOT NULL, -- HTML content
+  plain_text_content TEXT, -- Plain text version
+  scheduled_at TIMESTAMP,
+  sent_at TIMESTAMP,
+  created_by_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Campaign recipients and delivery tracking
+CREATE TABLE communication_recipients (
+  id SERIAL PRIMARY KEY,
+  campaign_id INTEGER NOT NULL REFERENCES communication_campaigns(id) ON DELETE CASCADE,
+  recipient_type TEXT NOT NULL, -- 'all', 'owners', 'tenants', 'units', 'individual'
+  unit_id INTEGER REFERENCES property_units(id),
+  person_id INTEGER REFERENCES persons(id),
+  email TEXT NOT NULL,
+  recipient_name TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' NOT NULL, -- 'pending', 'sent', 'failed', 'bounced'
+  sent_at TIMESTAMP,
+  error_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Reusable email templates
+CREATE TABLE communication_templates (
+  id SERIAL PRIMARY KEY,
+  uuid UUID DEFAULT gen_random_uuid() NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL, -- 'newsletter', 'announcement', 'update', 'emergency'
+  subject TEXT NOT NULL,
+  content TEXT NOT NULL,
+  is_default BOOLEAN DEFAULT false NOT NULL,
+  created_by_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+### API Endpoints
+
+#### Campaign Management
+```typescript
+// Get all campaigns with statistics
+GET /api/communications/campaigns
+Response: Campaign[] with recipient counts and delivery stats
+
+// Get single campaign with recipients
+GET /api/communications/campaigns/:id
+Response: Campaign with full recipient list
+
+// Create new campaign
+POST /api/communications/campaigns
+Body: {
+  title: string,
+  type: 'newsletter' | 'announcement' | 'update' | 'emergency',
+  subject: string,
+  content: string,
+  recipientType: 'all' | 'owners' | 'tenants' | 'units' | 'individual',
+  unitIds?: number[],
+  personIds?: number[]
+}
+
+// Send campaign
+POST /api/communications/campaigns/:id/send
+Triggers email delivery process
+```
+
+#### Template Management
+```typescript
+// Get all templates
+GET /api/communications/templates
+
+// Create template
+POST /api/communications/templates
+Body: {
+  name: string,
+  type: 'newsletter' | 'announcement' | 'update' | 'emergency',
+  subject: string,
+  content: string
+}
+```
+
+#### Recipient Management
+```typescript
+// Preview recipients for targeting options
+POST /api/communications/recipients/preview
+Body: {
+  recipientType: string,
+  unitIds?: number[],
+  personIds?: number[]
+}
+Response: { count: number, recipients: Recipient[], totalCount: number }
+
+// Get available units for selection
+GET /api/communications/units
+Response: Unit[] with basic info (id, unitNumber, floor)
+```
+
+### SMTP Integration
+
+#### Email Service Configuration
+The Communications feature automatically uses SMTP settings configured in the system settings:
+
+```typescript
+// Email service loads configuration from database
+async function loadEmailSettings(): Promise<EmailConfig | null> {
+  // Loads from system_settings table where setting_key = 'email_config'
+  const settings = await db.select().from(systemSettings)
+    .where(eq(systemSettings.settingKey, 'email_config'));
+  
+  // Parses JSON configuration and creates nodemailer transporter
+  return parsedConfig;
+}
+
+// Sends emails using configured SMTP
+async function sendEmail(options: EmailOptions): Promise<boolean> {
+  const config = await loadEmailSettings();
+  return transporter.sendMail(mailOptions);
+}
+```
+
+#### Configuration Format
+SMTP settings are stored in the `system_settings` table as JSON:
+```json
+{
+  "host": "smtp.example.com",
+  "port": 587,
+  "secure": false,
+  "auth": {
+    "user": "your-email@example.com",
+    "pass": "your-password"
+  },
+  "from": "noreply@yourcompany.com"
+}
+```
+
+### Recipient Management System
+
+#### Targeting Options
+1. **All Residents**: Everyone with email notifications enabled
+2. **Owners Only**: Property owners with notification preferences
+3. **Tenants Only**: Tenants with notification preferences  
+4. **Specific Units**: Selected units and their associated persons
+5. **Individual Recipients**: Manually selected persons
+
+#### Data Source Integration
+```typescript
+// Recipients are generated from existing Units and Persons data
+async function generateRecipients(recipientType: RecipientType, unitIds?: number[], personIds?: number[]) {
+  // Queries persons table joined with unitPersonRoles
+  // Respects receiveEmailNotifications preferences
+  // Validates email addresses before inclusion
+  return recipients;
+}
+```
+
+### Frontend Implementation
+
+#### Navigation Integration
+- Added to sidebar under "All Violations" 
+- Restricted to Admin and Council members
+- Uses Mail icon for visual identification
+
+#### UI Components
+```typescript
+// Main Communications page with tabs
+<CommunicationsPage />
+  <Tabs>
+    <TabsContent value="campaigns">
+      <CampaignsTab /> // Campaign management and sending
+    </TabsContent>
+    <TabsContent value="templates">
+      <TemplatesTab /> // Template creation and management  
+    </TabsContent>
+  </Tabs>
+```
+
+#### State Management
+- React Query for API data fetching
+- Form validation with Zod schemas
+- Real-time delivery status updates
+- Optimistic UI updates for better UX
+
+### Security & Access Control
+
+#### Authentication Requirements
+```typescript
+// Middleware ensures proper authorization
+const ensureCouncilOrAdmin = (req: Request, res: Response, next: Function) => {
+  if (req.isAuthenticated() && req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
+    return next();
+  }
+  res.status(403).json({ message: "Forbidden - Admin or Council access required" });
+};
+```
+
+#### Data Protection
+- All communications routes require authentication
+- Campaign creation logged with user attribution
+- Email addresses validated before sending
+- Error handling prevents information disclosure
+
+### Development Setup
+
+#### Development Server Commands
+**Important**: Use the automated startup script for development:
+```bash
+# Start both frontend and backend servers
+sh start-dev.sh
+
+# This script:
+# 1. Finds available ports automatically
+# 2. Starts backend on port 3001 (or next available)
+# 3. Starts frontend on next available port after 3002
+# 4. Provides proper cleanup on exit
+```
+
+#### Manual Commands (Not Recommended)
+```bash
+# Backend only
+npm run dev:backend
+
+# Frontend only  
+npm run dev
+```
+
+#### Database Migration
+```bash
+# Apply communications migration manually if needed
+sudo docker exec -i stratatracker-db-1 psql -U spectrum4 -d spectrum4 < migrations/0003_communications_schema.sql
+```
+
+### Performance Considerations
+
+#### Email Delivery
+- Asynchronous email sending to prevent blocking
+- 100ms delay between emails to avoid overwhelming SMTP server
+- Comprehensive error handling and retry logic
+- Status tracking for delivery monitoring
+
+#### Database Optimization
+- Indexed foreign keys for performance
+- Cascade delete for data consistency  
+- Efficient joins for recipient generation
+- Pagination support for large campaigns
+
+### Monitoring & Logging
+
+#### Email Delivery Tracking
+```typescript
+// Each email attempt is logged with status
+await db.update(communicationRecipients)
+  .set({ 
+    status: 'sent',
+    sentAt: new Date()
+  })
+  .where(eq(communicationRecipients.id, recipient.id));
+```
+
+#### Campaign Analytics
+- Total recipients per campaign
+- Delivery success/failure rates
+- Send completion timestamps
+- Error message tracking for failed deliveries
+
+---
+
 ## 🔐 Security Implementation
 
 ### Authentication & Authorization
