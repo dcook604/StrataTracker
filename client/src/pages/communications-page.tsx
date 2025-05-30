@@ -129,22 +129,34 @@ export default function CommunicationsPage() {
   // Queries
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
     queryKey: ['communications', 'campaigns'],
-    queryFn: () => apiRequest('/api/communications/campaigns')
+    queryFn: async () => {
+      const res = await apiRequest("GET", '/api/communications/campaigns');
+      return res.json();
+    }
   });
 
   const { data: templates, isLoading: templatesLoading } = useQuery({
     queryKey: ['communications', 'templates'],
-    queryFn: () => apiRequest('/api/communications/templates')
+    queryFn: async () => {
+      const res = await apiRequest("GET", '/api/communications/templates');
+      return res.json();
+    }
   });
 
   const { data: units } = useQuery({
     queryKey: ['communications', 'units'],
-    queryFn: () => apiRequest('/api/communications/units')
+    queryFn: async () => {
+      const res = await apiRequest("GET", '/api/communications/units');
+      return res.json();
+    }
   });
 
   const { data: analytics } = useQuery({
     queryKey: ['communications', 'analytics', selectedCampaign?.id],
-    queryFn: () => apiRequest(`/api/communications/campaigns/${selectedCampaign?.id}/analytics`),
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/communications/campaigns/${selectedCampaign?.id}/analytics`);
+      return res.json();
+    },
     enabled: !!selectedCampaign?.id && isAnalyticsOpen
   });
 
@@ -178,15 +190,14 @@ export default function CommunicationsPage() {
 
   // Mutations
   const createCampaignMutation = useMutation({
-    mutationFn: (data: CampaignFormData & { unitIds?: number[], manualEmails?: ManualEmail[] }) => 
-      apiRequest('/api/communications/campaigns', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...data,
-          unitIds: selectedUnits,
-          manualEmails: manualEmails
-        }),
-      }),
+    mutationFn: async (data: CampaignFormData & { unitIds?: number[], manualEmails?: ManualEmail[] }) => {
+      const res = await apiRequest('POST', '/api/communications/campaigns', {
+        ...data,
+        unitIds: selectedUnits,
+        manualEmails: manualEmails
+      });
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'campaigns'] });
       setIsCreateCampaignOpen(false);
@@ -201,11 +212,10 @@ export default function CommunicationsPage() {
   });
 
   const updateCampaignMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: CampaignFormData }) =>
-      apiRequest(`/api/communications/campaigns/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: number, data: CampaignFormData }) => {
+      const res = await apiRequest('PUT', `/api/communications/campaigns/${id}`, data);
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'campaigns'] });
       setIsEditCampaignOpen(false);
@@ -218,10 +228,10 @@ export default function CommunicationsPage() {
   });
 
   const sendCampaignMutation = useMutation({
-    mutationFn: (id: number) =>
-      apiRequest(`/api/communications/campaigns/${id}/send`, {
-        method: 'POST',
-      }),
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('POST', `/api/communications/campaigns/${id}/send`);
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'campaigns'] });
       toast({ title: "Campaign sending started" });
@@ -232,10 +242,10 @@ export default function CommunicationsPage() {
   });
 
   const deleteCampaignMutation = useMutation({
-    mutationFn: (id: number) =>
-      apiRequest(`/api/communications/campaigns/${id}`, {
-        method: 'DELETE',
-      }),
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('DELETE', `/api/communications/campaigns/${id}`);
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'campaigns'] });
       toast({ title: "Campaign deleted successfully" });
@@ -247,11 +257,10 @@ export default function CommunicationsPage() {
 
   // Template mutations
   const createTemplateMutation = useMutation({
-    mutationFn: (data: TemplateFormData) =>
-      apiRequest('/api/communications/templates', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: TemplateFormData) => {
+      const res = await apiRequest('POST', '/api/communications/templates', data);
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'templates'] });
       setIsCreateTemplateOpen(false);
@@ -264,11 +273,10 @@ export default function CommunicationsPage() {
   });
 
   const updateTemplateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: TemplateFormData }) =>
-      apiRequest(`/api/communications/templates/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: number, data: TemplateFormData }) => {
+      const res = await apiRequest('PUT', `/api/communications/templates/${id}`, data);
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'templates'] });
       setIsEditTemplateOpen(false);
@@ -281,10 +289,10 @@ export default function CommunicationsPage() {
   });
 
   const deleteTemplateMutation = useMutation({
-    mutationFn: (id: number) =>
-      apiRequest(`/api/communications/templates/${id}`, {
-        method: 'DELETE',
-      }),
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('DELETE', `/api/communications/templates/${id}`);
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'templates'] });
       toast({ title: "Template deleted successfully" });
@@ -432,7 +440,7 @@ export default function CommunicationsPage() {
   };
 
   return (
-    <Layout>
+    <Layout title="Communications">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>

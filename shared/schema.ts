@@ -220,6 +220,7 @@ export type ViolationStatus = "new" | "pending_approval" | "approved" | "dispute
 
 export const violations = pgTable("violations", {
   id: serial("id").primaryKey(),
+  uuid: uuid("uuid").notNull().unique(),
   referenceNumber: uuid("reference_number").defaultRandom().notNull().unique(),
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
   reportedById: integer("reported_by_id").notNull().references(() => users.id),
@@ -270,6 +271,7 @@ export const insertViolationSchema = createInsertSchema(violations).pick({
 export const violationHistories = pgTable("violation_histories", {
   id: serial("id").primaryKey(),
   violationId: integer("violation_id").notNull().references(() => violations.id),
+  violationUuid: uuid("violation_uuid").notNull().references(() => violations.uuid),
   userId: integer("user_id").notNull().references(() => users.id),
   action: text("action").notNull(),
   comment: text("comment"),
@@ -409,6 +411,7 @@ export type InsertUnitPersonRole = z.infer<typeof insertUnitPersonRoleSchema>;
 export const violationAccessLinks = pgTable("violation_access_links", {
   id: serial("id").primaryKey(),
   violationId: integer("violation_id").notNull().references(() => violations.id),
+  violationUuid: uuid("violation_uuid").notNull().references(() => violations.uuid),
   recipientEmail: text("recipient_email").notNull(),
   token: uuid("token").defaultRandom().notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
