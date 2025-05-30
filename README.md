@@ -220,9 +220,23 @@ This application was successfully migrated from Replit to a local Docker environ
 - **Unit Management**: Property unit and tenant/owner assignment
 - **Responsive Design**: Mobile-friendly PWA
 - **Email Notifications**: SMTP-based notification system
+- **Communications & Email Tracking**: Advanced email campaigns with open/click tracking and analytics
 - **Role-based Access**: Admin, Council Member, and User roles
 - **Reporting**: Violation statistics and reporting
 - **Security**: Helmet, CORS, rate limiting, session management
+
+---
+
+## 📚 Documentation
+
+### Feature Documentation
+- **[Email Tracking & Communications](docs/EMAIL_TRACKING.md)**: Comprehensive guide to email campaign management, tracking, and analytics
+- **Unit Facility Management**: See implementation details in the section below
+- **SMTP Configuration**: See SMTP section for password handling and security
+
+### Development Documentation
+- **Setup & Troubleshooting**: See development setup sections below
+- **Architecture**: See project structure and technology stack above
 
 ---
 

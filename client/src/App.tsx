@@ -23,6 +23,7 @@ import PublicViolationCommentPage from "@/pages/public-violation-comment-page";
 import { Route } from "wouter";
 import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import BylawsPage from "@/pages/bylaws-page";
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
                 <ProtectedRoute path="/categories" component={CategoriesPage} />
                 <ProtectedRoute path="/settings" component={SettingsPage} />
                 <ProtectedRoute path="/profile" component={UserProfilePage} />
+                <ProtectedRoute path="/bylaws" component={BylawsPage} />
                 <Route component={NotFound} />
               </Switch>
               <Toaster />

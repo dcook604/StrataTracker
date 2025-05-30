@@ -17,6 +17,7 @@ import {
   Mail,
   ChevronLeft,
   ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +58,11 @@ export function Sidebar({ className }: SidebarProps) {
       title: "All Violations",
       icon: <FileText className="h-5 w-5" />,
       href: "/violations",
+    },
+    {
+      title: "Bylaws",
+      icon: <BookOpen className="h-5 w-5" />,
+      href: "/bylaws",
     },
     {
       title: "Communications",

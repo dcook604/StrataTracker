@@ -4,6 +4,8 @@ import {
   communicationCampaigns, 
   communicationRecipients, 
   communicationTemplates,
+  emailTrackingEvents,
+  manualEmailRecipients,
   propertyUnits,
   persons,
   unitPersonRoles,
@@ -13,9 +15,10 @@ import {
   CommunicationType,
   RecipientType
 } from '@shared/schema';
-import { eq, desc, and, inArray, or, sql } from 'drizzle-orm';
+import { eq, desc, and, inArray, or, sql, count, avg } from 'drizzle-orm';
 import { sendEmail } from '../email-service';
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -30,9 +33,7 @@ const ensureCouncilOrAdmin = (req: Request, res: Response, next: Function) => {
 // Apply middleware to all routes
 router.use(ensureCouncilOrAdmin);
 
-// CAMPAIGNS ROUTES
-
-// Get all campaigns
+// Get campaigns with enhanced tracking stats
 router.get('/campaigns', async (req, res) => {
   try {
     const campaigns = await db
@@ -47,7 +48,6 @@ router.get('/campaigns', async (req, res) => {
         sentAt: communicationCampaigns.sentAt,
         createdAt: communicationCampaigns.createdAt,
         createdBy: {
-          id: users.id,
           fullName: users.fullName,
           email: users.email
         }
@@ -56,34 +56,66 @@ router.get('/campaigns', async (req, res) => {
       .leftJoin(users, eq(communicationCampaigns.createdById, users.id))
       .orderBy(desc(communicationCampaigns.createdAt));
 
-    // Get recipient counts for each campaign
     const campaignIds = campaigns.map(c => c.id);
+
     if (campaignIds.length > 0) {
-      const recipientCounts = await db
-        .select({
-          campaignId: communicationRecipients.campaignId,
-          totalRecipients: sql<number>`COUNT(*)`.as('totalRecipients'),
-          sentCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'sent' THEN 1 END)`.as('sentCount'),
-          failedCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'failed' THEN 1 END)`.as('failedCount')
-        })
-        .from(communicationRecipients)
-        .where(inArray(communicationRecipients.campaignId, campaignIds))
-        .groupBy(communicationRecipients.campaignId);
+      // Get recipient counts and tracking stats
+      const [recipientCounts, trackingStats] = await Promise.all([
+        // Basic recipient stats
+        db
+          .select({
+            campaignId: communicationRecipients.campaignId,
+            totalRecipients: sql<number>`COUNT(*)`.as('totalRecipients'),
+            sentCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'sent' THEN 1 END)`.as('sentCount'),
+            failedCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'failed' THEN 1 END)`.as('failedCount')
+          })
+          .from(communicationRecipients)
+          .where(inArray(communicationRecipients.campaignId, campaignIds))
+          .groupBy(communicationRecipients.campaignId),
+        
+        // Tracking stats
+        db
+          .select({
+            campaignId: emailTrackingEvents.campaignId,
+            openCount: sql<number>`COUNT(CASE WHEN ${emailTrackingEvents.eventType} = 'open' THEN 1 END)`.as('openCount'),
+            clickCount: sql<number>`COUNT(CASE WHEN ${emailTrackingEvents.eventType} = 'click' THEN 1 END)`.as('clickCount'),
+            uniqueOpens: sql<number>`COUNT(DISTINCT CASE WHEN ${emailTrackingEvents.eventType} = 'open' THEN ${emailTrackingEvents.recipientId} END)`.as('uniqueOpens'),
+          })
+          .from(emailTrackingEvents)
+          .where(inArray(emailTrackingEvents.campaignId, campaignIds))
+          .groupBy(emailTrackingEvents.campaignId)
+      ]);
 
       const campaignsWithStats = campaigns.map(campaign => {
-        const stats = recipientCounts.find(rc => rc.campaignId === campaign.id);
+        const recipientStats = recipientCounts.find(rc => rc.campaignId === campaign.id);
+        const tracking = trackingStats.find(ts => ts.campaignId === campaign.id);
+        
         return {
           ...campaign,
-          totalRecipients: stats?.totalRecipients || 0,
-          sentCount: stats?.sentCount || 0,
-          failedCount: stats?.failedCount || 0
+          totalRecipients: recipientStats?.totalRecipients || 0,
+          sentCount: recipientStats?.sentCount || 0,
+          failedCount: recipientStats?.failedCount || 0,
+          openCount: tracking?.openCount || 0,
+          clickCount: tracking?.clickCount || 0,
+          uniqueOpens: tracking?.uniqueOpens || 0,
+          openRate: (recipientStats?.sentCount && recipientStats.sentCount > 0) ? 
+            ((tracking?.uniqueOpens || 0) / recipientStats.sentCount * 100).toFixed(2) : '0'
         };
       });
 
       return res.json(campaignsWithStats);
     }
 
-    res.json(campaigns.map(c => ({ ...c, totalRecipients: 0, sentCount: 0, failedCount: 0 })));
+    res.json(campaigns.map(c => ({ 
+      ...c, 
+      totalRecipients: 0, 
+      sentCount: 0, 
+      failedCount: 0, 
+      openCount: 0, 
+      clickCount: 0, 
+      uniqueOpens: 0,
+      openRate: '0'
+    })));
   } catch (error) {
     console.error('Error fetching campaigns:', error);
     res.status(500).json({ message: 'Failed to fetch campaigns' });
@@ -118,11 +150,11 @@ router.get('/campaigns/:id', async (req, res) => {
   }
 });
 
-// Create campaign
+// Create campaign with enhanced recipient handling
 router.post('/campaigns', async (req, res) => {
   try {
     const data = insertCommunicationCampaignSchema.parse(req.body);
-    const { recipientType, unitIds, personIds } = req.body;
+    const { recipientType, unitIds, personIds, manualEmails } = req.body;
 
     const [campaign] = await db
       .insert(communicationCampaigns)
@@ -135,11 +167,32 @@ router.post('/campaigns', async (req, res) => {
     // Generate recipients based on type
     const recipients = await generateRecipients(recipientType, unitIds, personIds);
     
+    // Handle manual email entries
+    if (recipientType === 'manual' && manualEmails && manualEmails.length > 0) {
+      // Add manual email recipients
+      await db
+        .insert(manualEmailRecipients)
+        .values(manualEmails.map((emailEntry: any) => ({
+          campaignId: campaign.id,
+          email: emailEntry.email,
+          name: emailEntry.name || emailEntry.email
+        })));
+
+      // Add to recipients list
+      recipients.push(...manualEmails.map((emailEntry: any) => ({
+        recipientType: 'manual',
+        email: emailEntry.email,
+        recipientName: emailEntry.name || emailEntry.email,
+        trackingId: crypto.randomBytes(16).toString('hex')
+      })));
+    }
+    
     if (recipients.length > 0) {
       await db
         .insert(communicationRecipients)
         .values(recipients.map(recipient => ({
           campaignId: campaign.id,
+          trackingId: recipient.trackingId || crypto.randomBytes(16).toString('hex'),
           ...recipient
         })));
     }
@@ -151,11 +204,53 @@ router.post('/campaigns', async (req, res) => {
   }
 });
 
+// Send campaign
+router.post('/campaigns/:id/send', async (req, res) => {
+  try {
+    const campaignId = parseInt(req.params.id);
+
+    const [campaign] = await db
+      .select()
+      .from(communicationCampaigns)
+      .where(eq(communicationCampaigns.id, campaignId));
+
+    if (!campaign) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+
+    if (campaign.status !== 'draft') {
+      return res.status(400).json({ message: 'Campaign has already been sent or is not in draft status' });
+    }
+
+    // Update campaign status to sending
+    await db
+      .update(communicationCampaigns)
+      .set({ status: 'sending' })
+      .where(eq(communicationCampaigns.id, campaignId));
+
+    // Get recipients
+    const recipients = await db
+      .select()
+      .from(communicationRecipients)
+      .where(eq(communicationRecipients.campaignId, campaignId));
+
+    // Start sending emails in background
+    sendCampaignEmails(campaign, recipients).catch(error => {
+      console.error('Error sending campaign emails:', error);
+    });
+
+    res.json({ message: 'Campaign sending started' });
+  } catch (error) {
+    console.error('Error starting campaign send:', error);
+    res.status(500).json({ message: 'Failed to start sending campaign' });
+  }
+});
+
 // Update campaign
 router.put('/campaigns/:id', async (req, res) => {
   try {
     const campaignId = parseInt(req.params.id);
-    const data = insertCommunicationCampaignSchema.partial().parse(req.body);
+    const data = insertCommunicationCampaignSchema.parse(req.body);
 
     const [updatedCampaign] = await db
       .update(communicationCampaigns)
@@ -177,60 +272,49 @@ router.put('/campaigns/:id', async (req, res) => {
   }
 });
 
-// Send campaign
-router.post('/campaigns/:id/send', async (req, res) => {
+// Delete campaign
+router.delete('/campaigns/:id', async (req, res) => {
   try {
     const campaignId = parseInt(req.params.id);
-    
-    const [campaign] = await db
-      .select()
-      .from(communicationCampaigns)
-      .where(eq(communicationCampaigns.id, campaignId));
 
-    if (!campaign) {
+    const [deletedCampaign] = await db
+      .delete(communicationCampaigns)
+      .where(eq(communicationCampaigns.id, campaignId))
+      .returning();
+
+    if (!deletedCampaign) {
       return res.status(404).json({ message: 'Campaign not found' });
     }
 
-    if (campaign.status !== 'draft') {
-      return res.status(400).json({ message: 'Campaign has already been sent or is in progress' });
-    }
-
-    // Update campaign status to sending
-    await db
-      .update(communicationCampaigns)
-      .set({ 
-        status: 'sending',
-        updatedAt: new Date()
-      })
-      .where(eq(communicationCampaigns.id, campaignId));
-
-    // Get pending recipients
-    const recipients = await db
-      .select()
-      .from(communicationRecipients)
-      .where(and(
-        eq(communicationRecipients.campaignId, campaignId),
-        eq(communicationRecipients.status, 'pending')
-      ));
-
-    // Send emails asynchronously
-    sendCampaignEmails(campaign, recipients);
-
-    res.json({ message: 'Campaign sending started', recipientCount: recipients.length });
+    res.json({ message: 'Campaign deleted successfully' });
   } catch (error) {
-    console.error('Error sending campaign:', error);
-    res.status(500).json({ message: 'Failed to send campaign' });
+    console.error('Error deleting campaign:', error);
+    res.status(500).json({ message: 'Failed to delete campaign' });
   }
 });
 
-// TEMPLATES ROUTES
+// TEMPLATE ROUTES
 
-// Get all templates
+// Get templates
 router.get('/templates', async (req, res) => {
   try {
     const templates = await db
-      .select()
+      .select({
+        id: communicationTemplates.id,
+        uuid: communicationTemplates.uuid,
+        name: communicationTemplates.name,
+        type: communicationTemplates.type,
+        subject: communicationTemplates.subject,
+        content: communicationTemplates.content,
+        isDefault: communicationTemplates.isDefault,
+        createdAt: communicationTemplates.createdAt,
+        createdBy: {
+          fullName: users.fullName,
+          email: users.email
+        }
+      })
       .from(communicationTemplates)
+      .leftJoin(users, eq(communicationTemplates.createdById, users.id))
       .orderBy(desc(communicationTemplates.createdAt));
 
     res.json(templates);
@@ -257,6 +341,269 @@ router.post('/templates', async (req, res) => {
   } catch (error) {
     console.error('Error creating template:', error);
     res.status(500).json({ message: 'Failed to create template' });
+  }
+});
+
+// Update template
+router.put('/templates/:id', async (req, res) => {
+  try {
+    const templateId = parseInt(req.params.id);
+    const data = insertCommunicationTemplateSchema.parse(req.body);
+
+    const [updatedTemplate] = await db
+      .update(communicationTemplates)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(communicationTemplates.id, templateId))
+      .returning();
+
+    if (!updatedTemplate) {
+      return res.status(404).json({ message: 'Template not found' });
+    }
+
+    res.json(updatedTemplate);
+  } catch (error) {
+    console.error('Error updating template:', error);
+    res.status(500).json({ message: 'Failed to update template' });
+  }
+});
+
+// Delete template
+router.delete('/templates/:id', async (req, res) => {
+  try {
+    const templateId = parseInt(req.params.id);
+
+    const [deletedTemplate] = await db
+      .delete(communicationTemplates)
+      .where(eq(communicationTemplates.id, templateId))
+      .returning();
+
+    if (!deletedTemplate) {
+      return res.status(404).json({ message: 'Template not found' });
+    }
+
+    res.json({ message: 'Template deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    res.status(500).json({ message: 'Failed to delete template' });
+  }
+});
+
+// EMAIL TRACKING ROUTES
+
+// Track email opens (pixel endpoint)
+router.get('/track/open/:trackingId', async (req, res) => {
+  try {
+    const { trackingId } = req.params;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    // Find the recipient
+    const [recipient] = await db
+      .select()
+      .from(communicationRecipients)
+      .where(eq(communicationRecipients.trackingId, trackingId));
+
+    if (recipient) {
+      // Record the tracking event
+      await db
+        .insert(emailTrackingEvents)
+        .values({
+          campaignId: recipient.campaignId,
+          recipientId: recipient.id,
+          trackingId: trackingId,
+          eventType: 'open',
+          ipAddress: ipAddress,
+          userAgent: userAgent,
+          eventData: {
+            timestamp: new Date().toISOString(),
+            headers: {
+              'User-Agent': userAgent,
+              'Accept-Language': req.get('Accept-Language'),
+              'Referer': req.get('Referer')
+            }
+          }
+        });
+    }
+
+    // Return 1x1 transparent pixel
+    const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+    res.set({
+      'Content-Type': 'image/gif',
+      'Content-Length': pixel.length,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    res.send(pixel);
+  } catch (error) {
+    console.error('Error tracking email open:', error);
+    // Still return pixel even on error
+    const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+    res.set('Content-Type', 'image/gif');
+    res.send(pixel);
+  }
+});
+
+// Track email clicks
+router.get('/track/click/:trackingId', async (req, res) => {
+  try {
+    const { trackingId } = req.params;
+    const { url } = req.query;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    // Find the recipient
+    const [recipient] = await db
+      .select()
+      .from(communicationRecipients)
+      .where(eq(communicationRecipients.trackingId, trackingId));
+
+    if (recipient) {
+      // Record the tracking event
+      await db
+        .insert(emailTrackingEvents)
+        .values({
+          campaignId: recipient.campaignId,
+          recipientId: recipient.id,
+          trackingId: trackingId,
+          eventType: 'click',
+          ipAddress: ipAddress,
+          userAgent: userAgent,
+          eventData: {
+            url: url,
+            timestamp: new Date().toISOString()
+          }
+        });
+    }
+
+    // Redirect to the original URL
+    if (url && typeof url === 'string') {
+      res.redirect(url);
+    } else {
+      res.status(400).json({ message: 'Invalid URL' });
+    }
+  } catch (error) {
+    console.error('Error tracking email click:', error);
+    res.status(500).json({ message: 'Failed to track click' });
+  }
+});
+
+// REPORTING ROUTES
+
+// Get campaign analytics/reports
+router.get('/campaigns/:id/analytics', async (req, res) => {
+  try {
+    const campaignId = parseInt(req.params.id);
+    
+    // Get campaign details
+    const [campaign] = await db
+      .select()
+      .from(communicationCampaigns)
+      .where(eq(communicationCampaigns.id, campaignId));
+
+    if (!campaign) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+
+    // Get comprehensive analytics
+    const [recipientStats, trackingStats, timelineData] = await Promise.all([
+      // Recipient delivery stats
+      db
+        .select({
+          totalRecipients: sql<number>`COUNT(*)`.as('totalRecipients'),
+          sentCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'sent' THEN 1 END)`.as('sentCount'),
+          failedCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'failed' THEN 1 END)`.as('failedCount'),
+          pendingCount: sql<number>`COUNT(CASE WHEN ${communicationRecipients.status} = 'pending' THEN 1 END)`.as('pendingCount')
+        })
+        .from(communicationRecipients)
+        .where(eq(communicationRecipients.campaignId, campaignId)),
+
+      // Tracking engagement stats
+      db
+        .select({
+          totalOpens: sql<number>`COUNT(CASE WHEN ${emailTrackingEvents.eventType} = 'open' THEN 1 END)`.as('totalOpens'),
+          uniqueOpens: sql<number>`COUNT(DISTINCT CASE WHEN ${emailTrackingEvents.eventType} = 'open' THEN ${emailTrackingEvents.recipientId} END)`.as('uniqueOpens'),
+          totalClicks: sql<number>`COUNT(CASE WHEN ${emailTrackingEvents.eventType} = 'click' THEN 1 END)`.as('totalClicks'),
+          uniqueClicks: sql<number>`COUNT(DISTINCT CASE WHEN ${emailTrackingEvents.eventType} = 'click' THEN ${emailTrackingEvents.recipientId} END)`.as('uniqueClicks')
+        })
+        .from(emailTrackingEvents)
+        .where(eq(emailTrackingEvents.campaignId, campaignId)),
+
+      // Timeline data (opens/clicks over time)
+      db
+        .select({
+          date: sql<string>`DATE(${emailTrackingEvents.timestamp})`.as('date'),
+          eventType: emailTrackingEvents.eventType,
+          count: sql<number>`COUNT(*)`.as('count')
+        })
+        .from(emailTrackingEvents)
+        .where(eq(emailTrackingEvents.campaignId, campaignId))
+        .groupBy(sql`DATE(${emailTrackingEvents.timestamp})`, emailTrackingEvents.eventType)
+        .orderBy(sql`DATE(${emailTrackingEvents.timestamp})`)
+    ]);
+
+    const analytics = {
+      campaign,
+      delivery: recipientStats[0] || { totalRecipients: 0, sentCount: 0, failedCount: 0, pendingCount: 0 },
+      engagement: trackingStats[0] || { totalOpens: 0, uniqueOpens: 0, totalClicks: 0, uniqueClicks: 0 },
+      timeline: timelineData,
+      metrics: {
+        deliveryRate: recipientStats[0]?.totalRecipients > 0 ? 
+          ((recipientStats[0].sentCount / recipientStats[0].totalRecipients) * 100).toFixed(2) : '0',
+        openRate: recipientStats[0]?.sentCount > 0 ? 
+          ((trackingStats[0]?.uniqueOpens || 0) / recipientStats[0].sentCount * 100).toFixed(2) : '0',
+        clickRate: recipientStats[0]?.sentCount > 0 ? 
+          ((trackingStats[0]?.uniqueClicks || 0) / recipientStats[0].sentCount * 100).toFixed(2) : '0',
+        clickToOpenRate: trackingStats[0]?.uniqueOpens > 0 ? 
+          ((trackingStats[0]?.uniqueClicks || 0) / trackingStats[0].uniqueOpens * 100).toFixed(2) : '0'
+      }
+    };
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error fetching campaign analytics:', error);
+    res.status(500).json({ message: 'Failed to fetch analytics' });
+  }
+});
+
+// Get recipient-level tracking details
+router.get('/campaigns/:id/recipients', async (req, res) => {
+  try {
+    const campaignId = parseInt(req.params.id);
+    
+    const recipients = await db
+      .select({
+        id: communicationRecipients.id,
+        email: communicationRecipients.email,
+        recipientName: communicationRecipients.recipientName,
+        status: communicationRecipients.status,
+        sentAt: communicationRecipients.sentAt,
+        trackingId: communicationRecipients.trackingId,
+        openCount: sql<number>`COUNT(CASE WHEN ${emailTrackingEvents.eventType} = 'open' THEN 1 END)`.as('openCount'),
+        clickCount: sql<number>`COUNT(CASE WHEN ${emailTrackingEvents.eventType} = 'click' THEN 1 END)`.as('clickCount'),
+        lastOpenAt: sql<string>`MAX(CASE WHEN ${emailTrackingEvents.eventType} = 'open' THEN ${emailTrackingEvents.timestamp} END)`.as('lastOpenAt'),
+        lastClickAt: sql<string>`MAX(CASE WHEN ${emailTrackingEvents.eventType} = 'click' THEN ${emailTrackingEvents.timestamp} END)`.as('lastClickAt')
+      })
+      .from(communicationRecipients)
+      .leftJoin(emailTrackingEvents, eq(communicationRecipients.id, emailTrackingEvents.recipientId))
+      .where(eq(communicationRecipients.campaignId, campaignId))
+      .groupBy(
+        communicationRecipients.id,
+        communicationRecipients.email,
+        communicationRecipients.recipientName,
+        communicationRecipients.status,
+        communicationRecipients.sentAt,
+        communicationRecipients.trackingId
+      )
+      .orderBy(communicationRecipients.recipientName);
+
+    res.json(recipients);
+  } catch (error) {
+    console.error('Error fetching recipients:', error);
+    res.status(500).json({ message: 'Failed to fetch recipients' });
   }
 });
 
@@ -303,6 +650,9 @@ router.get('/units', async (req, res) => {
 async function generateRecipients(recipientType: RecipientType, unitIds?: number[], personIds?: number[]) {
   const recipients: any[] = [];
 
+  // Generate tracking ID for each recipient
+  const generateTrackingId = () => crypto.randomBytes(16).toString('hex');
+
   switch (recipientType) {
     case 'all':
       const allPersons = await db
@@ -318,7 +668,6 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
           eq(unitPersonRoles.receiveEmailNotifications, true)
         ));
 
-      // Filter valid emails in application logic
       const validAllPersons = allPersons.filter(person => 
         person.email && person.email.trim() !== '' && person.email.includes('@')
       );
@@ -328,7 +677,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         unitId: person.unitId || undefined,
         personId: person.id,
         email: person.email,
-        recipientName: person.fullName
+        recipientName: person.fullName,
+        trackingId: generateTrackingId()
       })));
       break;
 
@@ -347,7 +697,6 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
           eq(unitPersonRoles.receiveEmailNotifications, true)
         ));
 
-      // Filter valid emails in application logic
       const validOwners = owners.filter(owner => 
         owner.email && owner.email.trim() !== '' && owner.email.includes('@')
       );
@@ -357,7 +706,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         unitId: owner.unitId || undefined,
         personId: owner.id,
         email: owner.email,
-        recipientName: owner.fullName
+        recipientName: owner.fullName,
+        trackingId: generateTrackingId()
       })));
       break;
 
@@ -376,7 +726,6 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
           eq(unitPersonRoles.receiveEmailNotifications, true)
         ));
 
-      // Filter valid emails in application logic
       const validTenants = tenants.filter(tenant => 
         tenant.email && tenant.email.trim() !== '' && tenant.email.includes('@')
       );
@@ -386,7 +735,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         unitId: tenant.unitId || undefined,
         personId: tenant.id,
         email: tenant.email,
-        recipientName: tenant.fullName
+        recipientName: tenant.fullName,
+        trackingId: generateTrackingId()
       })));
       break;
 
@@ -406,7 +756,6 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
             eq(unitPersonRoles.receiveEmailNotifications, true)
           ));
 
-        // Filter valid emails in application logic
         const validUnitPersons = unitPersons.filter(person => 
           person.email && person.email.trim() !== '' && person.email.includes('@')
         );
@@ -416,7 +765,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
           unitId: person.unitId || undefined,
           personId: person.id,
           email: person.email,
-          recipientName: person.fullName
+          recipientName: person.fullName,
+          trackingId: generateTrackingId()
         })));
       }
       break;
@@ -432,7 +782,6 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
           .from(persons)
           .where(inArray(persons.id, personIds));
 
-        // Filter valid emails in application logic
         const validSelectedPersons = selectedPersons.filter(person => 
           person.email && person.email.trim() !== '' && person.email.includes('@')
         );
@@ -441,7 +790,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
           recipientType: 'individual',
           personId: person.id,
           email: person.email,
-          recipientName: person.fullName
+          recipientName: person.fullName,
+          trackingId: generateTrackingId()
         })));
       }
       break;
@@ -451,69 +801,93 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
 }
 
 async function sendCampaignEmails(campaign: any, recipients: any[]) {
-  let successCount = 0;
-  let failCount = 0;
+  try {
+    let sentCount = 0;
+    let failedCount = 0;
 
-  for (const recipient of recipients) {
-    try {
-      const success = await sendEmail({
-        to: recipient.email,
-        subject: campaign.subject,
-        html: campaign.content,
-        text: campaign.plainTextContent || stripHtml(campaign.content)
-      });
+    for (const recipient of recipients) {
+      try {
+        // Add tracking pixel to email content
+        const trackingPixelUrl = `${process.env.APP_URL || 'http://localhost:3001'}/api/communications/track/open/${recipient.trackingId}`;
+        const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:block;" />`;
+        
+        // Wrap links with tracking
+        let emailContent = campaign.content;
+        const baseUrl = process.env.APP_URL || 'http://localhost:3001';
+        
+        // Simple link wrapping (can be enhanced with more sophisticated parsing)
+        emailContent = emailContent.replace(
+          /<a\s+href="([^"]+)"/g,
+          `<a href="${baseUrl}/api/communications/track/click/${recipient.trackingId}?url=$1"`
+        );
+        
+        // Add tracking pixel at the end
+        emailContent += trackingPixel;
 
-      if (success) {
+        const emailSent = await sendEmail({
+          to: recipient.email,
+          subject: campaign.subject,
+          html: emailContent,
+          text: stripHtml(campaign.content)
+        });
+
+        if (emailSent) {
+          await db
+            .update(communicationRecipients)
+            .set({ 
+              status: 'sent', 
+              sentAt: new Date() 
+            })
+            .where(eq(communicationRecipients.id, recipient.id));
+          sentCount++;
+        } else {
+          await db
+            .update(communicationRecipients)
+            .set({ 
+              status: 'failed', 
+              errorMessage: 'Failed to send email' 
+            })
+            .where(eq(communicationRecipients.id, recipient.id));
+          failedCount++;
+        }
+
+        // Rate limiting - wait 100ms between emails
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error('Error sending email to', recipient.email, error);
         await db
           .update(communicationRecipients)
           .set({ 
-            status: 'sent',
-            sentAt: new Date()
+            status: 'failed', 
+            errorMessage: error instanceof Error ? error.message : 'Unknown error' 
           })
           .where(eq(communicationRecipients.id, recipient.id));
-        successCount++;
-      } else {
-        await db
-          .update(communicationRecipients)
-          .set({ 
-            status: 'failed',
-            errorMessage: 'Failed to send email'
-          })
-          .where(eq(communicationRecipients.id, recipient.id));
-        failCount++;
+        failedCount++;
       }
-    } catch (error) {
-      console.error(`Error sending email to ${recipient.email}:`, error);
-      await db
-        .update(communicationRecipients)
-        .set({ 
-          status: 'failed',
-          errorMessage: error instanceof Error ? error.message : 'Unknown error'
-        })
-        .where(eq(communicationRecipients.id, recipient.id));
-      failCount++;
     }
 
-    // Small delay to avoid overwhelming the email service
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Update campaign status
+    const finalStatus = failedCount === 0 ? 'sent' : (sentCount > 0 ? 'sent' : 'failed');
+    await db
+      .update(communicationCampaigns)
+      .set({ 
+        status: finalStatus, 
+        sentAt: new Date() 
+      })
+      .where(eq(communicationCampaigns.id, campaign.id));
+
+    console.log(`Campaign ${campaign.id} completed: ${sentCount} sent, ${failedCount} failed`);
+  } catch (error) {
+    console.error('Error in sendCampaignEmails:', error);
+    await db
+      .update(communicationCampaigns)
+      .set({ status: 'failed' })
+      .where(eq(communicationCampaigns.id, campaign.id));
   }
-
-  // Update campaign status
-  const finalStatus = failCount === 0 ? 'sent' : (successCount === 0 ? 'failed' : 'sent');
-  await db
-    .update(communicationCampaigns)
-    .set({
-      status: finalStatus,
-      sentAt: new Date(),
-      updatedAt: new Date()
-    })
-    .where(eq(communicationCampaigns.id, campaign.id));
-
-  console.log(`Campaign ${campaign.id} completed: ${successCount} sent, ${failCount} failed`);
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>?/gm, '');
+  return html.replace(/<[^>]*>/g, '').trim();
 }
 
 export default router; 
