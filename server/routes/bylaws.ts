@@ -17,7 +17,7 @@ import { Request, Response } from 'express';
 import { importSpectrumBylaws, parseXMLBylaws } from '../utils/bylawsImporter';
 import multer from 'multer';
 import path from 'path';
-import { import as importPromises } from 'fs/promises';
+import fs from 'fs/promises';
 
 const router = Router();
 
@@ -399,7 +399,6 @@ router.post('/import', ensureCouncilOrAdmin, upload.single('bylawsFile'), async 
       await parseXMLBylaws(filePath, req.user!.id);
       
       // Clean up temporary file
-      const fs = await importPromises();
       try {
         await fs.unlink(filePath);
       } catch (cleanupError) {
