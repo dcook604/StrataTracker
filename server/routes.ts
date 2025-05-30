@@ -33,6 +33,9 @@ import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
 import logger from "./utils/logger";
+import { eq, desc, and, gte, lte, SQL, asc, count, like, isNull, or } from "drizzle-orm";
+import archiver from "archiver";
+import crypto from "crypto";
 
 // Ensure user is authenticated middleware
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
@@ -57,6 +60,25 @@ function getUserId(req: Request, res: Response): number | undefined {
     return undefined;
   }
   return req.user.id;
+}
+
+// Utility function to determine if a parameter is a UUID or integer ID
+function isUUID(value: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
+// Helper function to get violation by ID or UUID
+async function getViolationByIdOrUuid(idOrUuid: string) {
+  if (isUUID(idOrUuid)) {
+    return await dbStorage.getViolationWithUnitByUuid(idOrUuid);
+  } else {
+    const id = parseInt(idOrUuid);
+    if (isNaN(id)) {
+      throw new Error("Invalid violation identifier");
+    }
+    return await dbStorage.getViolationWithUnit(id);
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {

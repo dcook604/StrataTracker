@@ -101,6 +101,7 @@ export interface IStorage {
   getViolation(id: number): Promise<Violation | undefined>;
   getViolationByReference(referenceNumber: string): Promise<Violation | undefined>;
   getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined>;
+  getViolationWithUnitByUuid(uuid: string): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined>;
   getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
@@ -110,7 +111,9 @@ export interface IStorage {
   createViolation(violation: InsertViolation): Promise<Violation>;
   updateViolation(id: number, violation: Partial<InsertViolation>): Promise<Violation | undefined>;
   updateViolationStatus(id: number, status: ViolationStatus): Promise<Violation | undefined>;
+  updateViolationStatusByUuid(uuid: string, status: ViolationStatus): Promise<Violation | undefined>;
   setViolationFine(id: number, amount: number): Promise<Violation | undefined>;
+  setViolationFineByUuid(uuid: string, amount: number): Promise<Violation | undefined>;
   generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined>;
   
   // Violation history operations
@@ -629,6 +632,60 @@ export class DatabaseStorage implements IStorage {
     };
   }
   
+  async getViolationWithUnitByUuid(uuid: string): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined> {
+    const result = await db
+      .select({
+        violation: violations,
+        unit: propertyUnits
+      })
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(eq(violations.uuid, uuid));
+      
+    if (result.length === 0) {
+      return undefined;
+    }
+    
+    const violationData = result[0].violation;
+    const unitData = result[0].unit;
+
+    // Fetch persons associated with this unit
+    const unitPersons = await db
+      .select({
+        person: persons,
+        role: unitPersonRoles.role
+      })
+      .from(unitPersonRoles)
+      .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
+      .where(eq(unitPersonRoles.unitId, unitData.id));
+
+    let ownerName: string | null = null; 
+    let ownerEmail: string | null = null; 
+    let tenantName: string | null = null; 
+    let tenantEmail: string | null = null;
+
+    for (const up of unitPersons) {
+      if (up.role === 'owner') {
+        ownerName = up.person.fullName;
+        ownerEmail = up.person.email;
+      } else if (up.role === 'tenant') {
+        tenantName = up.person.fullName;
+        tenantEmail = up.person.email;
+      }
+    }
+    
+    return {
+      ...violationData,
+      unit: {
+        ...unitData,
+        ownerName: ownerName,
+        ownerEmail: ownerEmail,
+        tenantName: tenantName,
+        tenantEmail: tenantEmail
+      }
+    };
+  }
+  
   async getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]> {
     const result = await db
       .select({
@@ -750,6 +807,18 @@ export class DatabaseStorage implements IStorage {
     return updatedViolation;
   }
   
+  async updateViolationStatusByUuid(uuid: string, status: ViolationStatus): Promise<Violation | undefined> {
+    const [updatedViolation] = await db
+      .update(violations)
+      .set({
+        status,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.uuid, uuid));
+      
+    return updatedViolation;
+  }
+  
   async setViolationFine(id: number, amount: number): Promise<Violation | undefined> {
     const [updatedViolation] = await db
       .update(violations)
@@ -759,6 +828,18 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(violations.id, id))
       .returning();
+      
+    return updatedViolation;
+  }
+  
+  async setViolationFineByUuid(uuid: string, amount: number): Promise<Violation | undefined> {
+    const [updatedViolation] = await db
+      .update(violations)
+      .set({
+        fineAmount: amount,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.uuid, uuid));
       
     return updatedViolation;
   }

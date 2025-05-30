@@ -3,6 +3,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 import { unique } from "drizzle-orm/pg-core";
+import crypto from "crypto";
 
 // User schema
 export const users = pgTable("users", {
@@ -220,7 +221,7 @@ export type ViolationStatus = "new" | "pending_approval" | "approved" | "dispute
 
 export const violations = pgTable("violations", {
   id: serial("id").primaryKey(),
-  uuid: uuid("uuid").notNull().unique(),
+  uuid: uuid("uuid").notNull().unique().$defaultFn(() => crypto.randomUUID()),
   referenceNumber: uuid("reference_number").defaultRandom().notNull().unique(),
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
   reportedById: integer("reported_by_id").notNull().references(() => users.id),
@@ -271,7 +272,7 @@ export const insertViolationSchema = createInsertSchema(violations).pick({
 export const violationHistories = pgTable("violation_histories", {
   id: serial("id").primaryKey(),
   violationId: integer("violation_id").notNull().references(() => violations.id),
-  violationUuid: uuid("violation_uuid").notNull().references(() => violations.uuid),
+  violationUuid: uuid("violation_uuid").references(() => violations.uuid),
   userId: integer("user_id").notNull().references(() => users.id),
   action: text("action").notNull(),
   comment: text("comment"),
@@ -411,7 +412,7 @@ export type InsertUnitPersonRole = z.infer<typeof insertUnitPersonRoleSchema>;
 export const violationAccessLinks = pgTable("violation_access_links", {
   id: serial("id").primaryKey(),
   violationId: integer("violation_id").notNull().references(() => violations.id),
-  violationUuid: uuid("violation_uuid").notNull().references(() => violations.uuid),
+  violationUuid: uuid("violation_uuid").references(() => violations.uuid), // Optional for backward compatibility
   recipientEmail: text("recipient_email").notNull(),
   token: uuid("token").defaultRandom().notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
