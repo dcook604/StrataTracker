@@ -23,6 +23,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 
 type Violation = {
   id: number;
+  uuid: string;
   unitId: number;
   violationType: string;
   status: ViolationStatus;
@@ -154,7 +155,7 @@ export function ViolationsList() {
           <Button 
             variant="link"
             size="sm"
-            onClick={() => navigate(`/violations/${row.original.id}`)}
+            onClick={() => navigate(`/violations/${row.original.uuid}`)}
             className="text-primary-600 hover:text-primary-900"
           >
             View

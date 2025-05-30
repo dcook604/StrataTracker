@@ -18,6 +18,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 type Violation = {
   id: number;
+  uuid: string;
   unitId: number;
   violationType: string;
   status: ViolationStatus;
@@ -90,7 +91,7 @@ export function DashboardTabs() {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex gap-2">
-          <Link href={`/violations/${row.original.id}`}>
+          <Link href={`/violations/${row.original.uuid}`}>
             <Button variant="link" size="sm" className="text-primary-600 hover:text-primary-900">
               View
             </Button>

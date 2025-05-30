@@ -179,6 +179,7 @@ export interface IStorage {
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
   userFullName?: string | null;
+  violationUuid?: string | null;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -814,7 +815,8 @@ export class DatabaseStorage implements IStorage {
         status,
         updatedAt: new Date()
       })
-      .where(eq(violations.uuid, uuid));
+      .where(eq(violations.uuid, uuid))
+      .returning();
       
     return updatedViolation;
   }
@@ -839,7 +841,8 @@ export class DatabaseStorage implements IStorage {
         fineAmount: amount,
         updatedAt: new Date()
       })
-      .where(eq(violations.uuid, uuid));
+      .where(eq(violations.uuid, uuid))
+      .returning();
       
     return updatedViolation;
   }
@@ -875,13 +878,15 @@ export class DatabaseStorage implements IStorage {
         commenterName: violationHistories.commenterName,
         createdAt: violationHistories.createdAt,
         userFullName: users.fullName,
+        violationUuid: violations.uuid
       })
       .from(violationHistories)
       .leftJoin(users, eq(violationHistories.userId, users.id))
+      .leftJoin(violations, eq(violationHistories.violationId, violations.id))
       .where(eq(violationHistories.violationId, violationId))
       .orderBy(desc(violationHistories.createdAt));
 
-    return historyItems.map((item: { id: number; violationId: number; userId: number | null; action: string; comment: string | null; commenterName: string | null; createdAt: Date; userFullName: string | null; }) => ({
+    return historyItems.map((item: { id: number; violationId: number; userId: number | null; action: string; comment: string | null; commenterName: string | null; createdAt: Date; userFullName: string | null; violationUuid: string | null; }) => ({
       id: item.id,
       violationId: item.violationId,
       userId: item.userId ?? 1, // Default to system user ID 1 if null
@@ -890,13 +895,21 @@ export class DatabaseStorage implements IStorage {
       commenterName: item.commenterName,
       createdAt: item.createdAt,
       userFullName: item.userFullName,
+      violationUuid: item.violationUuid
     }));
   }
   
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
+    // Get the violation UUID for the given violation ID
+    const violation = await this.getViolation(history.violationId);
+    
     const [newHistory] = await db
       .insert(violationHistories)
-      .values(history)
+      .values({
+        ...history,
+        violationUuid: violation?.uuid, // Populate UUID if available
+        createdAt: new Date()
+      })
       .returning();
       
     return newHistory;
@@ -1522,7 +1535,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink> {
-    const [newLink] = await db.insert(violationAccessLinks).values(link).returning();
+    // Get the violation UUID for the given violation ID
+    const violation = await this.getViolation(link.violationId);
+    
+    const [newLink] = await db.insert(violationAccessLinks).values({
+      ...link,
+      violationUuid: violation?.uuid, // Populate UUID if available
+    }).returning();
     return newLink;
   }
 

@@ -250,8 +250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/violations/:id", ensureAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const violation = await dbStorage.getViolationWithUnit(id);
+      const violation = await getViolationByIdOrUuid(req.params.id);
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
@@ -288,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const violation = await dbStorage.createViolation(validatedData);
-      console.log("[Violation Upload] Created violation with attachments:", violation.attachments);
+      console.log("[Violation Upload] Created violation with UUID:", violation.uuid);
       
       const unit = await dbStorage.getPropertyUnit(violation.unitId);
       const reporterUser = req.user as User;
@@ -344,7 +343,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     try {
-      const id = parseInt(req.params.id);
       const { status, comment } = req.body;
       
       // Validate status
@@ -352,8 +350,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid status" });
       }
       
-      // Update the violation status
-      const violation = await dbStorage.updateViolationStatus(id, status);
+      // Update the violation status using UUID or ID
+      let violation;
+      if (isUUID(req.params.id)) {
+        violation = await dbStorage.updateViolationStatusByUuid(req.params.id, status);
+      } else {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({ message: "Invalid violation identifier" });
+        }
+        violation = await dbStorage.updateViolationStatus(id, status);
+      }
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
@@ -401,14 +408,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     try {
-      const id = parseInt(req.params.id);
       const { amount } = req.body;
       
       if (typeof amount !== 'number' || amount < 0) {
         return res.status(400).json({ message: "Invalid fine amount" });
       }
       
-      const violation = await dbStorage.setViolationFine(id, amount);
+      // Set fine using UUID or ID
+      let violation;
+      if (isUUID(req.params.id)) {
+        violation = await dbStorage.setViolationFineByUuid(req.params.id, amount);
+      } else {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({ message: "Invalid violation identifier" });
+        }
+        violation = await dbStorage.setViolationFine(id, amount);
+      }
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
@@ -450,11 +466,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     try {
-      const violationId = parseInt(req.params.id);
+      // Get violation by UUID or ID to get the integer ID for history
+      const violation = await getViolationByIdOrUuid(req.params.id);
+      if (!violation) {
+        return res.status(404).json({ message: "Violation not found" });
+      }
+      
       const { action, comment } = req.body;
       
       const historyData = {
-        violationId,
+        violationId: violation.id, // Use integer ID for history
         userId,
         action,
         comment
@@ -474,8 +495,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/violations/:id/history", ensureAuthenticated, async (req, res) => {
     try {
-      const violationId = parseInt(req.params.id);
-      const history = await dbStorage.getViolationHistory(violationId);
+      // Get violation by UUID or ID to get the integer ID for history lookup
+      const violation = await getViolationByIdOrUuid(req.params.id);
+      if (!violation) {
+        return res.status(404).json({ message: "Violation not found" });
+      }
+      
+      const history = await dbStorage.getViolationHistory(violation.id);
       
       res.json(history);
     } catch (error) {
