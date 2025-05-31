@@ -68,12 +68,38 @@ export default function AuthPage() {
   }, [user, navigate]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.search.includes('expired=1')) {
-      setShowExpiredModal(true);
-      // Optional: Clean the URL query parameter
-      // navigate(\"/auth\", { replace: true }); 
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Handle session expiry
+      if (urlParams.get('expired') === '1') {
+        setShowExpiredModal(true);
+      }
+      
+      // Handle logout success
+      if (urlParams.get('logout') === 'success') {
+        toast({
+          title: "Logged out successfully",
+          description: "You have been securely logged out. Please sign in again to continue.",
+          duration: 4000,
+        });
+        // Clean the URL
+        window.history.replaceState({}, '', '/auth');
+      }
+      
+      // Handle logout error
+      if (urlParams.get('logout') === 'error') {
+        toast({
+          title: "Logout completed with issues",
+          description: "You have been logged out, but there may have been connection issues. Please sign in again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+        // Clean the URL
+        window.history.replaceState({}, '', '/auth');
+      }
     }
-  }, [location]);
+  }, [location, toast]);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({

@@ -33,6 +33,9 @@ import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
 import logger from "./utils/logger";
+import { eq, desc, and, gte, lte, SQL, asc, count, like, isNull, or } from "drizzle-orm";
+import archiver from "archiver";
+import crypto from "crypto";
 
 // Ensure user is authenticated middleware
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
@@ -57,6 +60,25 @@ function getUserId(req: Request, res: Response): number | undefined {
     return undefined;
   }
   return req.user.id;
+}
+
+// Utility function to determine if a parameter is a UUID or integer ID
+function isUUID(value: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
+// Helper function to get violation by ID or UUID
+async function getViolationByIdOrUuid(idOrUuid: string) {
+  if (isUUID(idOrUuid)) {
+    return await dbStorage.getViolationWithUnitByUuid(idOrUuid);
+  } else {
+    const id = parseInt(idOrUuid);
+    if (isNaN(id)) {
+      throw new Error("Invalid violation identifier");
+    }
+    return await dbStorage.getViolationWithUnit(id);
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -228,8 +250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/violations/:id", ensureAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const violation = await dbStorage.getViolationWithUnit(id);
+      const violation = await getViolationByIdOrUuid(req.params.id);
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
@@ -266,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const violation = await dbStorage.createViolation(validatedData);
-      console.log("[Violation Upload] Created violation with attachments:", violation.attachments);
+      console.log("[Violation Upload] Created violation with UUID:", violation.uuid);
       
       const unit = await dbStorage.getPropertyUnit(violation.unitId);
       const reporterUser = req.user as User;
@@ -322,7 +343,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     try {
-      const id = parseInt(req.params.id);
       const { status, comment } = req.body;
       
       // Validate status
@@ -330,8 +350,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid status" });
       }
       
-      // Update the violation status
-      const violation = await dbStorage.updateViolationStatus(id, status);
+      // Update the violation status using UUID or ID
+      let violation;
+      if (isUUID(req.params.id)) {
+        violation = await dbStorage.updateViolationStatusByUuid(req.params.id, status);
+      } else {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({ message: "Invalid violation identifier" });
+        }
+        violation = await dbStorage.updateViolationStatus(id, status);
+      }
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
@@ -379,14 +408,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     try {
-      const id = parseInt(req.params.id);
       const { amount } = req.body;
       
       if (typeof amount !== 'number' || amount < 0) {
         return res.status(400).json({ message: "Invalid fine amount" });
       }
       
-      const violation = await dbStorage.setViolationFine(id, amount);
+      // Set fine using UUID or ID
+      let violation;
+      if (isUUID(req.params.id)) {
+        violation = await dbStorage.setViolationFineByUuid(req.params.id, amount);
+      } else {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({ message: "Invalid violation identifier" });
+        }
+        violation = await dbStorage.setViolationFine(id, amount);
+      }
       
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
@@ -428,11 +466,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     try {
-      const violationId = parseInt(req.params.id);
+      // Get violation by UUID or ID to get the integer ID for history
+      const violation = await getViolationByIdOrUuid(req.params.id);
+      if (!violation) {
+        return res.status(404).json({ message: "Violation not found" });
+      }
+      
       const { action, comment } = req.body;
       
       const historyData = {
-        violationId,
+        violationId: violation.id, // Use integer ID for history
         userId,
         action,
         comment
@@ -452,8 +495,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/violations/:id/history", ensureAuthenticated, async (req, res) => {
     try {
-      const violationId = parseInt(req.params.id);
-      const history = await dbStorage.getViolationHistory(violationId);
+      // Get violation by UUID or ID to get the integer ID for history lookup
+      const violation = await getViolationByIdOrUuid(req.params.id);
+      if (!violation) {
+        return res.status(404).json({ message: "Violation not found" });
+      }
+      
+      const history = await dbStorage.getViolationHistory(violation.id);
       
       res.json(history);
     } catch (error) {
@@ -1356,6 +1404,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+
+  // Start email cleanup scheduler
+  try {
+    const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler');
+    startEmailCleanupScheduler();
+    console.log("[EMAIL_SCHEDULER] Email cleanup scheduler started successfully");
+  } catch (error) {
+    console.error("[EMAIL_SCHEDULER] Failed to start email cleanup scheduler:", error);
+  }
 
   return httpServer;
 }

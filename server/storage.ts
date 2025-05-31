@@ -101,6 +101,7 @@ export interface IStorage {
   getViolation(id: number): Promise<Violation | undefined>;
   getViolationByReference(referenceNumber: string): Promise<Violation | undefined>;
   getViolationWithUnit(id: number): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined>;
+  getViolationWithUnitByUuid(uuid: string): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined>;
   getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
@@ -110,7 +111,9 @@ export interface IStorage {
   createViolation(violation: InsertViolation): Promise<Violation>;
   updateViolation(id: number, violation: Partial<InsertViolation>): Promise<Violation | undefined>;
   updateViolationStatus(id: number, status: ViolationStatus): Promise<Violation | undefined>;
+  updateViolationStatusByUuid(uuid: string, status: ViolationStatus): Promise<Violation | undefined>;
   setViolationFine(id: number, amount: number): Promise<Violation | undefined>;
+  setViolationFineByUuid(uuid: string, amount: number): Promise<Violation | undefined>;
   generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined>;
   
   // Violation history operations
@@ -176,6 +179,7 @@ export interface IStorage {
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
   userFullName?: string | null;
+  violationUuid: string | null;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -629,6 +633,60 @@ export class DatabaseStorage implements IStorage {
     };
   }
   
+  async getViolationWithUnitByUuid(uuid: string): Promise<(Violation & { unit: PropertyUnit & { ownerName?: string | null, ownerEmail?: string | null, tenantName?: string | null, tenantEmail?: string | null } }) | undefined> {
+    const result = await db
+      .select({
+        violation: violations,
+        unit: propertyUnits
+      })
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(eq(violations.uuid, uuid));
+      
+    if (result.length === 0) {
+      return undefined;
+    }
+    
+    const violationData = result[0].violation;
+    const unitData = result[0].unit;
+
+    // Fetch persons associated with this unit
+    const unitPersons = await db
+      .select({
+        person: persons,
+        role: unitPersonRoles.role
+      })
+      .from(unitPersonRoles)
+      .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
+      .where(eq(unitPersonRoles.unitId, unitData.id));
+
+    let ownerName: string | null = null; 
+    let ownerEmail: string | null = null; 
+    let tenantName: string | null = null; 
+    let tenantEmail: string | null = null;
+
+    for (const up of unitPersons) {
+      if (up.role === 'owner') {
+        ownerName = up.person.fullName;
+        ownerEmail = up.person.email;
+      } else if (up.role === 'tenant') {
+        tenantName = up.person.fullName;
+        tenantEmail = up.person.email;
+      }
+    }
+    
+    return {
+      ...violationData,
+      unit: {
+        ...unitData,
+        ownerName: ownerName,
+        ownerEmail: ownerEmail,
+        tenantName: tenantName,
+        tenantEmail: tenantEmail
+      }
+    };
+  }
+  
   async getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]> {
     const result = await db
       .select({
@@ -750,6 +808,19 @@ export class DatabaseStorage implements IStorage {
     return updatedViolation;
   }
   
+  async updateViolationStatusByUuid(uuid: string, status: ViolationStatus): Promise<Violation | undefined> {
+    const [updatedViolation] = await db
+      .update(violations)
+      .set({
+        status,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.uuid, uuid))
+      .returning();
+      
+    return updatedViolation;
+  }
+  
   async setViolationFine(id: number, amount: number): Promise<Violation | undefined> {
     const [updatedViolation] = await db
       .update(violations)
@@ -758,6 +829,19 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(violations.id, id))
+      .returning();
+      
+    return updatedViolation;
+  }
+  
+  async setViolationFineByUuid(uuid: string, amount: number): Promise<Violation | undefined> {
+    const [updatedViolation] = await db
+      .update(violations)
+      .set({
+        fineAmount: amount,
+        updatedAt: new Date()
+      })
+      .where(eq(violations.uuid, uuid))
       .returning();
       
     return updatedViolation;
@@ -794,13 +878,15 @@ export class DatabaseStorage implements IStorage {
         commenterName: violationHistories.commenterName,
         createdAt: violationHistories.createdAt,
         userFullName: users.fullName,
+        violationUuid: violations.uuid
       })
       .from(violationHistories)
       .leftJoin(users, eq(violationHistories.userId, users.id))
+      .leftJoin(violations, eq(violationHistories.violationId, violations.id))
       .where(eq(violationHistories.violationId, violationId))
       .orderBy(desc(violationHistories.createdAt));
 
-    return historyItems.map((item: { id: number; violationId: number; userId: number | null; action: string; comment: string | null; commenterName: string | null; createdAt: Date; userFullName: string | null; }) => ({
+    return historyItems.map((item: { id: number; violationId: number; userId: number | null; action: string; comment: string | null; commenterName: string | null; createdAt: Date; userFullName: string | null; violationUuid: string | null; }) => ({
       id: item.id,
       violationId: item.violationId,
       userId: item.userId ?? 1, // Default to system user ID 1 if null
@@ -809,13 +895,21 @@ export class DatabaseStorage implements IStorage {
       commenterName: item.commenterName,
       createdAt: item.createdAt,
       userFullName: item.userFullName,
+      violationUuid: item.violationUuid
     }));
   }
   
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
+    // Get the violation UUID for the given violation ID
+    const violation = await this.getViolation(history.violationId);
+    
     const [newHistory] = await db
       .insert(violationHistories)
-      .values(history)
+      .values({
+        ...history,
+        violationUuid: violation?.uuid, // Populate UUID if available
+        createdAt: new Date()
+      })
       .returning();
       
     return newHistory;
@@ -1441,7 +1535,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink> {
-    const [newLink] = await db.insert(violationAccessLinks).values(link).returning();
+    // Get the violation UUID for the given violation ID
+    const violation = await this.getViolation(link.violationId);
+    
+    const [newLink] = await db.insert(violationAccessLinks).values({
+      ...link,
+      violationUuid: violation?.uuid, // Populate UUID if available
+    }).returning();
     return newLink;
   }
 

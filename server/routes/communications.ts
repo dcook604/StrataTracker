@@ -17,8 +17,11 @@ import {
 } from '@shared/schema';
 import { eq, desc, and, inArray, or, sql, count, avg } from 'drizzle-orm';
 import { sendEmail } from '../email-service';
+import { sendEmailWithDeduplication } from '../email-deduplication';
 import { Request, Response } from 'express';
 import crypto from 'crypto';
+import { EmailDeduplicationService } from '../email-deduplication';
+import { gte } from 'drizzle-orm';
 
 const router = Router();
 
@@ -801,93 +804,205 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
 }
 
 async function sendCampaignEmails(campaign: any, recipients: any[]) {
-  try {
-    let sentCount = 0;
-    let failedCount = 0;
+  console.log(`Starting to send ${recipients.length} emails for campaign: ${campaign.subject}`);
+  
+  const results: any[] = [];
+  
+  for (const recipient of recipients) {
+    try {
+      // Add tracking pixel to email content
+      const trackingPixelUrl = `${process.env.APP_URL || 'http://localhost:3001'}/api/communications/track/open/${recipient.trackingId}`;
+      const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:block;" />`;
+      
+      // Wrap links with tracking
+      let emailContent = campaign.content;
+      const baseUrl = process.env.APP_URL || 'http://localhost:3001';
+      
+      // Simple link wrapping (can be enhanced with more sophisticated parsing)
+      emailContent = emailContent.replace(
+        /<a\s+href="([^"]+)"/g,
+        `<a href="${baseUrl}/api/communications/track/click/${recipient.trackingId}?url=$1"`
+      );
+      
+      // Add tracking pixel at the end
+      emailContent += trackingPixel;
 
-    for (const recipient of recipients) {
-      try {
-        // Add tracking pixel to email content
-        const trackingPixelUrl = `${process.env.APP_URL || 'http://localhost:3001'}/api/communications/track/open/${recipient.trackingId}`;
-        const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:block;" />`;
-        
-        // Wrap links with tracking
-        let emailContent = campaign.content;
-        const baseUrl = process.env.APP_URL || 'http://localhost:3001';
-        
-        // Simple link wrapping (can be enhanced with more sophisticated parsing)
-        emailContent = emailContent.replace(
-          /<a\s+href="([^"]+)"/g,
-          `<a href="${baseUrl}/api/communications/track/click/${recipient.trackingId}?url=$1"`
-        );
-        
-        // Add tracking pixel at the end
-        emailContent += trackingPixel;
-
-        const emailSent = await sendEmail({
-          to: recipient.email,
-          subject: campaign.subject,
-          html: emailContent,
-          text: stripHtml(campaign.content)
-        });
-
-        if (emailSent) {
-          await db
-            .update(communicationRecipients)
-            .set({ 
-              status: 'sent', 
-              sentAt: new Date() 
-            })
-            .where(eq(communicationRecipients.id, recipient.id));
-          sentCount++;
-        } else {
-          await db
-            .update(communicationRecipients)
-            .set({ 
-              status: 'failed', 
-              errorMessage: 'Failed to send email' 
-            })
-            .where(eq(communicationRecipients.id, recipient.id));
-          failedCount++;
+      // Use the new deduplication service
+      const emailResult = await sendEmailWithDeduplication({
+        to: recipient.email,
+        subject: campaign.subject,
+        html: emailContent,
+        text: stripHtml(campaign.content),
+        emailType: 'campaign',
+        metadata: {
+          campaignId: campaign.id,
+          recipientId: recipient.id,
+          trackingId: recipient.trackingId,
+          recipientType: campaign.recipientType
         }
+      });
 
-        // Rate limiting - wait 100ms between emails
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        console.error('Error sending email to', recipient.email, error);
-        await db
-          .update(communicationRecipients)
+      if (emailResult.success && !emailResult.isDuplicate) {
+        // Mark as sent in campaign recipients
+        await db.update(communicationRecipients)
           .set({ 
-            status: 'failed', 
-            errorMessage: error instanceof Error ? error.message : 'Unknown error' 
+            status: 'sent', 
+            sentAt: new Date() 
           })
           .where(eq(communicationRecipients.id, recipient.id));
-        failedCount++;
+        
+        console.log(`✓ Email sent to ${recipient.email} (key: ${emailResult.idempotencyKey})`);
+      } else if (emailResult.isDuplicate) {
+        // Mark as sent but note it was a duplicate
+        await db.update(communicationRecipients)
+          .set({ 
+            status: 'sent', 
+            sentAt: new Date(),
+            errorMessage: 'Duplicate prevented'
+          })
+          .where(eq(communicationRecipients.id, recipient.id));
+        
+        console.log(`⚠ Duplicate email prevented for ${recipient.email} (${emailResult.message})`);
+      } else {
+        // Mark as failed
+        await db.update(communicationRecipients)
+          .set({ 
+            status: 'failed',
+            errorMessage: emailResult.message
+          })
+          .where(eq(communicationRecipients.id, recipient.id));
+        
+        console.error(`✗ Failed to send email to ${recipient.email}: ${emailResult.message}`);
       }
+
+      results.push({
+        email: recipient.email,
+        success: emailResult.success,
+        isDuplicate: emailResult.isDuplicate,
+        message: emailResult.message,
+        idempotencyKey: emailResult.idempotencyKey
+      });
+
+      // Rate limiting - wait 100ms between emails
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      console.error(`Error sending email to ${recipient.email}:`, error);
+      
+      // Mark as failed in database
+      await db.update(communicationRecipients)
+        .set({ 
+          status: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error'
+        })
+        .where(eq(communicationRecipients.id, recipient.id));
+
+      results.push({
+        email: recipient.email,
+        success: false,
+        isDuplicate: false,
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
-
-    // Update campaign status
-    const finalStatus = failedCount === 0 ? 'sent' : (sentCount > 0 ? 'sent' : 'failed');
-    await db
-      .update(communicationCampaigns)
-      .set({ 
-        status: finalStatus, 
-        sentAt: new Date() 
-      })
-      .where(eq(communicationCampaigns.id, campaign.id));
-
-    console.log(`Campaign ${campaign.id} completed: ${sentCount} sent, ${failedCount} failed`);
-  } catch (error) {
-    console.error('Error in sendCampaignEmails:', error);
-    await db
-      .update(communicationCampaigns)
-      .set({ status: 'failed' })
-      .where(eq(communicationCampaigns.id, campaign.id));
   }
+
+  // Update campaign status
+  const sentCount = results.filter(r => r.success).length;
+  const failedCount = results.filter(r => !r.success).length;
+  const finalStatus = failedCount === 0 ? 'sent' : (sentCount > 0 ? 'sent' : 'failed');
+  
+  await db.update(communicationCampaigns)
+    .set({ 
+      status: finalStatus, 
+      sentAt: new Date() 
+    })
+    .where(eq(communicationCampaigns.id, campaign.id));
+
+  console.log(`Campaign email sending completed. Success: ${sentCount}, Failed: ${failedCount}, Duplicates: ${results.filter(r => r.isDuplicate).length}`);
+  
+  return results;
 }
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim();
 }
+
+// EMAIL DEDUPLICATION MANAGEMENT ENDPOINTS
+
+// Get email deduplication statistics
+router.get('/email-stats', ensureCouncilOrAdmin, async (req, res) => {
+  try {
+    const hours = parseInt(req.query.hours as string) || 24;
+    const stats = await EmailDeduplicationService.getEmailStats(hours);
+    
+    res.json({
+      success: true,
+      timeframe: `${hours} hours`,
+      stats
+    });
+  } catch (error) {
+    console.error('Error fetching email stats:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch email statistics' 
+    });
+  }
+});
+
+// Clean up expired email records (admin only)
+router.post('/email-cleanup', ensureCouncilOrAdmin, async (req, res) => {
+  try {
+    const result = await EmailDeduplicationService.cleanupExpiredRecords();
+    
+    res.json({
+      success: true,
+      message: 'Email cleanup completed successfully',
+      result
+    });
+  } catch (error) {
+    console.error('Error during email cleanup:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to cleanup email records' 
+    });
+  }
+});
+
+// Get recent email deduplication logs for monitoring
+router.get('/email-deduplication-logs', ensureCouncilOrAdmin, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const hours = parseInt(req.query.hours as string) || 24;
+    
+    const hoursAgo = new Date();
+    hoursAgo.setHours(hoursAgo.getHours() - hours);
+    
+    const logs = await db
+      .select({
+        id: emailDeduplicationLog.id,
+        recipientEmail: emailDeduplicationLog.recipientEmail,
+        emailType: emailDeduplicationLog.emailType,
+        preventedAt: emailDeduplicationLog.preventedAt,
+        metadata: emailDeduplicationLog.metadata
+      })
+      .from(emailDeduplicationLog)
+      .where(gte(emailDeduplicationLog.preventedAt, hoursAgo))
+      .orderBy(desc(emailDeduplicationLog.preventedAt))
+      .limit(limit);
+    
+    res.json({
+      success: true,
+      logs,
+      count: logs.length,
+      timeframe: `${hours} hours`
+    });
+  } catch (error) {
+    console.error('Error fetching deduplication logs:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch deduplication logs' 
+    });
+  }
+});
 
 export default router; 
