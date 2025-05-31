@@ -1405,5 +1405,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
+  // Start email cleanup scheduler
+  try {
+    const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler');
+    startEmailCleanupScheduler();
+    console.log("[EMAIL_SCHEDULER] Email cleanup scheduler started successfully");
+  } catch (error) {
+    console.error("[EMAIL_SCHEDULER] Failed to start email cleanup scheduler:", error);
+  }
+
   return httpServer;
 }

@@ -179,7 +179,7 @@ export interface IStorage {
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
   userFullName?: string | null;
-  violationUuid?: string | null;
+  violationUuid: string | null;
 }
 
 export class DatabaseStorage implements IStorage {

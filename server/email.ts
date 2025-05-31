@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { loadEmailSettings } from './email-service';
+import { sendEmailWithDeduplication } from './email-deduplication';
 import { db } from './db';
 import { unitPersonRoles } from '../shared/schema';
 import { and, eq } from 'drizzle-orm';
@@ -130,12 +131,22 @@ export const sendViolationNotification = async (params: ViolationNotificationPar
 
   // Send to owner if they want notifications
   if (ownerRole?.receiveEmailNotifications) {
-    await sendEmail({
+    const emailResult = await sendEmailWithDeduplication({
       from: '"StrataGuard System" <notifications@strataguard.com>',
       to: ownerEmail,
       subject,
       text,
+      emailType: 'violation_notification',
+      metadata: {
+        violationId,
+        unitId,
+        unitNumber,
+        recipientType: 'owner',
+        recipientEmail: ownerEmail
+      }
     });
+
+    console.log(`[VIOLATION_EMAIL] Owner notification for violation ${violationId}: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
   }
 
   // Get tenant notification preferences if tenant exists
@@ -149,12 +160,22 @@ export const sendViolationNotification = async (params: ViolationNotificationPar
     // Send to tenant if they want notifications
     if (tenantRole?.receiveEmailNotifications) {
       const tenantLinkText = accessLinks?.tenant ? `\nYou may respond directly using this secure link: ${accessLinks.tenant}\n` : "";
-      await sendEmail({
+      const tenantEmailResult = await sendEmailWithDeduplication({
         from: '"StrataGuard System" <notifications@strataguard.com>',
         to: tenantEmail,
         subject,
         text: text.replace(ownerName, tenantName) + tenantLinkText,
+        emailType: 'violation_notification',
+        metadata: {
+          violationId,
+          unitId,
+          unitNumber,
+          recipientType: 'tenant',
+          recipientEmail: tenantEmail
+        }
       });
+
+      console.log(`[VIOLATION_EMAIL] Tenant notification for violation ${violationId}: ${tenantEmailResult.message} ${tenantEmailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
     }
   }
 };
@@ -200,12 +221,23 @@ export const sendViolationApprovedNotification = async (params: ViolationApprove
 
   // Send to owner if they want notifications
   if (ownerRole?.receiveEmailNotifications) {
-    await sendEmail({
+    const emailResult = await sendEmailWithDeduplication({
       from: '"StrataGuard System" <notifications@strataguard.com>',
       to: ownerEmail,
       subject,
       text,
+      emailType: 'violation_approved',
+      metadata: {
+        violationId,
+        unitId,
+        unitNumber,
+        fineAmount,
+        recipientType: 'owner',
+        recipientEmail: ownerEmail
+      }
     });
+
+    console.log(`[VIOLATION_APPROVED_EMAIL] Owner notification for violation ${violationId}: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
   }
 
   // Get tenant notification preferences if tenant exists
@@ -218,12 +250,23 @@ export const sendViolationApprovedNotification = async (params: ViolationApprove
 
     // Send to tenant if they want notifications
     if (tenantRole?.receiveEmailNotifications) {
-      await sendEmail({
+      const tenantEmailResult = await sendEmailWithDeduplication({
         from: '"StrataGuard System" <notifications@strataguard.com>',
         to: tenantEmail,
         subject,
         text: text.replace(ownerName, tenantName),
+        emailType: 'violation_approved',
+        metadata: {
+          violationId,
+          unitId,
+          unitNumber,
+          fineAmount,
+          recipientType: 'tenant',
+          recipientEmail: tenantEmail
+        }
       });
+
+      console.log(`[VIOLATION_APPROVED_EMAIL] Tenant notification for violation ${violationId}: ${tenantEmailResult.message} ${tenantEmailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
     }
   }
 };

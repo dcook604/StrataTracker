@@ -743,3 +743,64 @@ export type InsertEmailTrackingEvent = typeof emailTrackingEvents.$inferInsert;
 export type ManualEmailRecipient = typeof manualEmailRecipients.$inferSelect;
 export type InsertManualEmailRecipient = typeof manualEmailRecipients.$inferInsert;
 
+export interface ViolationHistoryWithUser extends ViolationHistory {
+  userFullName?: string | null;
+  violationUuid?: string | null;
+}
+
+// Email deduplication and idempotency tracking
+export const emailIdempotencyKeys = pgTable("email_idempotency_keys", {
+  id: serial("id").primaryKey(),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  emailType: text("email_type").notNull(), // 'violation_notification', 'violation_approved', 'campaign', 'system'
+  recipientEmail: text("recipient_email").notNull(),
+  emailHash: text("email_hash").notNull(), // Hash of email content for deduplication
+  status: text("status").default("sent").notNull(), // 'sent', 'failed', 'pending'
+  sentAt: timestamp("sent_at"),
+  metadata: jsonb("metadata"), // Store additional context (violationId, campaignId, etc.)
+  expiresAt: timestamp("expires_at").notNull(), // TTL for cleanup
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const emailSendAttempts = pgTable("email_send_attempts", {
+  id: serial("id").primaryKey(),
+  idempotencyKey: text("idempotency_key").notNull().references(() => emailIdempotencyKeys.idempotencyKey),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  status: text("status").notNull(), // 'pending', 'sent', 'failed', 'retrying'
+  errorMessage: text("error_message"),
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Comprehensive email deduplication log
+export const emailDeduplicationLog = pgTable("email_deduplication_log", {
+  id: serial("id").primaryKey(),
+  recipientEmail: text("recipient_email").notNull(),
+  emailType: text("email_type").notNull(),
+  contentHash: text("content_hash").notNull(), // Hash of subject + content
+  originalIdempotencyKey: text("original_idempotency_key").notNull(),
+  duplicateIdempotencyKey: text("duplicate_idempotency_key").notNull(),
+  preventedAt: timestamp("prevented_at").defaultNow().notNull(),
+  metadata: jsonb("metadata"), // Context about why it was prevented
+});
+
+// Relations for email tracking
+export const emailIdempotencyKeysRelations = relations(emailIdempotencyKeys, ({ many }) => ({
+  attempts: many(emailSendAttempts),
+}));
+
+export const emailSendAttemptsRelations = relations(emailSendAttempts, ({ one }) => ({
+  idempotencyKey: one(emailIdempotencyKeys, {
+    fields: [emailSendAttempts.idempotencyKey],
+    references: [emailIdempotencyKeys.idempotencyKey],
+  }),
+}));
+
+// Types for email deduplication system
+export type EmailIdempotencyKey = typeof emailIdempotencyKeys.$inferSelect;
+export type InsertEmailIdempotencyKey = typeof emailIdempotencyKeys.$inferInsert;
+export type EmailSendAttempt = typeof emailSendAttempts.$inferSelect;
+export type InsertEmailSendAttempt = typeof emailSendAttempts.$inferInsert;
+export type EmailDeduplicationLog = typeof emailDeduplicationLog.$inferSelect;
+export type InsertEmailDeduplicationLog = typeof emailDeduplicationLog.$inferInsert;
+
