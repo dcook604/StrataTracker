@@ -130,20 +130,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files statically
   app.use('/api/uploads', express.static(uploadsDir));
 
-  // New route for pending approvals
-  app.get("/api/violations/pending-approval", ensureAuthenticated, ensureCouncilMember, async (req, res) => {
-    try {
-      // TODO: Implement dbStorage.getPendingApprovalViolations() or similar
-      // This method should fetch violations with status 'pending_approval'
-      // and ideally join with unit information for display as in layout.tsx
-      const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
-      res.json(pendingViolations);
-    } catch (error: any) {
-      console.error("Failed to fetch pending approval violations:", error);
-      res.status(500).json({ message: "Failed to fetch pending approval violations", details: error.message });
-    }
-  });
-
   // Unit Management API (New)
   app.get("/api/units", ensureAuthenticated, async (req, res) => {
     try {
@@ -245,6 +231,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Recent violations fetch error:", error);
       // Return empty array as fallback
       res.json([]);
+    }
+  });
+
+  // --- API: Get all violations pending approval (council/admin only) ---
+  app.get("/api/violations/pending-approval", ensureAuthenticated, ensureCouncilMember, async (req, res) => {
+    const userId = getUserId(req, res); // Get userId at the beginning
+    console.log(`[INFO] /api/violations/pending-approval called by userId: ${userId || 'N/A'}`); // Log who is calling
+
+    try {
+      if (userId === undefined) {
+        // This case should ideally be caught by ensureAuthenticated,
+        // but as a safeguard:
+        console.error("[ERROR] /api/violations/pending-approval: userId is undefined after ensureAuthenticated.");
+        return res.status(401).json({ 
+          message: "Authentication failed: User ID not found.",
+          errorCode: "AUTH_USERID_MISSING",
+          details: "User ID was not available after authentication check." 
+        });
+      }
+
+      const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
+      
+      console.log(`[INFO] /api/violations/pending-approval: Successfully fetched ${pendingViolations?.length || 0} pending violations for userId: ${userId}`);
+      res.json(pendingViolations);
+    } catch (error: any) {
+      console.error("------------------------------------------------------------");
+      console.error("ERROR in /api/violations/pending-approval route for userId:", userId);
+      console.error("Raw error object received in catch block:", error);
+      const errorTimestamp = new Date().toISOString();
+      let errorDetails = "An unexpected error occurred.";
+
+      if (error instanceof Error) {
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+        console.error("Error Stack:", error.stack);
+        if (error.cause) {
+          console.error("Error Cause:", error.cause);
+        }
+        errorDetails = error.message;
+        if (typeof error.cause === 'string') {
+          errorDetails += ` | Cause: ${error.cause}`;
+        } else if (error.cause && typeof (error.cause as any).message === 'string') {
+          errorDetails += ` | Cause: ${(error.cause as any).message}`;
+        }
+      } else {
+        console.error("Non-Error Object Thrown:", error);
+        try {
+          errorDetails = JSON.stringify(error);
+        } catch (stringifyError) {
+          errorDetails = "Could not stringify non-Error object.";
+        }
+      }
+      console.error(`Error occurred at: ${errorTimestamp}`);
+      console.error("------------------------------------------------------------");
+      
+      res.status(500).json({ 
+        message: "Failed to fetch pending violations. Please check server logs.", 
+        errorCode: "PENDING_VIOLATIONS_FETCH_FAILED",
+        details: errorDetails,
+        timestamp: errorTimestamp,
+      });
     }
   });
 
@@ -1149,67 +1196,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch link status" });
-    }
-  });
-
-  // --- API: Get all violations pending approval (council/admin only) ---
-  app.get("/api/violations/pending-approval", ensureAuthenticated, async (req, res) => {
-    const userId = getUserId(req, res); // Get userId at the beginning
-    console.log(`[INFO] /api/violations/pending-approval called by userId: ${userId || 'N/A'}`); // Log who is calling
-
-    try {
-      if (userId === undefined) {
-        // This case should ideally be caught by ensureAuthenticated,
-        // but as a safeguard:
-        console.error("[ERROR] /api/violations/pending-approval: userId is undefined after ensureAuthenticated.");
-        return res.status(401).json({ 
-          message: "Authentication failed: User ID not found.",
-          errorCode: "AUTH_USERID_MISSING",
-          details: "User ID was not available after authentication check." 
-        });
-      }
-
-      const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
-      
-      console.log(`[INFO] /api/violations/pending-approval: Successfully fetched ${pendingViolations?.length || 0} pending violations for userId: ${userId}`);
-      res.json(pendingViolations);
-    } catch (error: any) {
-      console.error("------------------------------------------------------------");
-      console.error("ERROR in /api/violations/pending-approval route for userId:", userId);
-      console.error("Raw error object received in catch block:", error);
-      const errorTimestamp = new Date().toISOString();
-      let errorDetails = "An unexpected error occurred.";
-
-      if (error instanceof Error) {
-        console.error("Error Name:", error.name);
-        console.error("Error Message:", error.message);
-        console.error("Error Stack:", error.stack);
-        if (error.cause) {
-          console.error("Error Cause:", error.cause);
-        }
-        errorDetails = error.message;
-        if (typeof error.cause === 'string') {
-          errorDetails += ` | Cause: ${error.cause}`;
-        } else if (error.cause && typeof (error.cause as any).message === 'string') {
-          errorDetails += ` | Cause: ${(error.cause as any).message}`;
-        }
-      } else {
-        console.error("Non-Error Object Thrown:", error);
-        try {
-          errorDetails = JSON.stringify(error);
-        } catch (stringifyError) {
-          errorDetails = "Could not stringify non-Error object.";
-        }
-      }
-      console.error(`Error occurred at: ${errorTimestamp}`);
-      console.error("------------------------------------------------------------");
-      
-      res.status(500).json({ 
-        message: "Failed to fetch pending violations. Please check server logs.", 
-        errorCode: "PENDING_VIOLATIONS_FETCH_FAILED",
-        details: errorDetails,
-        timestamp: errorTimestamp,
-      });
     }
   });
 

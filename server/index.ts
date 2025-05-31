@@ -1,7 +1,4 @@
-import express from "express";
 import { sql } from "drizzle-orm";
-import { registerRoutes } from "./routes";
-import logger from './utils/logger';
 
 (async () => {
   try {
@@ -31,5 +28,3 @@ import logger from './utils/logger';
     process.exit(1);
   }
 })();
-
-// ALL OTHER IMPORTS AND CODE WILL BE MOVED TO a new file app-bootstrap.ts
