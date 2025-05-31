@@ -128,21 +128,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      // Call logout endpoint to terminate session on server
       await apiRequest("POST", "/api/logout");
     },
-    onSuccess: () => {
-      queryClient.setQueryData(["/api/user"], null);
+    onMutate: () => {
+      // Show logout loading toast immediately
       toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
+        title: "Logging out...",
+        description: "Please wait while we securely log you out",
+        duration: 2000, // Short duration as we'll replace it
       });
+    },
+    onSuccess: () => {
+      // Clear user data from React Query cache
+      queryClient.setQueryData(["/api/user"], null);
+      
+      // Clear any other sensitive data from cache
+      queryClient.removeQueries({ 
+        predicate: (query) => {
+          // Remove all queries except basic ones that don't contain user data
+          const sensitiveKeys = ['/api/violations', '/api/communications', '/api/units', '/api/users'];
+          return sensitiveKeys.some(key => query.queryKey[0]?.toString().includes(key));
+        }
+      });
+      
+      // Clear any localStorage/sessionStorage if used elsewhere
+      if (typeof window !== 'undefined') {
+        // Clear any auth tokens or user data stored locally
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        sessionStorage.clear();
+      }
+      
+      // Success toast
+      toast({
+        title: "Logged out successfully",
+        description: "You have been securely logged out",
+        duration: 3000,
+      });
+      
+      // Redirect to auth page with logout success indicator
+      setTimeout(() => {
+        // Use window.location for a full page refresh to ensure clean state
+        window.location.href = "/auth?logout=success";
+      }, 500); // Small delay to let user see the success message
     },
     onError: (error: Error) => {
       toast({
-        title: "Logout failed",
-        description: error.message,
+        title: "Logout failed", 
+        description: error.message || "There was an error logging you out. Please try again.",
         variant: "destructive",
+        duration: 5000,
       });
+      
+      // Even if logout fails, try to clear local state and redirect
+      // This handles cases where the server is unreachable
+      queryClient.setQueryData(["/api/user"], null);
+      setTimeout(() => {
+        window.location.href = "/auth?logout=error";
+      }, 1000);
     },
   });
 

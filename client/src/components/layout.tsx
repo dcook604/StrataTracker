@@ -1,8 +1,9 @@
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { useAuth } from "@/hooks/use-auth";
-import { Bell } from "lucide-react";
+import { Bell, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
@@ -53,7 +54,7 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
             toast({
               title: "Unexpected Data Format",
               description: "Received unexpected data for pending approvals.",
-              variant: "warning",
+              variant: "destructive",
             });
           }
         })
@@ -72,6 +73,12 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
 
   return (
     <div className="flex h-screen bg-neutral-50">
+      {/* Loading overlay during logout */}
+      <LoadingOverlay 
+        isVisible={logoutMutation.isPending} 
+        message="Logging you out securely"
+      />
+      
       {/* Sidebar */}
       <Sidebar />
       
@@ -122,7 +129,14 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => navigate("/user-profile")}>Profile</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => logoutMutation.mutate()}>Logout</DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => logoutMutation.mutate()} 
+                  disabled={logoutMutation.isPending}
+                  className={logoutMutation.isPending ? "opacity-70 cursor-not-allowed" : ""}
+                >
+                  {logoutMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {logoutMutation.isPending ? "Logging out..." : "Logout"}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

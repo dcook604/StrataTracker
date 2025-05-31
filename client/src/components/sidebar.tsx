@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  Loader2,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -164,13 +165,23 @@ export function Sidebar({ className }: SidebarProps) {
           variant="ghost"
           className={cn(
             "w-full gap-3 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100",
-            collapsed ? "h-10 px-2 justify-center" : "h-10 px-3 justify-start"
+            collapsed ? "h-10 px-2 justify-center" : "h-10 px-3 justify-start",
+            logoutMutation.isPending && "opacity-70 cursor-not-allowed"
           )}
           onClick={handleLogout}
+          disabled={logoutMutation.isPending}
           title={collapsed ? "Logout" : undefined}
         >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span>Logout</span>}
+          {logoutMutation.isPending ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <LogOut className="h-5 w-5" />
+          )}
+          {!collapsed && (
+            <span>
+              {logoutMutation.isPending ? "Logging out..." : "Logout"}
+            </span>
+          )}
         </Button>
       </div>
     </div>
