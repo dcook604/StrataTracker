@@ -310,7 +310,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
 
   const inviteMutation = useMutation({
     mutationFn: async (data: InviteFormValues) => {
-      const res = await apiRequest("POST", "/api/invite-user", data);
+      const res = await apiRequest("POST", "/api/users/invite", data);
       if (!res.ok) {
         const error = await res.json().catch(() => ({message: 'Failed to invite user'}));
         throw new Error(error.message || 'Failed to invite user');
