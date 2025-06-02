@@ -225,7 +225,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
         delete apiData.password;
       }
 
-      const res = await apiRequest("PUT", `/api/user-management/${id}`, apiData);
+      const res = await apiRequest("PUT", `/api/users/${id}`, apiData);
       if (!res.ok) {
         const error = await res.json().catch(() => ({message: 'Failed to update user'}));
         throw new Error(error.message || 'Failed to update user');

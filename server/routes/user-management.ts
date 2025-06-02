@@ -102,31 +102,61 @@ router.put('/:id', isAdmin, async (req, res) => {
     const userId = parseInt(req.params.id);
     const { fullName, isCouncilMember, isAdmin, isUser, email } = req.body;
     
+    console.log(`[USER-MGMT] Updating user ${userId} with data:`, {
+      fullName,
+      isCouncilMember,
+      isAdmin,
+      isUser,
+      email,
+      requestUserId: (req.user as any)?.id,
+      requestUserEmail: (req.user as any)?.email
+    });
+    
     // Check if user exists
+    console.log(`[USER-MGMT] Checking if user ${userId} exists...`);
     const existingUser = await dbStorage.getUser(userId);
     if (!existingUser) {
+      console.log(`[USER-MGMT] User ${userId} not found`);
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Update user
-    const updatedUser = await dbStorage.updateUser(userId, {
+    console.log(`[USER-MGMT] Found existing user:`, {
+      id: existingUser.id,
+      email: existingUser.email,
+      fullName: existingUser.fullName,
+      isAdmin: existingUser.isAdmin,
+      isCouncilMember: existingUser.isCouncilMember,
+      isUser: existingUser.isUser
+    });
+    
+    const updateData = {
       fullName: fullName || existingUser.fullName,
       isCouncilMember: isCouncilMember !== undefined ? !!isCouncilMember : existingUser.isCouncilMember,
       isAdmin: isAdmin !== undefined ? !!isAdmin : existingUser.isAdmin,
       isUser: isUser !== undefined ? !!isUser : existingUser.isUser,
       email: email || existingUser.email,
       username: email || existingUser.username
-    });
+    };
+    
+    console.log(`[USER-MGMT] Preparing to update user ${userId} with:`, updateData);
+    
+    // Update user
+    const updatedUser = await dbStorage.updateUser(userId, updateData);
+    
+    console.log(`[USER-MGMT] Update result:`, updatedUser ? 'Success' : 'Failed');
     
     if (!updatedUser) {
+      console.log(`[USER-MGMT] Update returned null for user ${userId}`);
       return res.status(404).json({ message: 'User not found' });
     }
     
     // Don't return sensitive data
     const { password, ...userWithoutPassword } = updatedUser;
+    console.log(`[USER-MGMT] Successfully updated user ${userId}, returning response`);
     res.json(userWithoutPassword);
   } catch (error) {
-    console.error('Error updating user:', error);
+    console.error(`[USER-MGMT] Error updating user ${req.params.id}:`, error);
+    console.error(`[USER-MGMT] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({ message: 'Failed to update user' });
   }
 });

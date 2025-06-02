@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     isLoading,
   } = useQuery<SafeUser | undefined, Error>({
-    queryKey: ["/api/auth/me"],
+    queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (user: SafeUser) => {
-      queryClient.setQueryData(["/api/auth/me"], user);
+      queryClient.setQueryData(["/api/user"], user);
       
       // Identify user in LogRocket after successful login
       if (user.id) {
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (user: SafeUser) => {
-      queryClient.setQueryData(["/api/auth/me"], user);
+      queryClient.setQueryData(["/api/user"], user);
       
       // Identify user in LogRocket after successful registration
       if (user.id) {
@@ -141,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       // Clear user data from React Query cache
-      queryClient.setQueryData(["/api/auth/me"], null);
+      queryClient.setQueryData(["/api/user"], null);
       
       // Clear any other sensitive data from cache
       queryClient.removeQueries({ 
@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Even if logout fails, try to clear local state and redirect
       // This handles cases where the server is unreachable
-      queryClient.setQueryData(["/api/auth/me"], null);
+      queryClient.setQueryData(["/api/user"], null);
       setTimeout(() => {
         window.location.href = "/auth?logout=error";
       }, 1000);
