@@ -29,15 +29,22 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
       fetch("/api/violations/pending-approval", { credentials: "include" })
         .then(async (res) => {
           if (!res.ok) {
-            let errorData = { message: `HTTP error! status: \${res.status}`, details: "No further details from server." };
+            let errorData = { message: `HTTP error! status: ${res.status} ${res.statusText || ""}`.trim(), details: "No further details from server." };
             try {
               const serverError = await res.json();
               errorData.message = serverError.message || errorData.message;
-              errorData.details = serverError.details || `Server responded with \${res.status}. ErrorCode: \${serverError.errorCode || 'N/A'}`;
-              console.error("Server error fetching pending approvals:", serverError);
+              errorData.details = serverError.details || `Server responded with ${res.status}. ErrorCode: ${serverError.errorCode || 'N/A'}`;
+              console.error("Server error fetching pending approvals (parsed as JSON):", serverError);
             } catch (parseError) {
-              console.error("Failed to parse server error response:", parseError, "Original status:", res.status, res.statusText);
-              errorData.details = res.statusText || "Could not retrieve error details from server.";
+              console.warn("Failed to parse server error response as JSON. Attempting to read as text.", parseError);
+              try {
+                const errorText = await res.text();
+                console.error("Server error fetching pending approvals (read as text):", errorText);
+                errorData.details = errorText || res.statusText || "Could not retrieve error details from server (empty text response).";
+              } catch (textError) {
+                console.error("Failed to read server error response as text:", textError);
+                errorData.details = res.statusText || "Could not retrieve error details from server (text read failed).";
+              }
             }
             const error = new Error(errorData.message);
             (error as any).details = errorData.details;
