@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -29,14 +30,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIcon, LockIcon, UnlockIcon, Settings, Users as UsersIconLucide, Loader2 } from "lucide-react"; // Added Loader2, UsersIconLucide, Settings
+import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIcon, LockIcon, UnlockIcon, Settings, Users as UsersIconLucide, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-// import { Layout } from "@/components/layout"; // Removed Layout import
 import zxcvbn from "zxcvbn";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Added Card components
-
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 /**
  * UserManagementTabContent - User Management
@@ -47,10 +46,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
  * - Uses two Zod schemas:
  *   - createUserSchema: for creating users (password required)
  *   - editUserSchema: for editing users (password optional, min 6 chars if present)
- * - The form dynamically switches schema based on whether editingUser is set.
- * - Handles password strength, role assignment, and user status.
- * - Table displays all user roles with icons.
+ * - The form uses radio buttons for role selection (mutually exclusive roles).
+ * - Handles password strength, single role assignment, and user status.
+ * - Table displays user role with appropriate icon.
  */
+
+// Define the possible user roles
+type UserRole = "admin" | "council" | "user";
 
 // --- Zod Schemas ---
 /**
@@ -61,11 +63,7 @@ const createUserSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   fullName: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email format"),
-  roles: z.object({
-    isAdmin: z.boolean().default(false),
-    isCouncilMember: z.boolean().default(false),
-    isUser: z.boolean().default(true),
-  }),
+  role: z.enum(["admin", "council", "user"]).default("user"),
 });
 
 /**
@@ -78,11 +76,7 @@ const editUserSchema = z.object({
   }),
   fullName: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email format"),
-  roles: z.object({
-    isAdmin: z.boolean().default(false),
-    isCouncilMember: z.boolean().default(false),
-    isUser: z.boolean().default(true),
-  }),
+  role: z.enum(["admin", "council", "user"]).default("user"),
 });
 
 // Use a union type for form values
@@ -94,12 +88,10 @@ type UserFormValues = z.infer<typeof createUserSchema> | z.infer<typeof editUser
 type InviteFormValues = {
   email: string;
   fullName: string;
-  isAdmin: boolean;
-  isCouncilMember: boolean;
-  isUser: boolean;
+  role: UserRole;
 };
 
-export function UserManagementTabContent() { // Renamed from UsersPage, removed default export
+export function UserManagementTabContent() {
   const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -109,17 +101,13 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
   const [lockUserId, setLockUserId] = useState<number | null>(null);
   const [lockReason, setLockReason] = useState("");
   const lockReasonInputRef = useRef<HTMLInputElement>(null);
-  // Password strength state for Add/Edit dialogs
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordFeedback, setPasswordFeedback] = useState("");
   const [passwordLabel, setPasswordLabel] = useState("");
   const editLockStatusRef = useRef<{ locked: boolean; reason: string }>({ locked: false, reason: "" });
 
-  // Redirect if not an admin (This check might be handled by the parent SettingsPage now)
-  // For now, keeping it to ensure component-level security if used elsewhere,
-  // but SettingsPage itself should also enforce admin/council access.
   const isCurrentUserAdminOrCouncil = user && (user.isAdmin || user.isCouncilMember);
-  if (user && !isCurrentUserAdminOrCouncil) { // Updated to allow Council Members as per SettingsPage
+  if (user && !isCurrentUserAdminOrCouncil) {
     return (
       <div className="container mx-auto py-8">
         <EmptyState
@@ -131,7 +119,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
     );
   }
 
-  const { data: usersData, isLoading, error } = useQuery<User[]>({ // Renamed data to usersData
+  const { data: usersData, isLoading, error } = useQuery<User[]>({
     queryKey: ['users', 'list'],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/users");
@@ -150,11 +138,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
       password: "",
       fullName: "",
       email: "",
-      roles: {
-        isAdmin: false,
-        isCouncilMember: false,
-        isUser: true,
-      }
+      role: "user" as UserRole,
     }
   });
   
@@ -162,22 +146,25 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
     defaultValues: {
       email: "",
       fullName: "",
-      isAdmin: false,
-      isCouncilMember: false,
-      isUser: true,
+      role: "user" as UserRole,
     }
   });
 
+  const getUserRole = (user: User): UserRole => {
+    if (user.isAdmin || user.is_admin) return "admin";
+    if (user.isCouncilMember || user.is_council_member) return "council";
+    return "user";
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: UserFormValues) => {
-      // Flatten roles object for API
       const apiData = {
         ...data,
-        isAdmin: data.roles.isAdmin,
-        isCouncilMember: data.roles.isCouncilMember,
-        isUser: data.roles.isUser,
+        isAdmin: data.role === "admin",
+        isCouncilMember: data.role === "council",
+        isUser: data.role === "user",
       };
-      delete (apiData as any).roles;
+      delete (apiData as any).role;
 
       const res = await apiRequest("POST", "/api/register", apiData);
       if (!res.ok) {
@@ -212,15 +199,14 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
       const { id, ...userData } = data;
       const apiData: any = {
         ...userData,
-        isAdmin: !!userData.roles.isAdmin,
-        isCouncilMember: !!userData.roles.isCouncilMember,
-        isUser: !!userData.roles.isUser,
+        isAdmin: userData.role === "admin",
+        isCouncilMember: userData.role === "council", 
+        isUser: userData.role === "user",
       };
-      delete apiData.roles;
+      delete apiData.role;
       apiData.accountLocked = editLockStatusRef.current.locked;
       apiData.lockReason = editLockStatusRef.current.locked ? editLockStatusRef.current.reason : null;
       
-      // Ensure password is not sent if empty, to prevent accidental overwrite with empty string
       if (apiData.password === "") {
         delete apiData.password;
       }
@@ -261,7 +247,6 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
         const error = await res.json().catch(() => ({message: 'Failed to delete user'}));
         throw new Error(error.message || 'Failed to delete user');
       }
-      // No JSON to return for DELETE typically, or handle as needed
     },
     onSuccess: () => {
       toast({
@@ -286,7 +271,6 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
         const error = await res.json().catch(() => ({message: `Failed to ${lock ? 'lock' : 'unlock'} user`}));
         throw new Error(error.message || `Failed to ${lock ? 'lock' : 'unlock'} user`);
       }
-      // No JSON to return usually
     },
     onSuccess: (_, variables) => {
       toast({
@@ -310,7 +294,15 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
 
   const inviteMutation = useMutation({
     mutationFn: async (data: InviteFormValues) => {
-      const res = await apiRequest("POST", "/api/users/invite", data);
+      const apiData = {
+        ...data,
+        isAdmin: data.role === "admin",
+        isCouncilMember: data.role === "council",
+        isUser: data.role === "user",
+      };
+      delete (apiData as any).role;
+
+      const res = await apiRequest("POST", "/api/users/invite", apiData);
       if (!res.ok) {
         const error = await res.json().catch(() => ({message: 'Failed to invite user'}));
         throw new Error(error.message || 'Failed to invite user');
@@ -344,28 +336,23 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
 
   const handleEdit = (userToEdit: User) => {
     setEditingUser(userToEdit);
-    form.reset({ // Use form.reset to update values and validation state
+    form.reset({
       username: userToEdit.username,
-      password: "", // Password should be empty for edit, or handled specifically
+      password: "",
       fullName: userToEdit.fullName,
       email: userToEdit.email,
-      roles: {
-        isAdmin: !!userToEdit.isAdmin || !!userToEdit.is_admin, // Handle both possible casing from DB
-        isCouncilMember: !!userToEdit.isCouncilMember || !!userToEdit.is_council_member,
-        isUser: !!userToEdit.isUser || !!userToEdit.is_user, // Default to true if other roles are false
-      }
+      role: getUserRole(userToEdit),
     });
-    // Set initial lock status for edit dialog
     editLockStatusRef.current = { locked: !!userToEdit.accountLocked, reason: userToEdit.lockReason || "" };
-    setPasswordStrength(0); // Reset password strength on edit
+    setPasswordStrength(0);
     setPasswordFeedback("");
     setPasswordLabel("");
-    setIsAddDialogOpen(true); // Open the same dialog, but in "edit" mode
+    setIsAddDialogOpen(true);
   };
   
   const handleOpenLockDialog = (userId: number, currentStatus: boolean, currentReason?: string) => {
     setLockUserId(userId);
-    setLockReason(currentStatus ? (currentReason || '') : ''); // If unlocking, clear reason
+    setLockReason(currentStatus ? (currentReason || '') : '');
     setIsLockDialogOpen(true);
   };
 
@@ -393,7 +380,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
       return;
     }
     const result = zxcvbn(value);
-    setPasswordStrength((result.score / 4) * 100); // Score is 0-4
+    setPasswordStrength((result.score / 4) * 100);
     setPasswordFeedback(result.feedback.warning || "");
 
     switch (result.score) {
@@ -421,28 +408,26 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
       header: "Email",
     },
     {
-      accessorKey: "roles",
-      header: "Roles",
+      accessorKey: "role",
+      header: "Role",
       cell: ({ row }) => {
         const user = row.original;
-        const roles = [];
-        if (user.isAdmin || user.is_admin) roles.push({ name: "Admin", icon: <ShieldIcon className="w-4 h-4 text-red-600" /> });
-        if (user.isCouncilMember || user.is_council_member) roles.push({ name: "Council", icon: <UserCheckIcon className="w-4 h-4 text-blue-600" /> });
-        if (user.isUser || user.is_user) roles.push({ name: "User", icon: <UserIcon className="w-4 h-4 text-green-600" /> });
-        if (roles.length === 0 && !user.is_admin && !user.is_council_member && !user.is_user) { // Fallback for older data potentially
-            if ((user as any).roles?.isUser) roles.push({ name: "User", icon: <UserIcon className="w-4 h-4 text-green-600" /> });
-        }
+        const role = getUserRole(user);
+        
+        const roleConfig = {
+          admin: { name: "Administrator", icon: <ShieldIcon className="w-4 h-4 text-red-600" />, color: "text-red-600" },
+          council: { name: "Council Member", icon: <UserCheckIcon className="w-4 h-4 text-blue-600" />, color: "text-blue-600" },
+          user: { name: "Regular User", icon: <UserIcon className="w-4 h-4 text-green-600" />, color: "text-green-600" }
+        };
 
+        const config = roleConfig[role];
 
         return (
           <div className="flex items-center space-x-2">
-            {roles.map(role => (
-              <span key={role.name} title={role.name} className="flex items-center">
-                {role.icon}
-                <span className="sr-only">{role.name}</span>
-              </span>
-            ))}
-            {roles.length === 0 && <span className="text-neutral-500">N/A</span>}
+            <span title={config.name} className="flex items-center">
+              {config.icon}
+              <span className={`ml-2 ${config.color}`}>{config.name}</span>
+            </span>
           </div>
         );
       },
@@ -483,7 +468,7 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
             >
               {user.accountLocked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
             </Button>
-            {currentLoggedInUser?.id !== user.id && ( // Prevent deleting self
+            {currentLoggedInUser?.id !== user.id && (
               <Button variant="destructive" size="sm" onClick={() => handleDelete(user.id)}>
                 <Trash2Icon className="w-4 h-4" />
               </Button>
@@ -519,7 +504,6 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
   const usersList = usersData || [];
 
 
-  // Removed Layout wrapper
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -551,7 +535,6 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
         />
       )}
 
-      {/* Add/Edit User Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={(isOpen) => {
         setIsAddDialogOpen(isOpen);
         if (!isOpen) {
@@ -563,187 +546,181 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
           editLockStatusRef.current = { locked: false, reason: "" };
         }
       }}>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[525px] max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
             <DialogDescription>
               {editingUser ? "Update the user's details below." : "Fill in the details to create a new user account."}
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="user@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="johndoe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password {editingUser && "(Leave blank to keep current)"}</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="••••••••" 
-                        {...field} 
-                        onChange={(e) => {
-                          field.onChange(e);
-                          handlePasswordChange(e.target.value);
-                        }}
-                      />
-                    </FormControl>
-                    {field.value && (passwordStrength > 0 || passwordFeedback) && (
-                       <div className="mt-2">
-                         <Progress value={passwordStrength} className="w-full h-2" />
-                         <p className={`text-sm mt-1 ${
-                            passwordStrength < 25 ? 'text-red-500' :
-                            passwordStrength < 50 ? 'text-orange-500' :
-                            passwordStrength < 75 ? 'text-yellow-500' : 'text-green-500'
-                          }`}>
-                           Strength: {passwordLabel} {passwordFeedback && `- ${passwordFeedback}`}
-                         </p>
-                       </div>
-                     )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormLabel>Roles</FormLabel>
-              <div className="space-y-2 p-3 border rounded-md">
-                 <FormField
+          <div className="flex-1 overflow-y-auto">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-1">
+                <FormField
                   control={form.control}
-                  name="roles.isAdmin"
+                  name="fullName"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between">
-                      <FormLabel className="font-normal">Administrator</FormLabel>
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
                       <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Input placeholder="John Doe" {...field} />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="roles.isCouncilMember"
+                  name="email"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between">
-                      <FormLabel className="font-normal">Council Member</FormLabel>
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Input type="email" placeholder="user@example.com" {...field} />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField // Assuming isUser is always true or based on other roles
+                <FormField
                   control={form.control}
-                  name="roles.isUser"
+                  name="username"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between">
-                       <FormLabel className="font-normal">Regular User (Default)</FormLabel>
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
                       <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={!form.getValues('roles.isAdmin') && !form.getValues('roles.isCouncilMember')} // A user must have at least one role, default to user
-                        />
+                        <Input placeholder="johndoe" {...field} />
                       </FormControl>
-                       <FormDescription className="text-xs">
-                         If no other roles, user is default.
-                       </FormDescription>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-               {editingUser && (
-                <div className="space-y-2 p-3 border rounded-md">
-                  <FormLabel>Account Status</FormLabel>
-                  <FormField
-                    control={form.control} // This doesn't directly control a form field but triggers UI update
-                    name="username" // Dummy field to make RHF re-render, not ideal.
-                    render={() => (
-                      <FormItem className="flex flex-row items-center justify-between">
-                        <FormLabel className="font-normal">
-                          {editLockStatusRef.current.locked ? `Locked: ${editLockStatusRef.current.reason || 'No reason provided'}` : "Active"}
-                        </FormLabel>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const currentStatus = editLockStatusRef.current.locked;
-                            const reason = currentStatus ? '' : (prompt("Enter reason for locking account:", editLockStatusRef.current.reason) || "Locked by administrator");
-                            if (!currentStatus && reason === null) return; // User cancelled prompt for locking
-                            
-                            editLockStatusRef.current = { locked: !currentStatus, reason: !currentStatus ? reason : '' };
-                            form.setValue('username', form.getValues('username') + ' '); // Force re-render, hacky
-                            form.setValue('username', form.getValues('username').trim()); 
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password {editingUser && "(Leave blank to keep current)"}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••" 
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handlePasswordChange(e.target.value);
                           }}
+                        />
+                      </FormControl>
+                      {field.value && (passwordStrength > 0 || passwordFeedback) && (
+                         <div className="mt-2">
+                           <Progress value={passwordStrength} className="w-full h-2" />
+                           <p className={`text-sm mt-1 ${
+                              passwordStrength < 25 ? 'text-red-500' :
+                              passwordStrength < 50 ? 'text-orange-500' :
+                              passwordStrength < 75 ? 'text-yellow-500' : 'text-green-500'
+                            }`}>
+                             Strength: {passwordLabel} {passwordFeedback && `- ${passwordFeedback}`}
+                           </p>
+                         </div>
+                       )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>User Role</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex flex-col space-y-2"
                         >
-                          {editLockStatusRef.current.locked ? "Unlock Account" : "Lock Account"}
-                        </Button>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="user" />
+                            </FormControl>
+                            <FormLabel className="font-normal flex items-center">
+                              <UserIcon className="w-4 h-4 text-green-600 mr-2" />
+                              Regular User
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="council" />
+                            </FormControl>
+                            <FormLabel className="font-normal flex items-center">
+                              <UserCheckIcon className="w-4 h-4 text-blue-600 mr-2" />
+                              Council Member
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="admin" />
+                            </FormControl>
+                            <FormLabel className="font-normal flex items-center">
+                              <ShieldIcon className="w-4 h-4 text-red-600 mr-2" />
+                              Administrator
+                            </FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                 {editingUser && (
+                  <div className="space-y-2 p-3 border rounded-md">
+                    <FormLabel>Account Status</FormLabel>
+                    <FormField
+                      control={form.control}
+                      name="username"
+                      render={() => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <FormLabel className="font-normal">
+                            {editLockStatusRef.current.locked ? `Locked: ${editLockStatusRef.current.reason || 'No reason provided'}` : "Active"}
+                          </FormLabel>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const currentStatus = editLockStatusRef.current.locked;
+                              const reason = currentStatus ? '' : (prompt("Enter reason for locking account:", editLockStatusRef.current.reason) || "Locked by administrator");
+                              if (!currentStatus && reason === null) return;
+                              
+                              editLockStatusRef.current = { locked: !currentStatus, reason: !currentStatus ? reason : '' };
+                              form.setValue('username', form.getValues('username') + ' ');
+                              form.setValue('username', form.getValues('username').trim()); 
+                            }}
+                          >
+                            {editLockStatusRef.current.locked ? "Unlock Account" : "Lock Account"}
+                          </Button>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
-              <DialogFooter>
-                <Button variant="ghost" type="button" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingUser ? "Save Changes" : "Add User"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                <DialogFooter className="flex-shrink-0 pt-4">
+                  <Button variant="ghost" type="button" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                    {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {editingUser ? "Save Changes" : "Add User"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
         </DialogContent>
       </Dialog>
       
-      {/* Lock/Unlock User Dialog */}
       <Dialog open={isLockDialogOpen} onOpenChange={setIsLockDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -782,7 +759,6 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
         </DialogContent>
       </Dialog>
 
-      {/* Invite User Dialog */}
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -819,55 +795,51 @@ export function UserManagementTabContent() { // Renamed from UsersPage, removed 
                   </FormItem>
                 )}
               />
-              <FormLabel>Assign Roles</FormLabel>
-              <div className="space-y-2 p-3 border rounded-md">
-                 <FormField
-                  control={inviteForm.control}
-                  name="isAdmin"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between">
-                      <FormLabel className="font-normal">Administrator</FormLabel>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={inviteForm.control}
-                  name="isCouncilMember"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between">
-                      <FormLabel className="font-normal">Council Member</FormLabel>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={inviteForm.control}
-                  name="isUser"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between">
-                      <FormLabel className="font-normal">Regular User</FormLabel>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={!inviteForm.getValues('isAdmin') && !inviteForm.getValues('isCouncilMember')}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={inviteForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Assign Role</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        className="flex flex-col space-y-2"
+                      >
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="user" />
+                          </FormControl>
+                          <FormLabel className="font-normal flex items-center">
+                            <UserIcon className="w-4 h-4 text-green-600 mr-2" />
+                            Regular User
+                          </FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="council" />
+                          </FormControl>
+                          <FormLabel className="font-normal flex items-center">
+                            <UserCheckIcon className="w-4 h-4 text-blue-600 mr-2" />
+                            Council Member
+                          </FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="admin" />
+                          </FormControl>
+                          <FormLabel className="font-normal flex items-center">
+                            <ShieldIcon className="w-4 h-4 text-red-600 mr-2" />
+                            Administrator
+                          </FormLabel>
+                        </FormItem>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <Button variant="ghost" type="button" onClick={() => setIsInviteDialogOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={inviteMutation.isPending}>

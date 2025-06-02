@@ -6,9 +6,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { Bell, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,65 +20,51 @@ interface LayoutProps {
 export function Layout({ children, title, leftContent }: LayoutProps) {
   const { user, logoutMutation } = useAuth();
   const [location, navigate] = useLocation();
-  const [pending, setPending] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (user?.isCouncilMember || user?.isAdmin) {
-      setLoading(true);
-      fetch("/api/violations/pending-approval", { credentials: "include" })
-        .then(async (res) => {
-          if (!res.ok) {
-            let errorData = { message: `HTTP error! status: ${res.status} ${res.statusText || ""}`.trim(), details: "No further details from server." };
-            const resClone = res.clone();
-            try {
-              const serverError = await res.json();
-              errorData.message = serverError.message || errorData.message;
-              errorData.details = serverError.details || `Server responded with ${res.status}. ErrorCode: ${serverError.errorCode || 'N/A'}`;
-              console.error("Server error fetching pending approvals (parsed as JSON):", serverError);
-            } catch (parseError) {
-              console.warn("Failed to parse server error response as JSON. Attempting to read as text from cloned response.", parseError);
-              try {
-                const errorText = await resClone.text();
-                console.error("Server error fetching pending approvals (read as text):", errorText);
-                errorData.details = errorText || res.statusText || "Could not retrieve error details from server (empty text response).";
-              } catch (textError) {
-                console.error("Failed to read server error response as text from cloned response:", textError);
-                errorData.details = res.statusText || "Could not retrieve error details from server (text read failed).";
-              }
-            }
-            const error = new Error(errorData.message);
-            (error as any).details = errorData.details;
-            throw error;
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (Array.isArray(data)) {
-            setPending(data);
-          } else {
-            console.warn("Pending approvals data is not an array:", data);
-            setPending([]);
-            toast({
-              title: "Unexpected Data Format",
-              description: "Received unexpected data for pending approvals.",
-              variant: "destructive",
-            });
-          }
-        })
-        .catch(error => {
-          console.error("Failed to fetch pending approvals:", error);
-          toast({
-            title: "Error Fetching Approvals",
-            description: error.message || "Could not load pending approvals.",
-            variant: "destructive",
-          });
-          setPending([]);
-        })
-        .finally(() => setLoading(false));
+  // Use React Query for pending approvals with proper error handling and caching
+  const { 
+    data: pending = [], 
+    isLoading: loading, 
+    error: pendingError 
+  } = useQuery({
+    queryKey: ["/api/violations/pending-approval"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/violations/pending-approval");
+      if (!res.ok) {
+        throw new Error(`Failed to fetch pending approvals: ${res.status} ${res.statusText}`);
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!(user?.isCouncilMember || user?.isAdmin), // Only run if user has appropriate permissions
+    staleTime: 30000, // Cache for 30 seconds to prevent excessive requests
+    refetchInterval: 60000, // Auto-refetch every minute
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    retry: (failureCount, error) => {
+      // Don't retry on 429 (rate limiting) or 4xx errors
+      if (error instanceof Error && error.message.includes('429')) {
+        return false;
+      }
+      if (error instanceof Error && error.message.includes('4')) {
+        return false;
+      }
+      // Only retry up to 2 times for other errors
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+  });
+
+  // Handle pending approvals error with user-friendly message
+  if (pendingError && !loading) {
+    const errorMessage = pendingError instanceof Error ? pendingError.message : 'Unknown error';
+    if (errorMessage.includes('429')) {
+      // Don't show toast for rate limiting, just log it
+      console.warn('Pending approvals temporarily rate limited');
+    } else {
+      console.error('Error fetching pending approvals:', errorMessage);
     }
-  }, [user, toast]);
+  }
 
   return (
     <div className="flex h-screen bg-neutral-50">
@@ -112,11 +99,18 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
                 <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
                   <div className="font-semibold px-3 py-2 border-b">Pending Approvals</div>
                   {loading ? (
-                    <div className="px-3 py-2 text-sm text-neutral-500">Loading...</div>
+                    <div className="px-3 py-2 text-sm text-neutral-500 flex items-center">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading...
+                    </div>
+                  ) : pendingError && pendingError instanceof Error && pendingError.message.includes('429') ? (
+                    <div className="px-3 py-2 text-sm text-orange-600">
+                      Rate limited. Please wait a moment.
+                    </div>
                   ) : pending.length === 0 ? (
                     <div className="px-3 py-2 text-sm text-neutral-500">No pending approvals</div>
                   ) : (
-                    pending.map((v) => (
+                    pending.map((v: any) => (
                       <DropdownMenuItem key={v.id} onClick={() => navigate(`/violations/${v.id}`)} className="flex flex-col items-start cursor-pointer">
                         <div className="font-medium">Unit: {v.unit?.unitNumber || v.unitId}</div>
                         <div className="text-xs text-neutral-600">{v.violationType} &middot; {v.violationDate ? format(new Date(v.violationDate), "MMM dd, yyyy") : ""}</div>
