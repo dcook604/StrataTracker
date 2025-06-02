@@ -30,19 +30,20 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
         .then(async (res) => {
           if (!res.ok) {
             let errorData = { message: `HTTP error! status: ${res.status} ${res.statusText || ""}`.trim(), details: "No further details from server." };
+            const resClone = res.clone();
             try {
               const serverError = await res.json();
               errorData.message = serverError.message || errorData.message;
               errorData.details = serverError.details || `Server responded with ${res.status}. ErrorCode: ${serverError.errorCode || 'N/A'}`;
               console.error("Server error fetching pending approvals (parsed as JSON):", serverError);
             } catch (parseError) {
-              console.warn("Failed to parse server error response as JSON. Attempting to read as text.", parseError);
+              console.warn("Failed to parse server error response as JSON. Attempting to read as text from cloned response.", parseError);
               try {
-                const errorText = await res.text();
+                const errorText = await resClone.text();
                 console.error("Server error fetching pending approvals (read as text):", errorText);
                 errorData.details = errorText || res.statusText || "Could not retrieve error details from server (empty text response).";
               } catch (textError) {
-                console.error("Failed to read server error response as text:", textError);
+                console.error("Failed to read server error response as text from cloned response:", textError);
                 errorData.details = res.statusText || "Could not retrieve error details from server (text read failed).";
               }
             }

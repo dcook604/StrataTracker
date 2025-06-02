@@ -146,10 +146,17 @@ export function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
+      logger.debug(`[AUTH] DeserializeUser: Fetching user with id: ${id}`);
       const user = await dbStorage.getUser(id);
-      done(null, user);
+      if (!user) {
+        logger.warn(`[AUTH] DeserializeUser: No user found with id: ${id}`);
+        return done(null, false); // User not found, treat as unauthenticated
+      }
+      logger.debug(`[AUTH] DeserializeUser: User found, proceeding.`, { userId: user.id, email: user.email });
+      return done(null, user); // User found
     } catch (error) {
-      done(error);
+      logger.error(`[AUTH] DeserializeUser: Error fetching user with id: ${id}`, { error });
+      return done(error); // Pass error to Passport
     }
   });
 
@@ -197,6 +204,17 @@ export function setupAuth(app: Express) {
         res.status(200).json(safeUser);
       });
     })(req, res, next);
+  });
+
+  // Endpoint to get current authenticated user
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+      // Remove sensitive fields before sending the user object
+      const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
+      res.json(safeUser);
+    } else {
+      res.status(401).json({ message: "User not authenticated" });
+    }
   });
 
   // Admin-only user registration
