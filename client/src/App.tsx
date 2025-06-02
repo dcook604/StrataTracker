@@ -18,6 +18,7 @@ import CategoriesPage from "@/pages/categories-page";
 import SettingsPage from "@/pages/settings-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
+import SetPasswordPage from "@/pages/set-password-page";
 import UserProfilePage from "@/pages/user-profile-page";
 import PublicViolationCommentPage from "@/pages/public-violation-comment-page";
 import { Route } from "wouter";
@@ -36,6 +37,7 @@ export default function App() {
                 <Route path="/auth" component={AuthPage} />
                 <Route path="/forgot-password" component={ForgotPasswordPage} />
                 <Route path="/reset-password" component={ResetPasswordPage} />
+                <Route path="/set-password" component={SetPasswordPage} />
                 <Route path="/violation/comment/:token" component={PublicViolationCommentPage} />
                 <ProtectedRoute path="/" component={DashboardPage} />
                 <ProtectedRoute path="/violations" component={AllViolationsPage} />

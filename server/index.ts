@@ -1,24 +1,22 @@
-import express from "express";
-import { db } from "./db";
-import { registerRoutes } from "./routes";
-import logger from './utils/logger';
+import { sql } from "drizzle-orm";
 
 (async () => {
   try {
+    // Load environment variables first
     const dotenv = await import('dotenv');
     dotenv.config();
     console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
 
     // Dynamically import the rest of your application
     // to ensure dotenv is configured before any other code runs.
-    await import('./app-bootstrap.js'); // We'll move existing imports here
-
+    const { db } = await import('./db');
+    
     // Test database connection
     await db.execute(sql`SELECT 1`);
     console.log("Database connected successfully");
 
-    // Register routes
-    const server = await registerRoutes(app);
+    // Import and start the main application
+    await import('./app-bootstrap');
 
     // Start email cleanup scheduler
     const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler');
@@ -30,5 +28,3 @@ import logger from './utils/logger';
     process.exit(1);
   }
 })();
-
-// ALL OTHER IMPORTS AND CODE WILL BE MOVED TO a new file app-bootstrap.ts

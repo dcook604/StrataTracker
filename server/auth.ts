@@ -146,10 +146,17 @@ export function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
+      logger.debug(`[AUTH] DeserializeUser: Fetching user with id: ${id}`);
       const user = await dbStorage.getUser(id);
-      done(null, user);
+      if (!user) {
+        logger.warn(`[AUTH] DeserializeUser: No user found with id: ${id}`);
+        return done(null, false); // User not found, treat as unauthenticated
+      }
+      logger.debug(`[AUTH] DeserializeUser: User found, proceeding.`, { userId: user.id, email: user.email });
+      return done(null, user); // User found
     } catch (error) {
-      done(error);
+      logger.error(`[AUTH] DeserializeUser: Error fetching user with id: ${id}`, { error });
+      return done(error); // Pass error to Passport
     }
   });
 
@@ -198,6 +205,72 @@ export function setupAuth(app: Express) {
       });
     })(req, res, next);
   });
+
+  app.get("/api/user", (req, res) => {
+    console.log("Auth check - session:", !!req.session);
+    console.log("Auth check - session ID:", req.session?.id || 'none');
+    console.log("Auth check - isAuthenticated:", req.isAuthenticated());
+    console.log("Auth check - user:", !!req.user);
+    
+    if (!req.isAuthenticated()) {
+      console.log("User not authenticated, returning 401");
+      return res.sendStatus(401);
+    }
+    
+    // Remove sensitive fields before sending the user object
+    const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
+    console.log("Auth check successful, returning user:", safeUser.email);
+    res.json(safeUser);
+  });
+
+  // Change password for the currently authenticated user
+  app.post("/api/users/change-password", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const changePasswordSchema = z.object({
+        currentPassword: z.string(),
+        newPassword: z.string()
+          .min(8, "Password must be at least 8 characters")
+          .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+          .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+          .regex(/[0-9]/, "Password must contain at least one number")
+          .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
+      });
+
+      const validatedData = changePasswordSchema.parse(req.body);
+      const userId = req.user.id;
+
+      // Get user from DB to verify current password
+      const user = await dbStorage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Verify current password
+      const isMatch = await dbStorage.comparePasswords(validatedData.currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Incorrect current password" });
+      }
+
+      // Hash and update new password
+      const hashedNewPassword = await dbStorage.hashPassword(validatedData.newPassword);
+      await dbStorage.updateUserPassword(userId, hashedNewPassword);
+
+      res.status(200).json({ message: "Password changed successfully" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      console.error("Error changing password:", error);
+      next(error);
+    }
+  });
+
+  // Forgot password
+  // ... existing code ...
 
   // Admin-only user registration
   app.post("/api/register", async (req, res, next) => {
@@ -347,70 +420,4 @@ export function setupAuth(app: Express) {
       });
     });
   });
-
-  app.get("/api/user", (req, res) => {
-    console.log("Auth check - session:", !!req.session);
-    console.log("Auth check - session ID:", req.session?.id || 'none');
-    console.log("Auth check - isAuthenticated:", req.isAuthenticated());
-    console.log("Auth check - user:", !!req.user);
-    
-    if (!req.isAuthenticated()) {
-      console.log("User not authenticated, returning 401");
-      return res.sendStatus(401);
-    }
-    
-    // Remove sensitive fields before sending the user object
-    const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
-    console.log("Auth check successful, returning user:", safeUser.email);
-    res.json(safeUser);
-  });
-
-  // Change password for the currently authenticated user
-  app.post("/api/users/change-password", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
-      const changePasswordSchema = z.object({
-        currentPassword: z.string(),
-        newPassword: z.string()
-          .min(8, "Password must be at least 8 characters")
-          .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-          .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-          .regex(/[0-9]/, "Password must contain at least one number")
-          .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
-      });
-
-      const validatedData = changePasswordSchema.parse(req.body);
-      const userId = req.user.id;
-
-      // Get user from DB to verify current password
-      const user = await dbStorage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      // Verify current password
-      const isMatch = await dbStorage.comparePasswords(validatedData.currentPassword, user.password);
-      if (!isMatch) {
-        return res.status(400).json({ message: "Incorrect current password" });
-      }
-
-      // Hash and update new password
-      const hashedNewPassword = await dbStorage.hashPassword(validatedData.newPassword);
-      await dbStorage.updateUserPassword(userId, hashedNewPassword);
-
-      res.status(200).json({ message: "Password changed successfully" });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ errors: error.errors });
-      }
-      console.error("Error changing password:", error);
-      next(error);
-    }
-  });
-
-  // Forgot password
-  // ... existing code ...
 }
