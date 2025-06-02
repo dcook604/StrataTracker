@@ -88,8 +88,11 @@ export default function SetPasswordPage() {
         setSetSuccess(true);
         toast({
           title: 'Password Set Successfully',
-          description: 'Your password has been set. You can now log in with your new password.',
+          description: 'Your password has been set. You will be redirected to the login page shortly.',
         });
+        setTimeout(() => {
+          navigate('/auth');
+        }, 2000); // 2-second delay before redirecting
       } else {
         setError(result.message || 'Failed to set password. Please try again.');
       }
@@ -124,8 +127,8 @@ export default function SetPasswordPage() {
           ) : setSuccess ? (
             <div className="text-center py-8">
               <div className="text-green-600 text-lg font-semibold mb-2">Your password has been set!</div>
-              <div className="mb-6">You can now log in and start using the system.</div>
-              <Button className="w-full" onClick={() => navigate('/login')}>Go to Login</Button>
+              <div className="mb-6">You can now log in and start using the system. You will be redirected shortly.</div>
+              <Button className="w-full" onClick={() => navigate('/auth')}>Go to Login</Button>
             </div>
           ) : (
             <Form {...form}>
