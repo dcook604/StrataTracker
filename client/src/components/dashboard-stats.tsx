@@ -2,10 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  FileText, 
+  BarChart3, 
   Clock, 
   CheckCircle, 
-  AlertTriangle 
+  AlertTriangle,
+  XCircle
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -16,7 +17,8 @@ interface ReportStatsData {
   pendingViolations: number;
   approvedViolations: number;
   disputedViolations: number;
-  // Add other fields if necessary, like rejectedViolations, resolvedViolations, averageResolutionTimeDays
+  rejectedViolations: number;
+  // Add other fields if necessary, like resolvedViolations, averageResolutionTimeDays
 }
 
 export function DashboardStats() {
@@ -54,15 +56,9 @@ export function DashboardStats() {
 
   const statCards = [
     {
-      title: "Total Violations",
+      title: "Total",
       value: reportNumericStats.totalViolations,
-      icon: <FileText className="h-6 w-6 text-primary-600" />,
-      bgColor: "bg-primary-100",
-    },
-    {
-      title: "New",
-      value: reportNumericStats.newViolations,
-      icon: <FileText className="h-6 w-6 text-blue-600" />,
+      icon: <BarChart3 className="h-6 w-6 text-blue-600" />,
       bgColor: "bg-blue-100",
     },
     {
@@ -82,6 +78,12 @@ export function DashboardStats() {
       value: reportNumericStats.disputedViolations,
       icon: <AlertTriangle className="h-6 w-6 text-orange-600" />,
       bgColor: "bg-orange-100",
+    },
+    {
+      title: "Rejected",
+      value: reportNumericStats.rejectedViolations,
+      icon: <XCircle className="h-6 w-6 text-red-600" />,
+      bgColor: "bg-red-100",
     },
   ];
 
