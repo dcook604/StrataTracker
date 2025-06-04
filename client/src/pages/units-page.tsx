@@ -54,6 +54,7 @@ interface PatchedPropertyUnit {
   unitNumber: string;
   floor?: string | null;
   strataLot?: string | null;
+  townhouse?: boolean;
   mailingStreet1?: string | null;
   mailingStreet2?: string | null;
   mailingCity?: string | null;
@@ -81,6 +82,7 @@ const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   strataLot: z.string().optional(),
   floor: z.string().optional(),
+  townhouse: z.boolean().default(false),
   mailingStreet1: z.string().optional(),
   mailingStreet2: z.string().optional(),
   mailingCity: z.string().optional(),
@@ -141,7 +143,7 @@ export default function UnitsPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      unitNumber: "", strataLot: "", floor: "",
+      unitNumber: "", strataLot: "", floor: "", townhouse: false,
       mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
       parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
       owners: [{ ...defaultPerson }],
@@ -187,7 +189,7 @@ export default function UnitsPage() {
     if (isAddDialogOpen && !editingUnit) {
       // Adding new unit
       const resetData = {
-        unitNumber: "", strataLot: "", floor: "",
+        unitNumber: "", strataLot: "", floor: "", townhouse: false,
         mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
         parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
         owners: [{ ...defaultPerson }],
@@ -206,6 +208,7 @@ export default function UnitsPage() {
         unitNumber: editingUnit.unitNumber,
         strataLot: editingUnit.strataLot || "",
         floor: editingUnit.floor || "",
+        townhouse: editingUnit.townhouse || false,
         mailingStreet1: editingUnit.mailingStreet1 || "",
         mailingStreet2: editingUnit.mailingStreet2 || "",
         mailingCity: editingUnit.mailingCity || "",
@@ -328,7 +331,7 @@ export default function UnitsPage() {
     setIsCheckingDuplicate(false);
 
     const unitPayload = {
-      unitNumber: values.unitNumber, strataLot: values.strataLot, floor: values.floor,
+      unitNumber: values.unitNumber, strataLot: values.strataLot, floor: values.floor, townhouse: values.townhouse,
       mailingStreet1: values.mailingStreet1, mailingStreet2: values.mailingStreet2,
       mailingCity: values.mailingCity, mailingStateProvince: values.mailingStateProvince,
       mailingPostalCode: values.mailingPostalCode, mailingCountry: values.mailingCountry,
@@ -505,19 +508,15 @@ export default function UnitsPage() {
   const total = unitData?.total ?? 0;
   const units = unitData?.units ?? [];
 
-  // Auto-add facility input logic
+  // Facility input change handler - simplified without auto-add
   const handleFacilityInputChange = (
     fieldName: "parkingSpots" | "storageLockers" | "bikeLockers", 
     index: number, 
-    value: string,
-    fields: any[],
-    appendFn: (value: { identifier: string }) => void
+    value: string
   ) => {
-    form.setValue(`${fieldName}.${index}.identifier` as any, value);
-    // Only auto-add if this is the last field and user typed something
-    if (index === fields.length - 1 && value.trim() !== "") {
-      appendFn({ identifier: "" });
-    }
+    // Limit to 10 characters and allow alphanumeric
+    const cleanValue = value.slice(0, 10);
+    form.setValue(`${fieldName}.${index}.identifier` as any, cleanValue);
   };
 
   return (
@@ -706,6 +705,34 @@ export default function UnitsPage() {
                       />
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="townhouse"
+                        render={({ field }) => (
+                          <FormItem className="sm:col-span-1">
+                            <FormLabel>Townhouse</FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(value === "true")} 
+                              value={field.value ? "true" : "false"}
+                              disabled={isViewMode}
+                            >
+                              <FormControl>
+                                <SelectTrigger className={isViewMode ? "bg-gray-50 cursor-default" : ""}>
+                                  <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="false">No</SelectItem>
+                                <SelectItem value="true">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     <h4 className="text-lg font-semibold text-neutral-800 pt-4">Mailing Address</h4>
                     <FormField
                       control={form.control}
@@ -833,10 +860,11 @@ export default function UnitsPage() {
                                     placeholder={`Parking Spot ${index + 1}`} 
                                     {...field} 
                                     readOnly={isViewMode}
+                                    maxLength={10}
                                     onChange={(e) => {
                                       field.onChange(e);
                                       if (!isViewMode) {
-                                        handleFacilityInputChange("parkingSpots", index, e.target.value, parkingFields, appendParking);
+                                        handleFacilityInputChange("parkingSpots", index, e.target.value);
                                       }
                                     }}
                                     className={isViewMode ? "bg-gray-50 cursor-default" : ""}
@@ -847,15 +875,27 @@ export default function UnitsPage() {
                             )}
                           />
                           {!isViewMode && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => removeParking(index)} 
-                              disabled={parkingFields.length === 1}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => appendParking({ identifier: "" })} 
+                                title="Add parking spot"
+                              >
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => removeParking(index)} 
+                                disabled={parkingFields.length === 1}
+                                title="Remove parking spot"
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -886,10 +926,11 @@ export default function UnitsPage() {
                                     placeholder={`Storage Locker ${index + 1}`} 
                                     {...field} 
                                     readOnly={isViewMode}
+                                    maxLength={10}
                                     onChange={(e) => {
                                       field.onChange(e);
                                       if (!isViewMode) {
-                                        handleFacilityInputChange("storageLockers", index, e.target.value, storageFields, appendStorage);
+                                        handleFacilityInputChange("storageLockers", index, e.target.value);
                                       }
                                     }}
                                     className={isViewMode ? "bg-gray-50 cursor-default" : ""}
@@ -900,15 +941,27 @@ export default function UnitsPage() {
                             )}
                           />
                           {!isViewMode && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => removeStorage(index)} 
-                              disabled={storageFields.length === 1}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => appendStorage({ identifier: "" })} 
+                                title="Add storage locker"
+                              >
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => removeStorage(index)} 
+                                disabled={storageFields.length === 1}
+                                title="Remove storage locker"
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -939,10 +992,11 @@ export default function UnitsPage() {
                                     placeholder={`Bike Locker ${index + 1}`} 
                                     {...field} 
                                     readOnly={isViewMode}
+                                    maxLength={10}
                                     onChange={(e) => {
                                       field.onChange(e);
                                       if (!isViewMode) {
-                                        handleFacilityInputChange("bikeLockers", index, e.target.value, bikeFields, appendBike);
+                                        handleFacilityInputChange("bikeLockers", index, e.target.value);
                                       }
                                     }}
                                     className={isViewMode ? "bg-gray-50 cursor-default" : ""}
@@ -953,15 +1007,27 @@ export default function UnitsPage() {
                             )}
                           />
                           {!isViewMode && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => removeBike(index)} 
-                              disabled={bikeFields.length === 1}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => appendBike({ identifier: "" })} 
+                                title="Add bike locker"
+                              >
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => removeBike(index)} 
+                                disabled={bikeFields.length === 1}
+                                title="Remove bike locker"
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ))}

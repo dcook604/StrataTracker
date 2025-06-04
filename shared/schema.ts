@@ -68,6 +68,7 @@ export const propertyUnits = pgTable("property_units", {
   unitNumber: text("unit_number").notNull().unique(),
   strataLot: text("strata_lot"),
   floor: text("floor"),
+  townhouse: boolean("townhouse").default(false).notNull(),
   // Mailing address fields
   mailingStreet1: text("mailing_street1"),
   mailingStreet2: text("mailing_street2"),
@@ -103,6 +104,7 @@ export const insertPropertyUnitSchema = createInsertSchema(propertyUnits).pick({
   unitNumber: true,
   strataLot: true,
   floor: true,
+  townhouse: true,
   mailingStreet1: true,
   mailingStreet2: true,
   mailingCity: true,
