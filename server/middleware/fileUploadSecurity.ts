@@ -2,11 +2,9 @@ import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
-import { getVirusScanner } from '../services/virusScanner';
-import logger from '../utils/logger';
-
-// File type validation using magic numbers
-const fileType = require('file-type');
+import { getVirusScanner } from '../services/virusScanner.js';
+import logger from '../utils/logger.js';
+import { fileTypeFromBuffer } from 'file-type';
 
 interface SecurityValidationOptions {
   allowedMimeTypes: string[];
@@ -65,7 +63,7 @@ const createSecureFileFilter = (options: SecurityValidationOptions) => {
 const validateFileContent = async (buffer: Buffer, originalName: string, expectedMimeType: string): Promise<void> => {
   try {
     // Detect actual file type from buffer
-    const detectedType = await fileType.fromBuffer(buffer);
+    const detectedType = await fileTypeFromBuffer(buffer);
     
     if (!detectedType) {
       throw new Error('Unable to determine file type from content');
