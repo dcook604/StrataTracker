@@ -139,6 +139,14 @@ type UnitWithPeopleAndFacilities = PatchedPropertyUnit & {
   townhouse?: boolean;
 };
 
+type UnitDetailsForDelete = {
+  unit: PatchedPropertyUnit;
+  persons: (PersonForm & { role: string })[];
+  facilities: PatchedUnitFacility;
+  violationCount: number;
+  violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[];
+};
+
 export default function UnitsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -148,7 +156,7 @@ export default function UnitsPage() {
   const [isFormReady, setIsFormReady] = useState(false);
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const [deletingUnit, setDeletingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
-  const [unitToDelete, setUnitToDelete] = useState<{ unit: UnitWithPeopleAndFacilities; details: any } | null>(null);
+  const [unitToDelete, setUnitToDelete] = useState<UnitDetailsForDelete | null>(null);
   const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
@@ -334,15 +342,25 @@ export default function UnitsPage() {
   });
 
   const fetchUnitDetails = async (unitId: number) => {
-    const res = await apiRequest("GET", `/api/units/${unitId}/details`);
-    return res.json();
+    try {
+      const response = await fetch(`/api/units/${unitId}/details`);
+      if (!response.ok) throw new Error('Failed to fetch unit details');
+      const details: UnitDetailsForDelete = await response.json();
+      setUnitToDelete(details);
+    } catch (error) {
+      console.error('Error fetching unit details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch unit details for deletion",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDelete = async (unit: UnitWithPeopleAndFacilities) => {
     try {
       setDeletingUnit(unit);
-      const details = await fetchUnitDetails(unit.id);
-      setUnitToDelete({ unit, details });
+      await fetchUnitDetails(unit.id);
     } catch (error) {
       toast({ title: "Error", description: "Failed to fetch unit details", variant: "destructive" });
       setDeletingUnit(null);
@@ -1556,11 +1574,11 @@ export default function UnitsPage() {
                 </div>
               </div>
               
-              {unitToDelete.details.persons && unitToDelete.details.persons.length > 0 && (
+              {unitToDelete.persons.length > 0 && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-2">Associated People ({unitToDelete.details.persons.length})</h4>
+                  <h4 className="font-semibold text-orange-800 mb-2">Associated People ({unitToDelete.persons.length})</h4>
                   <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
-                    {unitToDelete.details.persons.map((person: any, idx: number) => (
+                    {unitToDelete.persons.map((person: any, idx: number) => (
                       <div key={idx} className="flex justify-between">
                         <span>{person.fullName} ({person.role})</span>
                         <span className="text-gray-600">{person.email}</span>
@@ -1570,30 +1588,63 @@ export default function UnitsPage() {
                 </div>
               )}
               
-              {(unitToDelete.details.facilities.parkingSpots.length > 0 || 
-                unitToDelete.details.facilities.storageLockers.length > 0 || 
-                unitToDelete.details.facilities.bikeLockers.length > 0) && (
+              {(unitToDelete.facilities?.parkingSpots?.length > 0 || 
+                unitToDelete.facilities?.storageLockers?.length > 0 || 
+                unitToDelete.facilities?.bikeLockers?.length > 0) && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-800 mb-2">Facilities</h4>
                   <div className="text-sm">
-                    {unitToDelete.details.facilities.parkingSpots.length > 0 && (
-                      <div>Parking Spots: {unitToDelete.details.facilities.parkingSpots.map((p: any) => p.identifier).join(", ")}</div>
+                    {unitToDelete.facilities?.parkingSpots?.length > 0 && (
+                      <div>Parking Spots: {unitToDelete.facilities.parkingSpots?.map((p: any) => p.identifier).join(", ")}</div>
                     )}
-                    {unitToDelete.details.facilities.storageLockers.length > 0 && (
-                      <div>Storage Lockers: {unitToDelete.details.facilities.storageLockers.map((s: any) => s.identifier).join(", ")}</div>
+                    {unitToDelete.facilities?.storageLockers?.length > 0 && (
+                      <div>Storage Lockers: {unitToDelete.facilities.storageLockers?.map((s: any) => s.identifier).join(", ")}</div>
                     )}
-                    {unitToDelete.details.facilities.bikeLockers.length > 0 && (
-                      <div>Bike Lockers: {unitToDelete.details.facilities.bikeLockers.map((b: any) => b.identifier).join(", ")}</div>
+                    {unitToDelete.facilities?.bikeLockers?.length > 0 && (
+                      <div>Bike Lockers: {unitToDelete.facilities.bikeLockers?.map((b: any) => b.identifier).join(", ")}</div>
                     )}
                   </div>
                 </div>
               )}
               
+              {unitToDelete.violationCount > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-800 mb-2">⚠️ Violations ({unitToDelete.violationCount})</h4>
+                  <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
+                    {unitToDelete.violations.map((violation) => (
+                      <div key={violation.id} className="flex justify-between">
+                        <span>#{violation.referenceNumber}</span>
+                        <span className="text-gray-600">{violation.violationType}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          violation.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          violation.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
+                          violation.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {violation.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-red-700 font-medium">
+                    All violation records, histories, and associated data will be permanently deleted!
+                  </div>
+                </div>
+              )}
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Warning</h4>
-                <p className="text-sm text-yellow-700">
-                  All violations, history records, and associated data for this unit will also be permanently deleted.
-                </p>
+                <div className="text-sm text-yellow-700">
+                  <p className="mb-2">This action cannot be undone. Deleting this unit will permanently remove:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>The unit record</li>
+                    <li>All associated owner and tenant information</li>
+                    <li>All facility assignments (parking, storage, bike lockers)</li>
+                    {unitToDelete.violationCount > 0 && (
+                      <li className="font-medium text-red-700">All {unitToDelete.violationCount} violation record(s) and their complete history</li>
+                    )}
+                  </ul>
+                </div>
               </div>
             </div>
           )}
