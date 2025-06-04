@@ -1,8 +1,61 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 
+// Global 401 handler to ensure consistent authentication behavior
+let isHandling401 = false; // Prevent multiple simultaneous redirects
+
+export function handle401Error() {
+  if (isHandling401) return; // Prevent multiple calls
+  
+  // Don't handle 401 if we're already on the auth page
+  if (typeof window !== 'undefined' && window.location.pathname === '/auth') {
+    console.log("[AUTH] 401 detected but already on auth page - skipping redirect");
+    return;
+  }
+  
+  isHandling401 = true;
+  console.log("[AUTH] 401 detected - handling automatic logout");
+  
+  // Clear any stored auth data
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    sessionStorage.clear();
+  }
+  
+  // Clear React Query cache of user data
+  queryClient.setQueryData(["/api/user"], null);
+  
+  // Clear sensitive cached data
+  queryClient.removeQueries({ 
+    predicate: (query) => {
+      const sensitiveKeys = ['/api/violations', '/api/communications', '/api/units', '/api/users'];
+      return sensitiveKeys.some(key => query.queryKey[0]?.toString().includes(key));
+    }
+  });
+  
+  // Show session expired message
+  toast({
+    title: 'Session Expired',
+    description: 'Your session has expired. Please log in again.',
+    variant: 'destructive',
+    duration: 5000,
+  });
+  
+  // Redirect to login with session expired flag
+  setTimeout(() => {
+    window.location.href = '/auth?expired=1';
+  }, 500); // Small delay to show toast
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    // Handle 401 globally
+    if (res.status === 401) {
+      handle401Error();
+      throw new Error('Session expired');
+    }
+    
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -21,18 +74,9 @@ export async function apiRequest(
       credentials: "include",
     });
 
+    // Handle 401 globally
     if (res.status === 401) {
-      // Clear session
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      // Show toast
-      toast({
-        title: 'Session Expired',
-        description: 'Your session has expired. Please log in again.',
-        variant: 'destructive',
-      });
-      // Redirect to login
-      window.location.href = '/auth?expired=1';
+      handle401Error();
       throw new Error('Session expired');
     }
 
@@ -66,8 +110,16 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    // Handle 401 globally first
+    if (res.status === 401) {
+      // For auth check queries, return null silently (don't trigger global handler)
+      if (unauthorizedBehavior === "returnNull" && queryKey[0] === "/api/user") {
+        return null;
+      }
+      
+      // For all other queries, trigger global 401 handling
+      handle401Error();
+      throw new Error('Session expired');
     }
 
     await throwIfResNotOk(res);
@@ -85,6 +137,20 @@ export const queryClient = new QueryClient({
     },
     mutations: {
       retry: false,
+      onError: (error: Error) => {
+        // If it's a session expired error, the global handler has already been called
+        if (error.message === 'Session expired') {
+          return; // Don't show additional error toast
+        }
+        
+        // For other errors, show generic error message
+        console.error('Mutation error:', error);
+      }
     },
   },
 });
+
+// Reset the 401 handling flag periodically and on successful requests
+setInterval(() => {
+  isHandling401 = false;
+}, 30000); // Reset every 30 seconds
