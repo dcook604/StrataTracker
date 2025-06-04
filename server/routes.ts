@@ -990,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Unit with Persons (owners/tenants) and Facilities
   app.post("/api/units-with-persons", ensureAuthenticated, async (req, res) => {
     try {
-      // Define schemas with proper types
+      // Define simple schemas without complex type inference
       const unitSchema = z.object({
         unitNumber: z.string(),
         strataLot: z.string().optional(),
@@ -1011,9 +1011,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storageLockers: z.array(z.string()).optional(),
         bikeLockers: z.array(z.string()).optional()
       });
-
+      
       const personSchema = z.object({
-        fullName: z.string().min(1),
+        fullName: z.string(),
         email: z.string().email(),
         phone: z.string().optional(),
         role: z.enum(["owner", "tenant"]),
@@ -1024,14 +1024,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const bodySchema = z.object({
         unit: unitSchema,
-        facilities: facilitiesSchema,
+        facilities: facilitiesSchema, 
         persons: z.array(personSchema).min(1)
       });
+
+      const parsedBody = bodySchema.parse(req.body);
       
-      type ParsedData = z.infer<typeof bodySchema>;
-      const parsed: ParsedData = bodySchema.parse(req.body);
-      
-      const result = await dbStorage.createUnitWithPersons(parsed);
+      const result = await dbStorage.createUnitWithPersons(parsedBody);
       res.status(201).json(result);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -1128,19 +1127,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // It should ideally call a dedicated updateUnitWithPersons function in dbStorage.
       // For now, we will adapt its payload to match createUnitWithPersons, but this needs review.
 
-      const unitSchema = insertPropertyUnitSchema.pick({ 
-        unitNumber: true, 
-        strataLot: true,
-        floor: true,
-        townhouse: true,
-        mailingStreet1: true,
-        mailingStreet2: true,
-        mailingCity: true,
-        mailingStateProvince: true,
-        mailingPostalCode: true,
-        mailingCountry: true,
-        phone: true,
-        notes: true
+      const unitSchema = z.object({ 
+        unitNumber: z.string(), 
+        strataLot: z.string().optional(),
+        floor: z.string().nullable().optional(),
+        townhouse: z.boolean().optional(),
+        mailingStreet1: z.string().optional(),
+        mailingStreet2: z.string().optional(),
+        mailingCity: z.string().optional(),
+        mailingStateProvince: z.string().optional(),
+        mailingPostalCode: z.string().optional(),
+        mailingCountry: z.string().optional(),
+        phone: z.string().nullable().optional(),
+        notes: z.string().optional()
       });
       
       // Update facilities schema to accept arrays of strings (new structure)

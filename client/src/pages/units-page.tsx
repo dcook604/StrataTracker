@@ -125,6 +125,7 @@ type UnitWithPeopleAndFacilities = PatchedPropertyUnit & {
   owners: PersonForm[];
   tenants: PersonForm[];
   facilities?: PatchedUnitFacility; 
+  townhouse?: boolean;
 };
 
 export default function UnitsPage() {
