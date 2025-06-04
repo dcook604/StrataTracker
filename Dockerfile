@@ -28,6 +28,8 @@ RUN apk update && apk add --no-cache \
     freshclam \
     supervisor \
     curl \
+    su-exec \
+    netcat-openbsd \
     && rm -rf /var/cache/apk/*
 
 # Create ClamAV directories and set permissions
@@ -50,9 +52,10 @@ COPY docker/clamav/clamd.conf /etc/clamav/clamd.conf
 COPY docker/clamav/freshclam.conf /etc/clamav/freshclam.conf
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/scripts/init-clamav.sh /usr/local/bin/init-clamav.sh
+COPY docker/scripts/health-check.sh /usr/local/bin/health-check.sh
 
 # Make scripts executable
-RUN chmod +x /usr/local/bin/init-clamav.sh
+RUN chmod +x /usr/local/bin/init-clamav.sh /usr/local/bin/health-check.sh
 
 # Create virus scanning quarantine directory
 RUN mkdir -p /app/quarantine && chown -R clamav:clamav /app/quarantine
@@ -60,6 +63,10 @@ RUN mkdir -p /app/quarantine && chown -R clamav:clamav /app/quarantine
 ENV NODE_ENV=production
 ENV VIRUS_SCANNING_ENABLED=true
 EXPOSE 3000
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /usr/local/bin/health-check.sh
 
 # Use supervisor to manage both Node.js app and ClamAV services
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 

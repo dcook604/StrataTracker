@@ -19,11 +19,23 @@ services:
       DATABASE_URL: postgres://spectrum4:spectrum4password@db:5432/spectrum4
       SESSION_SECRET: your-session-secret
       PUBLIC_BASE_URL: http://localhost:3001
+      VIRUS_SCANNING_ENABLED: "true"
+      CLAMAV_HOST: "127.0.0.1"
+      CLAMAV_PORT: "3310"
       # Add other env vars as needed
     ports:
       - "3001:3000"
+    volumes:
+      - clamav_data:/var/lib/clamav
+      - quarantine_data:/app/quarantine
+      - supervisor_logs:/var/log/supervisor
+      - clamav_logs:/var/log/clamav
     depends_on:
       - db
 
 volumes:
-  db_data: 
+  db_data:
+  clamav_data:
+  quarantine_data:
+  supervisor_logs:
+  clamav_logs: 
