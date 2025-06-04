@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/hooks/use-auth";
 import { LoadingProvider } from "@/contexts/loading-context";
+import { GlobalLoadingOverlay } from "@/components/global-loading-overlay";
 import { ProtectedRoute } from "@/lib/protected-route";
 import AuthPage from "@/pages/auth-page";
 import DashboardPage from "@/pages/dashboard-page";
@@ -55,6 +56,7 @@ export default function App() {
                   <Route component={NotFound} />
                 </Switch>
                 <Toaster />
+                <GlobalLoadingOverlay />
               </AuthProvider>
             </LoadingProvider>
           </TooltipProvider>
