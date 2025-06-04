@@ -179,8 +179,6 @@ export default function UnitsPage() {
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
   
   useEffect(() => {
-    console.log("Form useEffect triggered:", { isAddDialogOpen, editingUnit: !!editingUnit, isViewMode });
-    
     if (!isAddDialogOpen) {
       setIsFormReady(false);
       return;
@@ -196,7 +194,6 @@ export default function UnitsPage() {
         tenants: [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
         phone: "", notes: "",
       };
-      console.log("Resetting form for new unit:", resetData);
       form.reset(resetData);
       setIsFormReady(true);
     } else if (editingUnit) {
@@ -242,21 +239,13 @@ export default function UnitsPage() {
           : [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
       };
       
-      console.log("Resetting form for existing unit:", { unitNumber: editingUnit.unitNumber, resetData });
       form.reset(resetData);
       // Small delay to ensure form is fully reset before enabling editing
       setTimeout(() => {
-        console.log("Form ready set to true");
         setIsFormReady(true);
       }, 100);
     }
   }, [editingUnit, isAddDialogOpen, form]);
-
-  // Debug form state changes
-  const formValues = form.watch();
-  useEffect(() => {
-    console.log("Form values changed:", formValues);
-  }, [formValues]);
 
   const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeopleAndFacilities[], total: number }>({
     queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder }],
@@ -658,18 +647,6 @@ export default function UnitsPage() {
                 </div>
               ) : (
                 <>
-                  {/* Debug panel - remove after fixing */}
-                  {process.env.NODE_ENV === 'development' && !isViewMode && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
-                      <strong>Debug Info:</strong> 
-                      <br />isFormReady: {String(isFormReady)}
-                      <br />isViewMode: {String(isViewMode)}
-                      <br />editingUnit: {editingUnit?.unitNumber || 'none'}
-                      <br />unitNumber value: "{form.getValues('unitNumber')}"
-                      <br />Form state: {form.formState.isDirty ? 'dirty' : 'clean'}
-                    </div>
-                  )}
-                  
                   <div className="space-y-4">
                     <h4 className="text-lg font-semibold text-neutral-800">Unit Details</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
