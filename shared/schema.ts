@@ -238,6 +238,15 @@ export const violations = pgTable("violations", {
   attachments: jsonb("attachments").$type<string[]>().default([]),
   pdfGenerated: boolean("pdf_generated").default(false),
   pdfPath: text("pdf_path"),
+  // New violation details fields
+  incidentArea: text("incident_area"),
+  conciergeName: text("concierge_name"),
+  peopleInvolved: text("people_involved"),
+  noticedBy: text("noticed_by"),
+  damageToProperty: text("damage_to_property"), // 'yes', 'no', or null
+  damageDetails: text("damage_details"),
+  policeInvolved: text("police_involved"), // 'yes', 'no', or null
+  policeDetails: text("police_details"),
 });
 
 export const violationsRelations = relations(violations, ({ one }) => ({
@@ -266,6 +275,14 @@ export const insertViolationSchema = createInsertSchema(violations).pick({
   bylawReference: true,
   status: true,
   attachments: true,
+  incidentArea: true,
+  conciergeName: true,
+  peopleInvolved: true,
+  noticedBy: true,
+  damageToProperty: true,
+  damageDetails: true,
+  policeInvolved: true,
+  policeDetails: true,
 });
 
 // Violation history/comments schema

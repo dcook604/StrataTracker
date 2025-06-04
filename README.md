@@ -305,8 +305,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 A full-stack property violation management system for property managers, with user authentication, violation tracking, reporting, and PWA support.
 
-**Recently migrated from Replit to local Docker development environment.**
-
 ---
 
 ## 🚀 Quick Start with Docker (Recommended)
@@ -488,30 +486,6 @@ DATABASE_URL=postgres://spectrum4:spectrum4password@db:5432/spectrum4
 SESSION_SECRET=your-session-secret
 PUBLIC_BASE_URL=http://localhost:3001
 ```
-
----
-
-## 🔄 Migration from Replit
-
-This application was successfully migrated from Replit to a local Docker environment. Key changes made:
-
-### Removed Replit Dependencies
-- `@replit/vite-plugin-cartographer`
-- `@replit/vite-plugin-runtime-error-modal`
-
-### Database Migration
-- **From**: Neon cloud database (`@neondatabase/serverless`)
-- **To**: Local PostgreSQL with standard `pg` driver
-
-### Build System Updates
-- Fixed ES module/CommonJS compatibility issues
-- Updated Vite configuration for local development
-- Resolved `import.meta.dirname` bundling issues
-
-### Docker Compatibility
-- Updated to Docker Compose V2
-- Fixed container configuration issues
-- Added proper volume mounts for migrations
 
 ---
 
