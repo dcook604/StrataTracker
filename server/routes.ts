@@ -602,6 +602,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/violations/:id", ensureCouncilMember, async (req, res) => {
+    const userId = getUserId(req, res);
+    if (userId === undefined) return;
+    
+    try {
+      // Check if identifier is UUID or integer ID
+      let deleted = false;
+      if (isUUID(req.params.id)) {
+        deleted = await dbStorage.deleteViolationByUuid(req.params.id);
+      } else {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          return res.status(400).json({ message: "Invalid violation identifier" });
+        }
+        deleted = await dbStorage.deleteViolation(id);
+      }
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Violation not found" });
+      }
+      
+      logger.info(`[VIOLATION_DELETE] User ID ${userId} deleted violation ${req.params.id}`);
+      res.json({ message: "Violation deleted successfully" });
+    } catch (error) {
+      logger.error("Error deleting violation:", error);
+      res.status(500).json({ message: "Failed to delete violation" });
+    }
+  });
+
   // Reports API
   app.get("/api/reports/stats", ensureAuthenticated, async (req, res) => {
     try {

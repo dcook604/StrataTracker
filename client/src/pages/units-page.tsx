@@ -571,17 +571,104 @@ export default function UnitsPage() {
                       tabIndex={page === 1 ? -1 : 0}
                     />
                   </PaginationItem>
-                  {Array.from({ length: Math.ceil(total / pageSize) }, (_, i) => i + 1).map((p) => (
-                    <PaginationItem key={p}>
-                      <PaginationLink
-                        isActive={p === page}
-                        onClick={() => setPage(p)}
-                        href="#"
-                      >
-                        {p}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
+                  
+                  {/* Smart pagination with limited page numbers */}
+                  {(() => {
+                    const totalPages = Math.ceil(total / pageSize);
+                    const maxVisiblePages = 7; // Show max 7 page numbers
+                    const pages = [];
+                    
+                    if (totalPages <= maxVisiblePages) {
+                      // Show all pages if total is small
+                      for (let i = 1; i <= totalPages; i++) {
+                        pages.push(
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              isActive={i === page}
+                              onClick={() => setPage(i)}
+                              href="#"
+                            >
+                              {i}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                    } else {
+                      // Smart pagination for many pages
+                      const delta = Math.floor(maxVisiblePages / 2);
+                      let start = Math.max(1, page - delta);
+                      let end = Math.min(totalPages, page + delta);
+                      
+                      // Adjust if we're near the beginning or end
+                      if (page <= delta) {
+                        end = Math.min(totalPages, maxVisiblePages);
+                      } else if (page > totalPages - delta) {
+                        start = Math.max(1, totalPages - maxVisiblePages + 1);
+                      }
+                      
+                      // Add first page if we're not starting from 1
+                      if (start > 1) {
+                        pages.push(
+                          <PaginationItem key={1}>
+                            <PaginationLink
+                              isActive={1 === page}
+                              onClick={() => setPage(1)}
+                              href="#"
+                            >
+                              1
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                        if (start > 2) {
+                          pages.push(
+                            <PaginationItem key="ellipsis-start">
+                              <span className="flex h-9 w-9 items-center justify-center">...</span>
+                            </PaginationItem>
+                          );
+                        }
+                      }
+                      
+                      // Add visible page range
+                      for (let i = start; i <= end; i++) {
+                        pages.push(
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              isActive={i === page}
+                              onClick={() => setPage(i)}
+                              href="#"
+                            >
+                              {i}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                      
+                      // Add last page if we're not ending at totalPages
+                      if (end < totalPages) {
+                        if (end < totalPages - 1) {
+                          pages.push(
+                            <PaginationItem key="ellipsis-end">
+                              <span className="flex h-9 w-9 items-center justify-center">...</span>
+                            </PaginationItem>
+                          );
+                        }
+                        pages.push(
+                          <PaginationItem key={totalPages}>
+                            <PaginationLink
+                              isActive={totalPages === page}
+                              onClick={() => setPage(totalPages)}
+                              href="#"
+                            >
+                              {totalPages}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                    }
+                    
+                    return pages;
+                  })()}
+                  
                   <PaginationItem>
                     <PaginationNext
                       onClick={() => setPage((p) => Math.min(Math.ceil(total / pageSize), p + 1))}

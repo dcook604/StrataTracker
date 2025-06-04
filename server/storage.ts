@@ -175,6 +175,9 @@ export interface IStorage {
   createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink>;
   getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined>;
   markViolationAccessLinkUsed(id: number): Promise<void>;
+
+  deleteViolation(id: number): Promise<boolean>;
+  deleteViolationByUuid(uuid: string): Promise<boolean>;
 }
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
@@ -1552,6 +1555,39 @@ export class DatabaseStorage implements IStorage {
 
   async markViolationAccessLinkUsed(id: number): Promise<void> {
     await db.update(violationAccessLinks).set({ usedAt: new Date() }).where(eq(violationAccessLinks.id, id));
+  }
+
+  async deleteViolation(id: number): Promise<boolean> {
+    try {
+      return await db.transaction(async (tx) => {
+        // First, delete related records in dependent tables
+        await tx.delete(violationHistories).where(eq(violationHistories.violationId, id));
+        await tx.delete(violationAccessLinks).where(eq(violationAccessLinks.violationId, id));
+        
+        // Then delete the violation itself
+        const result = await tx.delete(violations).where(eq(violations.id, id)).returning({ id: violations.id });
+        
+        return result.length > 0;
+      });
+    } catch (error) {
+      console.error("Error deleting violation:", error);
+      throw new Error("Failed to delete violation");
+    }
+  }
+
+  async deleteViolationByUuid(uuid: string): Promise<boolean> {
+    try {
+      // First get the violation by UUID to get the integer ID
+      const violation = await this.getViolationWithUnitByUuid(uuid);
+      if (!violation) {
+        return false;
+      }
+      
+      return await this.deleteViolation(violation.id);
+    } catch (error) {
+      console.error("Error deleting violation by UUID:", error);
+      throw new Error("Failed to delete violation");
+    }
   }
 
   async deleteAllViolationsData(): Promise<{ deletedViolationsCount: number, deletedHistoriesCount: number, deletedAccessLinksCount: number }> {
