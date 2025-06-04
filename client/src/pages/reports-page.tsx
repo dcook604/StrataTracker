@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
@@ -17,7 +17,8 @@ import {
   FileSpreadsheet,
   File,
   Mail,
-  Loader2
+  Loader2,
+  Eye
 } from "lucide-react";
 import {
   PieChart,
@@ -39,6 +40,9 @@ import { Layout } from "@/components/layout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ViolationCategory } from "@shared/schema";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
 
 // Custom DateRangePicker component
 const DateRangePicker = ({ from, to, onFromChange, onToChange }: {
@@ -204,8 +208,13 @@ export default function ReportsPage() {
       id: "actions",
       cell: ({ row }) => (
         <Link href={`/violations?unitId=${row.original.unitId}`}>
-          <Button variant="link" size="sm" className="text-primary-600 hover:text-primary-900">
-            View Violations
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+            title="View violations for this unit"
+          >
+            <Eye className="h-4 w-4" />
           </Button>
         </Link>
       ),

@@ -4,8 +4,11 @@ import { Link, useLocation } from "wouter";
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/status-badge";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
@@ -13,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ViolationStatus } from "@shared/schema";
 import { format } from "date-fns";
-import { ClipboardList, AlertCircle } from "lucide-react";
+import { ClipboardList, AlertCircle, Trash2, FileSearch, Eye } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 type Violation = {
@@ -92,8 +95,13 @@ export function DashboardTabs() {
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Link href={`/violations/${row.original.uuid}`}>
-            <Button variant="link" size="sm" className="text-primary-600 hover:text-primary-900">
-              View
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+              title="View violation details"
+            >
+              <Eye className="h-4 w-4" />
             </Button>
           </Link>
         </div>

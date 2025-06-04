@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { FilterX, PlusCircle, Trash2, Loader2 } from "lucide-react";
+import { FilterX, PlusCircle, Trash2, Loader2, Eye } from "lucide-react";
 import { 
   Select,
   SelectContent,
@@ -64,8 +64,8 @@ export function ViolationsList() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Check if user is admin or council member
-  const canDelete = user && (user.isAdmin || user.isCouncilMember);
+  // All authenticated users can delete violations
+  const canDelete = !!user;
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
@@ -171,29 +171,28 @@ export function ViolationsList() {
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button 
-            variant="link"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={() => navigate(`/violations/${row.original.uuid}`)}
-            className="text-primary-600 hover:text-primary-900"
+            className="h-8 w-8 text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+            title="View violation details"
           >
-            View
+            <Eye className="h-4 w-4" />
           </Button>
           {canDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
-                  variant="link"
-                  size="sm"
-                  className="text-red-600 hover:text-red-900"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-600 hover:text-red-900 hover:bg-red-50"
                   disabled={deleteMutation.isPending}
+                  title="Delete violation"
                 >
                   {deleteMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </>
+                    <Trash2 className="h-4 w-4" />
                   )}
                 </Button>
               </AlertDialogTrigger>

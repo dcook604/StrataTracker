@@ -575,7 +575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/violations/:id", ensureCouncilMember, async (req, res) => {
+  app.delete("/api/violations/:id", ensureAuthenticated, async (req, res) => {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     

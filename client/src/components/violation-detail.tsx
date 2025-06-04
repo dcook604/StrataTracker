@@ -12,7 +12,8 @@ import {
   Calendar, 
   FileText,
   Loader2,
-  MessageCircle
+  MessageCircle,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -29,7 +30,19 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 interface ViolationDetailProps {
   id: string;
@@ -47,6 +60,7 @@ interface ViolationHistoryEntry {
 export function ViolationDetail({ id }: ViolationDetailProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [comment, setComment] = useState("");
   const [fineAmount, setFineAmount] = useState<number | "">("");
   const [showFineModal, setShowFineModal] = useState(false);
@@ -140,6 +154,31 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
     onError: (error: Error) => {
       toast({
         title: "Failed to add comment",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/violations/${id}`);
+      if (!res.ok) {
+        throw new Error(await res.text() || 'Failed to delete violation');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Violation deleted successfully",
+      });
+      navigate("/violations");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -490,6 +529,40 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                 Mark as Pending
               </Button>
             )}
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  className="w-full"
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  DELETE VIOLATION
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Violation</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this violation? This action cannot be undone and will permanently remove the violation and all its associated history, comments, and attachments.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteMutation.mutate()}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </Card>
         
