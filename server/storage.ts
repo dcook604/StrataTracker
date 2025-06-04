@@ -1701,20 +1701,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit })[]> {
-    const result = await db
-      .select({
-        violation: violations,
-        unit: propertyUnits
-      })
-      .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(eq(violations.status, 'pending_approval'))
-      .orderBy(desc(violations.createdAt));
+    try {
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .where(eq(violations.status, 'pending_approval'))
+        .orderBy(desc(violations.createdAt));
     
-    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
-      ...r.violation,
-      unit: r.unit
-    }));
+      return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+        ...r.violation,
+        unit: r.unit
+      }));
+    } catch (error) {
+      console.error(`[ERROR_DB] Failed to getPendingApprovalViolations:`, error);
+      throw error;
+    }
   }
 }
 
