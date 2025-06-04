@@ -84,6 +84,24 @@ async function getViolationByIdOrUuid(idOrUuid: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Public health endpoint for Docker health checks (no authentication required)
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Basic health check - just verify the server is responding
+      res.status(200).json({ 
+        status: "healthy", 
+        timestamp: new Date().toISOString(),
+        service: "StrataTracker API"
+      });
+    } catch (error) {
+      res.status(503).json({ 
+        status: "unhealthy", 
+        timestamp: new Date().toISOString(),
+        error: "Service unavailable"
+      });
+    }
+  });
+
   // Add helmet for security headers
   app.use(helmet());
 

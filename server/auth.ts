@@ -116,14 +116,24 @@ export function setupAuth(app: Express) {
   // Rate limiting to prevent brute force attacks
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 login requests per window
+    max: process.env.NODE_ENV === 'production' ? 5 : 10, // Stricter in production
     message: "Too many login attempts, please try again after 15 minutes",
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests: true, // Don't count successful logins
+    skip: (req) => {
+      // Skip rate limiting for health checks and other internal calls
+      return req.path === '/api/health';
+    }
   });
 
   // Generate a secure session secret if one is not provided
   const sessionSecret = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
+  
+  // Warn if using generated secret in production
+  if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
+    logger.warn('Using generated session secret. Set SESSION_SECRET environment variable for production!');
+  }
   
   const sessionSettings: session.SessionOptions = {
     store: dbStorage.sessionStore,
@@ -133,10 +143,10 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     rolling: true, // Refresh session with each request
     cookie: {
-      maxAge: 1000 * 60 * 30, // 30 minutes by default
+      maxAge: parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30') * 60 * 1000,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === 'production' && process.env.SECURE_COOKIES === 'true',
+      sameSite: process.env.NODE_ENV === 'production' ? "strict" : "lax",
       path: "/",
       domain: undefined // Allow flexible domain configuration
     }

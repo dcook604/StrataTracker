@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-spectrum4}
+      POSTGRES_USER: ${POSTGRES_USER:-spectrum4}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./migrations:/docker-entrypoint-initdb.d/migrations:ro
+    networks:
+      - stratatracker-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spectrum4} -d ${POSTGRES_DB:-spectrum4}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+  # StrataTracker Application
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Core Configuration
+      NODE_ENV: production
+      PORT: 3000
+      
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-spectrum4}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-spectrum4}
+      
+      # Security
+      SESSION_SECRET: ${SESSION_SECRET}
+      TRUST_PROXY: 1
+      SECURE_COOKIES: true
+      
+      # Application URLs
+      APP_URL: ${APP_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      
+      # Email Configuration
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+      
+      # Email Deduplication
+      EMAIL_DEDUP_TTL_HOURS: ${EMAIL_DEDUP_TTL_HOURS:-24}
+      EMAIL_CLEANUP_ENABLED: ${EMAIL_CLEANUP_ENABLED:-true}
+      EMAIL_RATE_LIMIT_MS: ${EMAIL_RATE_LIMIT_MS:-100}
+      
+      # Virus Scanning
+      VIRUS_SCANNING_ENABLED: ${VIRUS_SCANNING_ENABLED:-true}
+      CLAMAV_HOST: 127.0.0.1
+      CLAMAV_PORT: 3310
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-WARN}
+      LOG_FILES_ENABLED: true
+      
+      # Performance
+      DB_POOL_MIN: ${DB_POOL_MIN:-2}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-30}
+    
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    
+    volumes:
+      # Persistent storage for ClamAV definitions
+      - clamav_data:/var/lib/clamav
+      # Quarantine directory for infected files
+      - quarantine_data:/app/quarantine
+      # Log files
+      - app_logs:/app/logs
+      # Uploads directory
+      - uploads_data:/app/uploads
+    
+    networks:
+      - stratatracker-network
+    
+    depends_on:
+      db:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Nginx Reverse Proxy (Optional - for SSL termination)
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - stratatracker-network
+    depends_on:
+      - app
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres_data:
+    driver: local
+  clamav_data:
+    driver: local
+  quarantine_data:
+    driver: local
+  app_logs:
+    driver: local
+  uploads_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  stratatracker-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 
