@@ -136,15 +136,19 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>("email");
   const [testEmailAddress, setTestEmailAddress] = useState<string>("");
-  const [sendingTestEmail, setSendingTestEmail] = useState<boolean>(false);
   const [, navigate] = useLocation();
   const queryClientHook = useQueryClient();
+
+  // Use the new loading system
+  const emailSaveLoading = useAsyncLoading('settings-email-save');
+  const smtpSaveLoading = useAsyncLoading('settings-smtp-save');
+  const systemSaveLoading = useAsyncLoading('settings-system-save');
+  const testEmailLoading = useAsyncLoading('settings-test-email');
 
   // State for SMTP Test
   const [isSmtpTestDialogOpen, setIsSmtpTestDialogOpen] = useState(false);
   const [smtpTestStatus, setSmtpTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [smtpTestMessage, setSmtpTestMessage] = useState('');
-  const [isSavingSystemSettings, setIsSavingSystemSettings] = useState<boolean>(false);
 
   const { data: settingsResponse, isLoading: isLoadingEmailNotificationSettings } = useQuery<{settings: SystemSetting[], logoUrl?: string}>({
     queryKey: ["/api/settings"],
@@ -344,23 +348,32 @@ export default function SettingsPage() {
     }
   });
 
-  const onEmailFormSubmit = (data: EmailSettingsFormValues) => {
-    updateSettingsMutation.mutate(data);
+  const onEmailFormSubmit = async (data: EmailSettingsFormValues) => {
+    await emailSaveLoading.executeWithLoading(
+      () => updateSettingsMutation.mutateAsync(data),
+      "Saving email settings..."
+    );
   };
 
-  const onSmtpConfigSubmit = (data: SmtpConfigFormData) => {
+  const onSmtpConfigSubmit = async (data: SmtpConfigFormData) => {
     // If password is still the masked value, don't send it (let backend keep existing)
     const submitData = { ...data };
     if (data.authPass === '********') {
       // Don't include the password in the payload if it's still masked
       submitData.authPass = '********';
     }
-    saveSmtpConfigMutation.mutate(submitData);
+    await smtpSaveLoading.executeWithLoading(
+      () => saveSmtpConfigMutation.mutateAsync(submitData),
+      "Saving SMTP configuration..."
+    );
   };
 
-  const onSmtpTestSubmit = (data: SmtpTestEmailFormData) => {
+  const onSmtpTestSubmit = async (data: SmtpTestEmailFormData) => {
     const configData = smtpForm.getValues(); // Get current SMTP form values
-    testSmtpEmailMutation.mutate({ testEmail: data.testEmail, config: configData });
+    await testEmailLoading.executeWithLoading(
+      () => testSmtpEmailMutation.mutateAsync({ testEmail: data.testEmail, config: configData }),
+      "Sending test email..."
+    );
   };
 
   // Add state for system settings form and logo
@@ -688,12 +701,16 @@ export default function SettingsPage() {
                     <CardFooter className="flex flex-col md:flex-row md:justify-between gap-4 border-t pt-6 px-0">
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
                         <Input className="w-full sm:w-64" placeholder="Enter email for test" value={testEmailAddress} onChange={(e) => setTestEmailAddress(e.target.value)} />
-                        <Button type="button" variant="outline" onClick={() => setIsSmtpTestDialogOpen(true)} disabled={sendingTestEmail} className="w-full sm:w-auto">
-                          {sendingTestEmail ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : "Test Email"}
+                        <Button type="button" variant="outline" onClick={() => setIsSmtpTestDialogOpen(true)} disabled={testEmailLoading.isLoading} className="w-full sm:w-auto">
+                          {testEmailLoading.isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : "Test Email"}
                         </Button>
                       </div>
-                      <Button type="submit" disabled={updateSettingsMutation.isPending} className="w-full md:w-auto">
-                        {updateSettingsMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : "Save Settings"}
+                      <Button type="submit" disabled={emailSaveLoading.isLoading} className="w-full md:w-auto">
+                        {emailSaveLoading.isLoading ? (
+                          <ButtonLoading message="Saving Settings" showMessage={true} />
+                        ) : (
+                          "Save Settings"
+                        )}
                       </Button>
                     </CardFooter>
                   </form>
@@ -817,8 +834,12 @@ export default function SettingsPage() {
                       )}
                     />
                     <CardFooter className="flex flex-col md:flex-row md:justify-end gap-4 px-0 pt-6 border-t">
-                      <Button type="submit" disabled={saveSmtpConfigMutation.isPending} className="w-full md:w-auto">
-                        {saveSmtpConfigMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving SMTP...</>) : "Save SMTP Settings"}
+                      <Button type="submit" disabled={smtpSaveLoading.isLoading} className="w-full md:w-auto">
+                        {smtpSaveLoading.isLoading ? (
+                          <ButtonLoading message="Saving SMTP Settings" showMessage={true} />
+                        ) : (
+                          "Save SMTP Settings"
+                        )}
                       </Button>
                     </CardFooter>
                   </form>
@@ -1103,10 +1124,9 @@ export default function SettingsPage() {
                   </div>
                   <Button
                     type="button"
-                    disabled={isSavingSystemSettings}
+                    disabled={systemSaveLoading.isLoading}
                     onClick={async () => {
-                      setIsSavingSystemSettings(true);
-                      try {
+                      await systemSaveLoading.executeWithLoading(async () => {
                         // Save all system settings fields
                         const updates = [
                           { settingKey: 'strata_name', settingValue: systemForm.strataName },
@@ -1127,23 +1147,11 @@ export default function SettingsPage() {
                         }
                         toast({ title: "Settings Updated", description: "General system settings updated." });
                         queryClientHook.invalidateQueries({ queryKey: ["/api/settings"] });
-                      } catch (error) {
-                        console.error("Failed to save system settings:", error);
-                        toast({
-                          title: "Error",
-                          description: "Failed to save system settings. Please try again.",
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setIsSavingSystemSettings(false);
-                      }
+                      }, "Saving general settings...");
                     }}
                   >
-                    {isSavingSystemSettings ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
+                    {systemSaveLoading.isLoading ? (
+                      <ButtonLoading message="Saving Settings" showMessage={true} />
                     ) : (
                       "Save General Settings"
                     )}
