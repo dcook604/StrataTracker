@@ -990,22 +990,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Unit with Persons (owners/tenants) and Facilities
   app.post("/api/units-with-persons", ensureAuthenticated, async (req, res) => {
     try {
-      // Validate input - include all new fields
-      const unitSchema = insertPropertyUnitSchema.pick({ 
-        unitNumber: true, 
-        strataLot: true,
-        floor: true,
-        mailingStreet1: true,
-        mailingStreet2: true,
-        mailingCity: true,
-        mailingStateProvince: true,
-        mailingPostalCode: true,
-        mailingCountry: true,
-        phone: true,
-        notes: true
+      // Define schemas with proper types
+      const unitSchema = z.object({
+        unitNumber: z.string(),
+        strataLot: z.string().optional(),
+        floor: z.string().nullable().optional(),
+        mailingStreet1: z.string().optional(),
+        mailingStreet2: z.string().optional(),
+        mailingCity: z.string().optional(),
+        mailingStateProvince: z.string().optional(),
+        mailingPostalCode: z.string().optional(),
+        mailingCountry: z.string().optional(),
+        phone: z.string().nullable().optional(),
+        notes: z.string().optional()
       });
       
-      // Update facilities schema to accept arrays of strings
       const facilitiesSchema = z.object({
         parkingSpots: z.array(z.string()).optional(),
         storageLockers: z.array(z.string()).optional(),
@@ -1028,9 +1027,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         persons: z.array(personSchema).min(1)
       });
       
-      const parsed = bodySchema.parse(req.body);
-      // The dbStorage.createUnitWithPersons function expects facilities without id, unitId, createdAt, updatedAt
-      // Our facilitiesSchema already aligns with this for the pick.
+      type ParsedData = z.infer<typeof bodySchema>;
+      const parsed: ParsedData = bodySchema.parse(req.body);
+      
       const result = await dbStorage.createUnitWithPersons(parsed);
       res.status(201).json(result);
     } catch (error: any) {
