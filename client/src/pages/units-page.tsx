@@ -28,7 +28,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, TrashIcon as DeleteIcon, BuildingIcon, Trash2, EyeIcon } from "lucide-react";
+import { PencilIcon, TrashIcon as DeleteIcon, BuildingIcon, Trash2, EyeIcon, PlusIcon } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -558,13 +558,30 @@ export default function UnitsPage() {
       }}>
         <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col">
           <DialogHeader className="p-6 pb-4 border-b">
-            <DialogTitle>
-              {isViewMode ? "View Unit" : editingUnit ? "Edit Unit" : "Add New Unit"}
+            <DialogTitle className="flex items-center gap-2">
+              {isViewMode ? (
+                <>
+                  <EyeIcon className="h-5 w-5 text-blue-600" />
+                  View Unit {editingUnit?.unitNumber}
+                </>
+              ) : editingUnit ? (
+                <>
+                  <PencilIcon className="h-5 w-5 text-green-600" />
+                  Edit Unit {editingUnit.unitNumber}
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="h-5 w-5 text-blue-600" />
+                  Add New Unit
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
               {isViewMode 
-                ? "View the details of this unit."
-                : "Enter the details for the new unit, including facilities, owners, and tenants."
+                ? "View the details of this unit. Click the edit button in the table to make changes."
+                : editingUnit 
+                  ? "Edit the details for this unit, including facilities, owners, and tenants."
+                  : "Enter the details for the new unit, including facilities, owners, and tenants."
               }
             </DialogDescription>
           </DialogHeader>
@@ -580,7 +597,7 @@ export default function UnitsPage() {
                       <FormItem className="sm:col-span-1">
                         <FormLabel>Unit Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 203" {...field} disabled={isViewMode} />
+                          <Input placeholder="e.g. 203" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -593,7 +610,7 @@ export default function UnitsPage() {
                       <FormItem className="sm:col-span-1">
                         <FormLabel>Strata Lot</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 15" {...field} disabled={isViewMode} />
+                          <Input placeholder="e.g. 15" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -606,7 +623,7 @@ export default function UnitsPage() {
                       <FormItem className="sm:col-span-1">
                         <FormLabel>Floor</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 2" {...field} disabled={isViewMode} />
+                          <Input placeholder="e.g. 2" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -621,7 +638,7 @@ export default function UnitsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Street Address 1</FormLabel>
-                      <FormControl><Input placeholder="e.g. 123 Main St" {...field} disabled={isViewMode} /></FormControl>
+                      <FormControl><Input placeholder="e.g. 123 Main St" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -632,7 +649,7 @@ export default function UnitsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Street Address 2 (Optional)</FormLabel>
-                      <FormControl><Input placeholder="e.g. Apt #100" {...field} disabled={isViewMode} /></FormControl>
+                      <FormControl><Input placeholder="e.g. Apt #100" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -644,7 +661,7 @@ export default function UnitsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>City</FormLabel>
-                        <FormControl><Input placeholder="e.g. Vancouver" {...field} disabled={isViewMode} /></FormControl>
+                        <FormControl><Input placeholder="e.g. Vancouver" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -655,7 +672,7 @@ export default function UnitsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>State/Province</FormLabel>
-                        <FormControl><Input placeholder="e.g. BC" {...field} disabled={isViewMode} /></FormControl>
+                        <FormControl><Input placeholder="e.g. BC" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -666,7 +683,7 @@ export default function UnitsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Postal/Zip Code</FormLabel>
-                        <FormControl><Input placeholder="e.g. V6A 1A1" {...field} disabled={isViewMode} /></FormControl>
+                        <FormControl><Input placeholder="e.g. V6A 1A1" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -678,7 +695,7 @@ export default function UnitsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country</FormLabel>
-                      <FormControl><Input placeholder="e.g. Canada" {...field} disabled={isViewMode} /></FormControl>
+                      <FormControl><Input placeholder="e.g. Canada" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -698,13 +715,14 @@ export default function UnitsPage() {
                               <Input 
                                 placeholder={`Parking Spot ${index + 1}`} 
                                 {...field} 
-                                disabled={isViewMode}
+                                readOnly={isViewMode}
                                 onChange={(e) => {
                                   field.onChange(e);
                                   if (!isViewMode) {
                                     handleFacilityInputChange("parkingSpots", index, e.target.value, parkingFields, appendParking);
                                   }
                                 }}
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                               />
                             </FormControl>
                             <FormMessage />
@@ -750,13 +768,14 @@ export default function UnitsPage() {
                               <Input 
                                 placeholder={`Storage Locker ${index + 1}`} 
                                 {...field} 
-                                disabled={isViewMode}
+                                readOnly={isViewMode}
                                 onChange={(e) => {
                                   field.onChange(e);
                                   if (!isViewMode) {
                                     handleFacilityInputChange("storageLockers", index, e.target.value, storageFields, appendStorage);
                                   }
                                 }}
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                               />
                             </FormControl>
                             <FormMessage />
@@ -802,13 +821,14 @@ export default function UnitsPage() {
                               <Input 
                                 placeholder={`Bike Locker ${index + 1}`} 
                                 {...field} 
-                                disabled={isViewMode}
+                                readOnly={isViewMode}
                                 onChange={(e) => {
                                   field.onChange(e);
                                   if (!isViewMode) {
                                     handleFacilityInputChange("bikeLockers", index, e.target.value, bikeFields, appendBike);
                                   }
                                 }}
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                               />
                             </FormControl>
                             <FormMessage />
@@ -854,7 +874,8 @@ export default function UnitsPage() {
                         aria-label={`Owner ${idx + 1} Full Name`} 
                         value={owner.fullName} 
                         onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'fullName', e.target.value)}
-                        disabled={isViewMode}
+                        readOnly={isViewMode}
+                        className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                       />
                       <Input 
                         placeholder="Email *" 
@@ -862,7 +883,8 @@ export default function UnitsPage() {
                         type="email" 
                         value={owner.email} 
                         onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'email', e.target.value)}
-                        disabled={isViewMode}
+                        readOnly={isViewMode}
+                        className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                       />
                     </div>
                     <Input 
@@ -870,7 +892,8 @@ export default function UnitsPage() {
                       aria-label={`Owner ${idx + 1} Phone`} 
                       value={owner.phone} 
                       onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'phone', e.target.value)}
-                      disabled={isViewMode}
+                      readOnly={isViewMode}
+                      className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                     />
                     <div className="flex items-center space-x-2 pt-1">
                       <Checkbox 
@@ -883,7 +906,7 @@ export default function UnitsPage() {
                         Receive Email Notifications
                       </label>
                     </div>
-                    <div className="flex items-center space-x-4 pt-1">
+                    <div className="flex items-center space-x-4 pt-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id={`ownerHasCat${idx}`} 
@@ -930,7 +953,8 @@ export default function UnitsPage() {
                         aria-label={`Tenant ${idx + 1} Full Name`} 
                         value={tenant.fullName} 
                         onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'fullName', e.target.value)}
-                        disabled={isViewMode}
+                        readOnly={isViewMode}
+                        className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                       />
                       <Input 
                         placeholder="Email" 
@@ -938,7 +962,8 @@ export default function UnitsPage() {
                         type="email" 
                         value={tenant.email} 
                         onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'email', e.target.value)}
-                        disabled={isViewMode}
+                        readOnly={isViewMode}
+                        className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                       />
                     </div>
                     <Input 
@@ -946,7 +971,8 @@ export default function UnitsPage() {
                       aria-label={`Tenant ${idx + 1} Phone`} 
                       value={tenant.phone} 
                       onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'phone', e.target.value)}
-                      disabled={isViewMode}
+                      readOnly={isViewMode}
+                      className={isViewMode ? "bg-gray-50 cursor-default" : ""}
                     />
                     <div className="flex items-center space-x-2 pt-1">
                       <Checkbox 
@@ -959,7 +985,7 @@ export default function UnitsPage() {
                         Receive Email Notifications
                       </label>
                     </div>
-                    <div className="flex items-center space-x-4 pt-1">
+                    <div className="flex items-center space-x-4 pt-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id={`tenantHasCat${idx}`} 
@@ -996,8 +1022,8 @@ export default function UnitsPage() {
                   <p className="text-xs text-neutral-500 italic">No tenants added. Click 'Add Tenant' to include tenant details.</p>
                 )}
               </div>
-              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Unit Contact Phone (Optional)</FormLabel><FormControl><Input placeholder="e.g. 555-1234" {...field} disabled={isViewMode} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Input placeholder="e.g. Entry code #123" {...field} disabled={isViewMode} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Unit Contact Phone (Optional)</FormLabel><FormControl><Input placeholder="e.g. 555-1234" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Input placeholder="e.g. Entry code #123" {...field} readOnly={isViewMode} className={isViewMode ? "bg-gray-50 cursor-default" : ""} /></FormControl><FormMessage /></FormItem>)} />
 
               <DialogFooter className="px-6 py-4 border-t sticky bottom-0 bg-white z-10">
                 {isViewMode ? (
