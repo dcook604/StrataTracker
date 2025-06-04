@@ -75,7 +75,7 @@
     @apply text-lg font-medium;
     min-height: 44px; /* iOS minimum touch target */
     
-    /* Enhance the calendar picker indicator */
+    /* Keep the calendar picker indicator styling - this works well */
     &::-webkit-calendar-picker-indicator {
       width: 24px;
       height: 24px;
@@ -89,62 +89,14 @@
     &::-webkit-calendar-picker-indicator:hover {
       filter: brightness(0) saturate(100%) invert(16%) sepia(82%) saturate(2580%) hue-rotate(213deg) brightness(93%) contrast(96%);
     }
+  }
+  
+  /* Simplified time input styling - remove problematic webkit field styling */
+  .ios-time-input {
+    /* Only apply minimal, non-intrusive styling for time inputs */
+    font-size: 16px; /* Prevent iOS zoom */
     
-    /* Enhanced date/time editing fields */
-    &::-webkit-datetime-edit {
-      padding: 8px 12px;
-      border-radius: 6px;
-      background-color: transparent;
-      font-size: 16px;
-      font-weight: 500;
-      color: hsl(var(--foreground));
-    }
-    
-    &::-webkit-datetime-edit-fields-wrapper {
-      padding: 0;
-      background-color: transparent;
-    }
-    
-    &::-webkit-datetime-edit-text {
-      padding: 0 4px;
-      color: hsl(var(--muted-foreground));
-      font-weight: 400;
-    }
-    
-    /* Individual field styling */
-    &::-webkit-datetime-edit-year-field,
-    &::-webkit-datetime-edit-month-field,
-    &::-webkit-datetime-edit-day-field,
-    &::-webkit-datetime-edit-hour-field,
-    &::-webkit-datetime-edit-minute-field {
-      padding: 4px 6px;
-      border-radius: 4px;
-      background-color: hsl(var(--secondary));
-      color: hsl(var(--foreground));
-      font-weight: 600;
-      min-width: 32px;
-      text-align: center;
-    }
-    
-    &::-webkit-datetime-edit-ampm-field {
-      padding: 4px 8px;
-      border-radius: 4px;
-      background-color: hsl(var(--primary));
-      color: hsl(var(--primary-foreground));
-      font-weight: 600;
-      text-align: center;
-    }
-    
-    /* Focus states */
-    &:focus::-webkit-datetime-edit-year-field:focus,
-    &:focus::-webkit-datetime-edit-month-field:focus,
-    &:focus::-webkit-datetime-edit-day-field:focus,
-    &:focus::-webkit-datetime-edit-hour-field:focus,
-    &:focus::-webkit-datetime-edit-minute-field:focus {
-      background-color: hsl(var(--accent));
-      outline: 2px solid hsl(var(--ring));
-      outline-offset: 1px;
-    }
+    /* Remove all the problematic webkit-datetime-edit styling that was causing visual issues */
   }
   
   /* Dark mode adjustments */
@@ -169,36 +121,12 @@
         height: 28px;
         margin-right: 12px;
       }
-      
-      &::-webkit-datetime-edit {
-        font-size: 18px;
-        padding: 10px 14px;
-      }
-      
-      &::-webkit-datetime-edit-year-field,
-      &::-webkit-datetime-edit-month-field,
-      &::-webkit-datetime-edit-day-field,
-      &::-webkit-datetime-edit-hour-field,
-      &::-webkit-datetime-edit-minute-field {
-        min-width: 36px;
-        padding: 6px 8px;
-        font-size: 16px;
-      }
     }
   }
   
   /* High contrast mode for accessibility */
   @media (prefers-contrast: high) {
     .ios-date-input, .ios-time-input {
-      &::-webkit-datetime-edit-year-field,
-      &::-webkit-datetime-edit-month-field,
-      &::-webkit-datetime-edit-day-field,
-      &::-webkit-datetime-edit-hour-field,
-      &::-webkit-datetime-edit-minute-field {
-        border: 2px solid hsl(var(--border));
-        background-color: hsl(var(--background));
-      }
-      
       &::-webkit-calendar-picker-indicator {
         filter: contrast(200%);
       }
