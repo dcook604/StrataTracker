@@ -130,7 +130,7 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate("/user-profile")}>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profile")}>Profile</DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => logoutMutation.mutate()} 
                   disabled={logoutMutation.isPending}

@@ -56,9 +56,25 @@ export function Sidebar({ className }: SidebarProps) {
       href: "/violations",
     },
     {
+      title: "New Violation",
+      icon: <PlusCircle className="h-5 w-5" />,
+      href: "/violations/new",
+    },
+    {
+      title: "Units",
+      icon: <Users className="h-5 w-5" />,
+      href: "/units", 
+      adminOnly: true,
+    },
+    {
       title: "Bylaws",
       icon: <BookOpen className="h-5 w-5" />,
       href: "/bylaws",
+    },
+    {
+      title: "Reports",
+      icon: <BarChart className="h-5 w-5" />,
+      href: "/reports",
     },
     {
       title: "Categories",
@@ -73,25 +89,9 @@ export function Sidebar({ className }: SidebarProps) {
       adminOrCouncil: true,
     },
     {
-      title: "New Violation",
-      icon: <PlusCircle className="h-5 w-5" />,
-      href: "/violations/new",
-    },
-    {
-      title: "Reports",
-      icon: <BarChart className="h-5 w-5" />,
-      href: "/reports",
-    },
-    {
       title: "Settings",
       icon: <Settings className="h-5 w-5" />,
       href: "/settings",
-      adminOnly: true,
-    },
-    {
-      title: "Units",
-      icon: <Users className="h-5 w-5" />,
-      href: "/units", 
       adminOnly: true,
     },
   ];
