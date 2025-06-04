@@ -89,18 +89,18 @@ export function useLoading() {
 export function useAsyncLoading(key: string) {
   const { setLoading, isLoading, getLoadingMessage } = useLoading();
 
-  const executeWithLoading = useCallback(async <T>(
-    asyncFn: () => Promise<T>,
-    loadingMessage?: string
-  ): Promise<T> => {
-    try {
-      setLoading(key, true, loadingMessage);
-      const result = await asyncFn();
-      return result;
-    } finally {
-      setLoading(key, false);
-    }
-  }, [key, setLoading]);
+  const executeWithLoading = useCallback(
+    async (asyncFn: () => Promise<any>, loadingMessage?: string): Promise<any> => {
+      try {
+        setLoading(key, true, loadingMessage);
+        const result = await asyncFn();
+        return result;
+      } finally {
+        setLoading(key, false);
+      }
+    },
+    [key, setLoading]
+  );
 
   return {
     executeWithLoading,
