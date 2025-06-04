@@ -49,6 +49,14 @@ const violationFormSchema = z.object({
   attachments: z.array(z.any()).optional(),
   unitNumber: z.string().optional(),
   floor: z.string().optional(),
+  incidentArea: z.string().optional(),
+  conciergeName: z.string().optional(),
+  peopleInvolved: z.string().optional(),
+  noticedBy: z.string().optional(),
+  damageToProperty: z.enum(["yes", "no", ""]).optional(),
+  damageDetails: z.string().optional(),
+  policeInvolved: z.enum(["yes", "no", ""]).optional(),
+  policeDetails: z.string().optional(),
 });
 
 export function ViolationForm() {
@@ -99,6 +107,14 @@ export function ViolationForm() {
       attachments: [],
       unitNumber: '',
       floor: '',
+      incidentArea: '',
+      conciergeName: '',
+      peopleInvolved: '',
+      noticedBy: '',
+      damageToProperty: '',
+      damageDetails: '',
+      policeInvolved: '',
+      policeDetails: '',
     },
   });
 
@@ -113,6 +129,8 @@ export function ViolationForm() {
 
   const watchUnitId = form.watch("unitId");
   const watchCategoryId = form.watch("categoryId");
+  const watchDamageToProperty = form.watch("damageToProperty");
+  const watchPoliceInvolved = form.watch("policeInvolved");
 
   // Effect to update violationType when categoryId changes
   useEffect(() => {
@@ -141,6 +159,16 @@ export function ViolationForm() {
       formData.append("description", data.description);
       formData.append("bylawReference", data.bylawReference || "");
       formData.append("status", data.status);
+      
+      // Add new violation details fields
+      if (data.incidentArea) formData.append("incidentArea", data.incidentArea);
+      if (data.conciergeName) formData.append("conciergeName", data.conciergeName);
+      if (data.peopleInvolved) formData.append("peopleInvolved", data.peopleInvolved);
+      if (data.noticedBy) formData.append("noticedBy", data.noticedBy);
+      if (data.damageToProperty) formData.append("damageToProperty", data.damageToProperty);
+      if (data.damageDetails) formData.append("damageDetails", data.damageDetails);
+      if (data.policeInvolved) formData.append("policeInvolved", data.policeInvolved);
+      if (data.policeDetails) formData.append("policeDetails", data.policeDetails);
       
       // Add attachments
       attachments.forEach((file) => {
@@ -262,7 +290,12 @@ export function ViolationForm() {
                       <FormItem>
                         <FormLabel>Date of Violation *</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <Input 
+                            type="date" 
+                            {...field} 
+                            className="text-base sm:text-sm"
+                            style={{ fontSize: '16px' }} // Prevent iOS zoom
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -276,7 +309,12 @@ export function ViolationForm() {
                       <FormItem>
                         <FormLabel>Time of Violation (approximate)</FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} />
+                          <Input 
+                            type="time" 
+                            {...field} 
+                            className="text-base sm:text-sm"
+                            style={{ fontSize: '16px' }} // Prevent iOS zoom
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
