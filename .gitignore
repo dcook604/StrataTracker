@@ -1,26 +1,74 @@
+# Dependencies
 node_modules
+.npm
+
+# Build outputs
 dist
 .DS_Store
 server/public
 vite.config.ts.*
-*.tar.gz
-.cursorrules
-.cusor-server
-.cache
-.vscode
-.npm
+
+# Environment files
 .env
-logs/*
-logs/*.log
-.cursor-server/**/node
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
 logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+dev.log
+docker_build.log
+
+# Runtime data
 pids
 *.pid
 *.seed
-coverage
 
-# Dependency directories
-node_modules
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# Archives
+*.tar.gz
+
+# IDE and editor files
+.cursorrules
+.cursor-server
+.cursor
+.vscode
+.vscode-server
+
+# Cache directories
+.cache
 .npm
+.eslintcache
+.parcel-cache
+
+# Local development files
+.config
+.local
+.docker
+
+# Personal shell/system files (should never be in any repo)
+.bash_history
+.bash_logout
+.bashrc
+.profile
+.lesshst
+.gitconfig
+.sudo_as_admin_successful
+.replit
+
+# Upload directories
+uploads/*
+!uploads/.gitkeep
+
+# Temporary files
+*.tmp
+*.temp
