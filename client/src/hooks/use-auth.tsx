@@ -35,6 +35,8 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  
+  // Check authentication status - use returnNull to prevent automatic logout on initial load
   const {
     data: user,
     error,
@@ -42,6 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<SafeUser | undefined, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Identify user in LogRocket when user data changes
@@ -136,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({
         title: "Logging out...",
         description: "Please wait while we securely log you out",
-        duration: 2000, // Short duration as we'll replace it
+        duration: 2000,
       });
     },
     onSuccess: () => {

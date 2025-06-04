@@ -28,7 +28,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, TrashIcon as DeleteIcon, BuildingIcon, Trash2, EyeIcon } from "lucide-react";
+import { PencilIcon, TrashIcon as DeleteIcon, BuildingIcon, Trash2, EyeIcon, PlusIcon, Loader2 } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,6 +68,15 @@ interface PatchedPropertyUnit {
 }
 // END: Temporary Local Type Definitions
 
+const personSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Invalid email").min(1, "Email is required"),
+  phone: z.string().optional(),
+  receiveEmailNotifications: z.boolean().default(true),
+  hasCat: z.boolean().default(false),
+  hasDog: z.boolean().default(false),
+});
+
 const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   strataLot: z.string().optional(),
@@ -81,12 +90,11 @@ const formSchema = z.object({
   parkingSpots: z.array(z.object({ identifier: z.string() })),
   storageLockers: z.array(z.object({ identifier: z.string() })),
   bikeLockers: z.array(z.object({ identifier: z.string() })),
-  ownerName: z.string().min(1, "Owner name is required").optional(),
-  ownerEmail: z.string().email("Invalid email").min(1, "Owner email is required").optional(),
-  ownerReceiveNotifications: z.boolean().default(true).optional(),
-  tenantName: z.string().optional(),
-  tenantEmail: z.string().email("Invalid email").optional().or(z.literal("")),
-  tenantReceiveNotifications: z.boolean().default(true).optional(),
+  owners: z.array(personSchema),
+  tenants: z.array(personSchema.partial().extend({ // Tenants can be partially filled or empty initially
+    fullName: z.string().optional(),
+    email: z.string().email("Invalid email").optional().or(z.literal("")),
+  })),
   phone: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -107,6 +115,10 @@ type PersonForm = {
   hasDog?: boolean;
 };
 
+type PersonFormWithRole = PersonForm & {
+  role: 'owner' | 'tenant';
+};
+
 type UnitWithPeopleAndFacilities = PatchedPropertyUnit & { 
   owners: PersonForm[];
   tenants: PersonForm[];
@@ -123,9 +135,8 @@ export default function UnitsPage() {
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [isFormReady, setIsFormReady] = useState(false);
   const defaultPerson = { fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false };
-  const [owners, setOwners] = useState([defaultPerson]);
-  const [tenants, setTenants] = useState([defaultPerson]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -133,10 +144,11 @@ export default function UnitsPage() {
       unitNumber: "", strataLot: "", floor: "",
       mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
       parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
-      ownerName: "", ownerEmail: "", ownerReceiveNotifications: true,
-      tenantName: "", tenantEmail: "", tenantReceiveNotifications: true,
+      owners: [{ ...defaultPerson }],
+      tenants: [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
       phone: "", notes: "",
-    }
+    },
+    mode: "onChange" // Enable real-time validation and updates
   });
 
   const { fields: parkingFields, append: appendParking, remove: removeParking } = useFieldArray({
@@ -152,29 +164,48 @@ export default function UnitsPage() {
     name: "bikeLockers" as const,
   });
 
+  const { fields: ownerFields, append: appendOwner, remove: removeOwner } = useFieldArray({
+    control: form.control,
+    name: "owners"
+  });
+
+  const { fields: tenantFields, append: appendTenant, remove: removeTenant } = useFieldArray({
+    control: form.control,
+    name: "tenants"
+  });
+
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
   
   useEffect(() => {
+    console.log("Form useEffect triggered:", { isAddDialogOpen, editingUnit: !!editingUnit, isViewMode });
+    
+    if (!isAddDialogOpen) {
+      setIsFormReady(false);
+      return;
+    }
+
     if (isAddDialogOpen && !editingUnit) {
-      form.reset({
+      // Adding new unit
+      const resetData = {
         unitNumber: "", strataLot: "", floor: "",
         mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
         parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
-        ownerName: "", ownerEmail: "", ownerReceiveNotifications: true,
-        tenantName: "", tenantEmail: "", tenantReceiveNotifications: true,
+        owners: [{ ...defaultPerson }],
+        tenants: [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
         phone: "", notes: "",
-      });
-
-      setOwners([{ ...defaultPerson }]);
-      setTenants([{ ...defaultPerson }]);
+      };
+      console.log("Resetting form for new unit:", resetData);
+      form.reset(resetData);
+      setIsFormReady(true);
     } else if (editingUnit) {
+      // Editing existing unit
       const parkingSpots = editingUnit.facilities?.parkingSpots?.map(p => p.identifier || "") || [];
       const storageLockers = editingUnit.facilities?.storageLockers?.map(s => s.identifier || "") || [];
       const bikeLockers = editingUnit.facilities?.bikeLockers?.map(b => b.identifier || "") || [];
       
-      form.reset({
+      const resetData = {
         unitNumber: editingUnit.unitNumber,
         strataLot: editingUnit.strataLot || "",
         floor: editingUnit.floor || "",
@@ -189,17 +220,43 @@ export default function UnitsPage() {
         bikeLockers: bikeLockers.length > 0 ? bikeLockers.map(b => ({ identifier: b })) : [{ identifier: "" }],
         phone: editingUnit.phone || "",
         notes: editingUnit.notes || "",
-        ownerName: editingUnit.owners?.[0]?.fullName || "",
-        ownerEmail: editingUnit.owners?.[0]?.email || "",
-        ownerReceiveNotifications: editingUnit.owners?.[0]?.receiveEmailNotifications ?? true,
-        tenantName: editingUnit.tenants?.[0]?.fullName || "",
-        tenantEmail: editingUnit.tenants?.[0]?.email || "",
-        tenantReceiveNotifications: editingUnit.tenants?.[0]?.receiveEmailNotifications ?? true,
-      });
-      setOwners(editingUnit.owners && editingUnit.owners.length > 0 ? editingUnit.owners.map(o => ({ ...defaultPerson, ...o, phone: typeof o.phone === 'string' ? o.phone : "" })) : [{ ...defaultPerson }]);
-      setTenants(editingUnit.tenants && editingUnit.tenants.length > 0 ? editingUnit.tenants.map(t => ({ ...defaultPerson, ...t, phone: typeof t.phone === 'string' ? t.phone : "" })) : [{ ...defaultPerson }]);
+        owners: editingUnit.owners && editingUnit.owners.length > 0 
+          ? editingUnit.owners.map(o => ({ 
+              fullName: o.fullName || "", 
+              email: o.email || "", 
+              phone: o.phone || "", 
+              receiveEmailNotifications: Boolean(o.receiveEmailNotifications), 
+              hasCat: Boolean(o.hasCat), 
+              hasDog: Boolean(o.hasDog) 
+            })) 
+          : [{ ...defaultPerson }],
+        tenants: editingUnit.tenants && editingUnit.tenants.length > 0 
+          ? editingUnit.tenants.map(t => ({ 
+              fullName: t.fullName || "", 
+              email: t.email || "", 
+              phone: t.phone || "", 
+              receiveEmailNotifications: Boolean(t.receiveEmailNotifications), 
+              hasCat: Boolean(t.hasCat), 
+              hasDog: Boolean(t.hasDog) 
+            })) 
+          : [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
+      };
+      
+      console.log("Resetting form for existing unit:", { unitNumber: editingUnit.unitNumber, resetData });
+      form.reset(resetData);
+      // Small delay to ensure form is fully reset before enabling editing
+      setTimeout(() => {
+        console.log("Form ready set to true");
+        setIsFormReady(true);
+      }, 100);
     }
-  }, [editingUnit, isAddDialogOpen, form, defaultPerson]);
+  }, [editingUnit, isAddDialogOpen, form]);
+
+  // Debug form state changes
+  const formValues = form.watch();
+  useEffect(() => {
+    console.log("Form values changed:", formValues);
+  }, [formValues]);
 
   const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeopleAndFacilities[], total: number }>({
     queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder }],
@@ -225,7 +282,7 @@ export default function UnitsPage() {
   });
   
   const createMutation = useMutation({
-    mutationFn: async (data: { unit: any; facilities: any; persons: PersonForm[] }) => {
+    mutationFn: async (data: { unit: any; facilities: any; persons: PersonFormWithRole[] }) => {
       return apiRequest("POST", "/api/units-with-persons", data);
     },
     onSuccess: () => {
@@ -233,13 +290,14 @@ export default function UnitsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/units"] });
       queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
       setIsAddDialogOpen(false);
-      form.reset();
+      setEditingUnit(null);
+      setIsFormReady(false);
     },
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" })
   });
   
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: number; unit: any; facilities: any; persons: PersonForm[] }) => {
+    mutationFn: async (data: { id: number; unit: any; facilities: any; persons: PersonFormWithRole[] }) => {
       const { id, ...rest } = data;
       return apiRequest("PATCH", `/api/units/${id}`, rest);
     },
@@ -248,21 +306,14 @@ export default function UnitsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/units"] });
       queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
       setEditingUnit(null);
-      form.reset();
+      setIsAddDialogOpen(false);
+      setIsFormReady(false);
     },
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" })
   });
   
-  const addOwner = useCallback(() => setOwners((prev) => [...prev, { ...defaultPerson }]), [defaultPerson]);
-  const removeOwner = useCallback((idx: number) => setOwners((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev), []);
-  const updateOwner = useCallback((idx: number, field: keyof PersonForm, value: any) => setOwners((prev) => prev.map((o, i) => i === idx ? { ...o, [field]: value } : o)), []);
-
-  const addTenant = useCallback(() => setTenants((prev) => [...prev, { ...defaultPerson }]), [defaultPerson]);
-  const removeTenant = useCallback((idx: number) => setTenants((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev), []);
-  const updateTenant = useCallback((idx: number, field: keyof PersonForm, value: any) => setTenants((prev) => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t)), []);
-
   const onSubmitMulti = async (values: FormValues) => {
-    const validOwners = owners.filter(o => o.fullName.trim() && o.email.trim());
+    const validOwners = values.owners.filter(o => o.fullName.trim() && o.email.trim());
     if (validOwners.length === 0 && !editingUnit) {
       toast({ title: "Missing required fields", description: "At least one owner with name and email is required when adding a new unit.", variant: "destructive" });
       return;
@@ -301,9 +352,30 @@ export default function UnitsPage() {
       bikeLockers: values.bikeLockers.filter(bl => bl.identifier.trim() !== "").map(b => b.identifier),
     };
 
-    const personsPayload = [
-      ...owners.filter(o => o.fullName && o.email).map(o => ({ fullName: o.fullName, email: o.email, phone: o.phone || undefined, role: 'owner' as 'owner' | 'tenant', receiveEmailNotifications: o.receiveEmailNotifications, hasCat: o.hasCat, hasDog: o.hasDog })),
-      ...tenants.filter(t => t.fullName && t.email).map(t => ({ fullName: t.fullName, email: t.email, phone: t.phone || undefined, role: 'tenant' as 'owner' | 'tenant', receiveEmailNotifications: t.receiveEmailNotifications, hasCat: t.hasCat, hasDog: t.hasDog })),
+    // Fix the persons payload typing
+    const personsPayload: PersonFormWithRole[] = [
+      ...values.owners
+        .filter(o => o.fullName && o.email)
+        .map(o => ({ 
+          fullName: o.fullName, 
+          email: o.email, 
+          phone: o.phone || undefined, 
+          receiveEmailNotifications: o.receiveEmailNotifications,
+          hasCat: o.hasCat || false,
+          hasDog: o.hasDog || false,
+          role: 'owner' as const
+        })),
+      ...values.tenants
+        .filter(t => t.fullName && t.email && t.fullName.trim() && t.email.trim())
+        .map(t => ({ 
+          fullName: t.fullName!, // We know it's defined due to filter
+          email: t.email!, // We know it's defined due to filter
+          phone: t.phone || undefined, 
+          receiveEmailNotifications: t.receiveEmailNotifications ?? true,
+          hasCat: t.hasCat || false,
+          hasDog: t.hasDog || false,
+          role: 'tenant' as const
+        })),
     ];
 
     const finalPayload = { unit: unitPayload, facilities: facilitiesPayload, persons: personsPayload };
@@ -314,15 +386,7 @@ export default function UnitsPage() {
       } else {
         await createMutation.mutateAsync(finalPayload);
       }
-      // Common reset and close logic moved here from onSuccess handlers for atomicity
-      setIsAddDialogOpen(false); 
-      setEditingUnit(null);
-      form.reset();
-      setOwners([{...defaultPerson}]);
-      setTenants([{...defaultPerson}]);
-
     } catch (error) { 
-      // Errors are handled by individual mutation.onError, but a general catch here might be useful for unhandled cases
       console.error("Submission error:", error);
     }
   };
@@ -558,446 +622,690 @@ export default function UnitsPage() {
       }}>
         <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col">
           <DialogHeader className="p-6 pb-4 border-b">
-            <DialogTitle>
-              {isViewMode ? "View Unit" : editingUnit ? "Edit Unit" : "Add New Unit"}
+            <DialogTitle className="flex items-center gap-2">
+              {isViewMode ? (
+                <>
+                  <EyeIcon className="h-5 w-5 text-blue-600" />
+                  View Unit {editingUnit?.unitNumber}
+                </>
+              ) : editingUnit ? (
+                <>
+                  <PencilIcon className="h-5 w-5 text-green-600" />
+                  Edit Unit {editingUnit.unitNumber}
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="h-5 w-5 text-blue-600" />
+                  Add New Unit
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
               {isViewMode 
-                ? "View the details of this unit."
-                : "Enter the details for the new unit, including facilities, owners, and tenants."
+                ? "View the details of this unit. Click the edit button in the table to make changes."
+                : editingUnit 
+                  ? "Edit the details for this unit, including facilities, owners, and tenants."
+                  : "Enter the details for the new unit, including facilities, owners, and tenants."
               }
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmitMulti)} className="flex-grow overflow-y-auto px-6 py-4 space-y-6">
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-neutral-800">Unit Details</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="unitNumber"
-                    render={({ field }) => (
-                      <FormItem className="sm:col-span-1">
-                        <FormLabel>Unit Number *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. 203" {...field} disabled={isViewMode} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="strataLot"
-                    render={({ field }) => (
-                      <FormItem className="sm:col-span-1">
-                        <FormLabel>Strata Lot</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. 15" {...field} disabled={isViewMode} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="floor"
-                    render={({ field }) => (
-                      <FormItem className="sm:col-span-1">
-                        <FormLabel>Floor</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. 2" {...field} disabled={isViewMode} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              {!isFormReady && !isViewMode ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Loading form...</span>
                 </div>
-
-                <h4 className="text-lg font-semibold text-neutral-800 pt-4">Mailing Address</h4>
-                <FormField
-                  control={form.control}
-                  name="mailingStreet1"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Street Address 1</FormLabel>
-                      <FormControl><Input placeholder="e.g. 123 Main St" {...field} disabled={isViewMode} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
+              ) : (
+                <>
+                  {/* Debug panel - remove after fixing */}
+                  {process.env.NODE_ENV === 'development' && !isViewMode && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
+                      <strong>Debug Info:</strong> 
+                      <br />isFormReady: {String(isFormReady)}
+                      <br />isViewMode: {String(isViewMode)}
+                      <br />editingUnit: {editingUnit?.unitNumber || 'none'}
+                      <br />unitNumber value: "{form.getValues('unitNumber')}"
+                      <br />Form state: {form.formState.isDirty ? 'dirty' : 'clean'}
+                    </div>
                   )}
-                />
-                <FormField
-                  control={form.control}
-                  name="mailingStreet2"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Street Address 2 (Optional)</FormLabel>
-                      <FormControl><Input placeholder="e.g. Apt #100" {...field} disabled={isViewMode} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="mailingCity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl><Input placeholder="e.g. Vancouver" {...field} disabled={isViewMode} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="mailingStateProvince"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State/Province</FormLabel>
-                        <FormControl><Input placeholder="e.g. BC" {...field} disabled={isViewMode} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="mailingPostalCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Postal/Zip Code</FormLabel>
-                        <FormControl><Input placeholder="e.g. V6A 1A1" {...field} disabled={isViewMode} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="mailingCountry"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <FormControl><Input placeholder="e.g. Canada" {...field} disabled={isViewMode} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <h4 className="text-lg font-semibold text-neutral-800 pt-4 pb-2">Facilities</h4>
-                <div>
-                  <FormLabel>Parking Spots</FormLabel>
-                  {parkingFields.map((item, index) => (
-                    <div key={item.id} className="flex items-center gap-2 mb-2">
+                  
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-neutral-800">Unit Details</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <FormField
                         control={form.control}
-                        name={`parkingSpots.${index}.identifier`}
+                        name="unitNumber"
                         render={({ field }) => (
-                          <FormItem className="flex-grow">
+                          <FormItem className="sm:col-span-1">
+                            <FormLabel>Unit Number *</FormLabel>
                             <FormControl>
                               <Input 
-                                placeholder={`Parking Spot ${index + 1}`} 
+                                placeholder="e.g. 203" 
                                 {...field} 
-                                disabled={isViewMode}
-                                onChange={(e) => {
-                                  field.onChange(e);
-                                  if (!isViewMode) {
-                                    handleFacilityInputChange("parkingSpots", index, e.target.value, parkingFields, appendParking);
-                                  }
-                                }}
+                                readOnly={isViewMode} 
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      {!isViewMode && (
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => removeParking(index)} 
-                          disabled={parkingFields.length === 1}
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  {!isViewMode && parkingFields.length === 0 && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => appendParking({ identifier: "" })} 
-                      className="mt-1"
-                    >
-                      Add Parking Spot
-                    </Button>
-                  )}
-                </div>
-
-                <div className="mt-4">
-                  <FormLabel>Storage Lockers</FormLabel>
-                  {storageFields.map((item, index) => (
-                    <div key={item.id} className="flex items-center gap-2 mb-2">
                       <FormField
                         control={form.control}
-                        name={`storageLockers.${index}.identifier`}
+                        name="strataLot"
                         render={({ field }) => (
-                          <FormItem className="flex-grow">
+                          <FormItem className="sm:col-span-1">
+                            <FormLabel>Strata Lot</FormLabel>
                             <FormControl>
                               <Input 
-                                placeholder={`Storage Locker ${index + 1}`} 
+                                placeholder="e.g. 15" 
                                 {...field} 
-                                disabled={isViewMode}
-                                onChange={(e) => {
-                                  field.onChange(e);
-                                  if (!isViewMode) {
-                                    handleFacilityInputChange("storageLockers", index, e.target.value, storageFields, appendStorage);
-                                  }
-                                }}
+                                readOnly={isViewMode} 
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      {!isViewMode && (
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => removeStorage(index)} 
-                          disabled={storageFields.length === 1}
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  {!isViewMode && storageFields.length === 0 && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => appendStorage({ identifier: "" })} 
-                      className="mt-1"
-                    >
-                      Add Storage Locker
-                    </Button>
-                  )}
-                </div>
-
-                <div className="mt-4">
-                  <FormLabel>Bike Lockers</FormLabel>
-                  {bikeFields.map((item, index) => (
-                    <div key={item.id} className="flex items-center gap-2 mb-2">
                       <FormField
                         control={form.control}
-                        name={`bikeLockers.${index}.identifier`}
+                        name="floor"
                         render={({ field }) => (
-                          <FormItem className="flex-grow">
+                          <FormItem className="sm:col-span-1">
+                            <FormLabel>Floor</FormLabel>
                             <FormControl>
                               <Input 
-                                placeholder={`Bike Locker ${index + 1}`} 
+                                placeholder="e.g. 2" 
                                 {...field} 
-                                disabled={isViewMode}
-                                onChange={(e) => {
-                                  field.onChange(e);
-                                  if (!isViewMode) {
-                                    handleFacilityInputChange("bikeLockers", index, e.target.value, bikeFields, appendBike);
-                                  }
-                                }}
+                                readOnly={isViewMode} 
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      {!isViewMode && (
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => removeBike(index)} 
-                          disabled={bikeFields.length === 1}
-                        >
-                          Remove
-                        </Button>
+                    </div>
+
+                    <h4 className="text-lg font-semibold text-neutral-800 pt-4">Mailing Address</h4>
+                    <FormField
+                      control={form.control}
+                      name="mailingStreet1"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Street Address 1</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g. 123 Main St" 
+                              {...field} 
+                              readOnly={isViewMode} 
+                              className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </div>
-                  ))}
-                  {!isViewMode && bikeFields.length === 0 && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => appendBike({ identifier: "" })} 
-                      className="mt-1"
-                    >
-                      Add Bike Locker
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="pt-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-lg font-semibold text-neutral-800">Owners</h4>
-                  {!isViewMode && <Button type="button" variant="outline" size="sm" onClick={addOwner}>Add Owner</Button>}
-                </div>
-                {owners.map((owner, idx) => (
-                  <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <Input 
-                        placeholder="Full Name *" 
-                        aria-label={`Owner ${idx + 1} Full Name`} 
-                        value={owner.fullName} 
-                        onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'fullName', e.target.value)}
-                        disabled={isViewMode}
-                      />
-                      <Input 
-                        placeholder="Email *" 
-                        aria-label={`Owner ${idx + 1} Email`} 
-                        type="email" 
-                        value={owner.email} 
-                        onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'email', e.target.value)}
-                        disabled={isViewMode}
-                      />
-                    </div>
-                    <Input 
-                      placeholder="Phone (Optional)" 
-                      aria-label={`Owner ${idx + 1} Phone`} 
-                      value={owner.phone} 
-                      onChange={isViewMode ? undefined : (e) => updateOwner(idx, 'phone', e.target.value)}
-                      disabled={isViewMode}
                     />
-                    <div className="flex items-center space-x-2 pt-1">
-                      <Checkbox 
-                        id={`ownerNotif${idx}`} 
-                        checked={owner.receiveEmailNotifications} 
-                        onCheckedChange={isViewMode ? undefined : (checked) => updateOwner(idx, 'receiveEmailNotifications', Boolean(checked))}
-                        disabled={isViewMode}
+                    <FormField
+                      control={form.control}
+                      name="mailingStreet2"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Street Address 2 (Optional)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g. Apt #100" 
+                              {...field} 
+                              readOnly={isViewMode} 
+                              className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="mailingCity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="e.g. Vancouver" 
+                                {...field} 
+                                readOnly={isViewMode} 
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                      <label htmlFor={`ownerNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
-                        Receive Email Notifications
-                      </label>
+                      <FormField
+                        control={form.control}
+                        name="mailingStateProvince"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State/Province</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="e.g. BC" 
+                                {...field} 
+                                readOnly={isViewMode} 
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="mailingPostalCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postal/Zip Code</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="e.g. V6A 1A1" 
+                                {...field} 
+                                readOnly={isViewMode} 
+                                className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                    <div className="flex items-center space-x-4 pt-1">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`ownerHasCat${idx}`} 
-                          checked={!!owner.hasCat} 
-                          onCheckedChange={isViewMode ? undefined : (checked) => updateOwner(idx, 'hasCat', Boolean(checked))}
-                          disabled={isViewMode}
-                        />
-                        <label htmlFor={`ownerHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
-                          Has Cat 🐱
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`ownerHasDog${idx}`} 
-                          checked={!!owner.hasDog} 
-                          onCheckedChange={isViewMode ? undefined : (checked) => updateOwner(idx, 'hasDog', Boolean(checked))}
-                          disabled={isViewMode}
-                        />
-                        <label htmlFor={`ownerHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
-                          Has Dog 🐶
-                        </label>
-                      </div>
-                    </div>
-                    {!isViewMode && owners.length > 1 && (
-                      <div className="flex justify-end pt-2">
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOwner(idx)}>
-                          <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                    <FormField
+                      control={form.control}
+                      name="mailingCountry"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g. Canada" 
+                              {...field} 
+                              readOnly={isViewMode} 
+                              className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <h4 className="text-lg font-semibold text-neutral-800 pt-4 pb-2">Facilities</h4>
+                    <div>
+                      <FormLabel>Parking Spots</FormLabel>
+                      {parkingFields.map((item, index) => (
+                        <div key={item.id} className="flex items-center gap-2 mb-2">
+                          <FormField
+                            control={form.control}
+                            name={`parkingSpots.${index}.identifier`}
+                            render={({ field }) => (
+                              <FormItem className="flex-grow">
+                                <FormControl>
+                                  <Input 
+                                    placeholder={`Parking Spot ${index + 1}`} 
+                                    {...field} 
+                                    readOnly={isViewMode}
+                                    onChange={(e) => {
+                                      field.onChange(e);
+                                      if (!isViewMode) {
+                                        handleFacilityInputChange("parkingSpots", index, e.target.value, parkingFields, appendParking);
+                                      }
+                                    }}
+                                    className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          {!isViewMode && (
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => removeParking(index)} 
+                              disabled={parkingFields.length === 1}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {!isViewMode && parkingFields.length === 0 && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => appendParking({ identifier: "" })} 
+                          className="mt-1"
+                        >
+                          Add Parking Spot
                         </Button>
+                      )}
+                    </div>
+
+                    <div className="mt-4">
+                      <FormLabel>Storage Lockers</FormLabel>
+                      {storageFields.map((item, index) => (
+                        <div key={item.id} className="flex items-center gap-2 mb-2">
+                          <FormField
+                            control={form.control}
+                            name={`storageLockers.${index}.identifier`}
+                            render={({ field }) => (
+                              <FormItem className="flex-grow">
+                                <FormControl>
+                                  <Input 
+                                    placeholder={`Storage Locker ${index + 1}`} 
+                                    {...field} 
+                                    readOnly={isViewMode}
+                                    onChange={(e) => {
+                                      field.onChange(e);
+                                      if (!isViewMode) {
+                                        handleFacilityInputChange("storageLockers", index, e.target.value, storageFields, appendStorage);
+                                      }
+                                    }}
+                                    className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          {!isViewMode && (
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => removeStorage(index)} 
+                              disabled={storageFields.length === 1}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {!isViewMode && storageFields.length === 0 && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => appendStorage({ identifier: "" })} 
+                          className="mt-1"
+                        >
+                          Add Storage Locker
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="mt-4">
+                      <FormLabel>Bike Lockers</FormLabel>
+                      {bikeFields.map((item, index) => (
+                        <div key={item.id} className="flex items-center gap-2 mb-2">
+                          <FormField
+                            control={form.control}
+                            name={`bikeLockers.${index}.identifier`}
+                            render={({ field }) => (
+                              <FormItem className="flex-grow">
+                                <FormControl>
+                                  <Input 
+                                    placeholder={`Bike Locker ${index + 1}`} 
+                                    {...field} 
+                                    readOnly={isViewMode}
+                                    onChange={(e) => {
+                                      field.onChange(e);
+                                      if (!isViewMode) {
+                                        handleFacilityInputChange("bikeLockers", index, e.target.value, bikeFields, appendBike);
+                                      }
+                                    }}
+                                    className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          {!isViewMode && (
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => removeBike(index)} 
+                              disabled={bikeFields.length === 1}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {!isViewMode && bikeFields.length === 0 && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => appendBike({ identifier: "" })} 
+                          className="mt-1"
+                        >
+                          Add Bike Locker
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="pt-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-lg font-semibold text-neutral-800">Owners</h4>
+                      {!isViewMode && <Button type="button" variant="outline" size="sm" onClick={() => appendOwner({ ...defaultPerson })}>Add Owner</Button>}
+                    </div>
+                    {ownerFields.map((ownerField, idx) => (
+                      <div key={ownerField.id} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`owners.${idx}.fullName`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="sr-only">Owner {idx + 1} Full Name</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Full Name *" 
+                                    {...field} 
+                                    readOnly={isViewMode}
+                                    className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`owners.${idx}.email`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="sr-only">Owner {idx + 1} Email</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Email *" 
+                                    type="email" 
+                                    {...field} 
+                                    readOnly={isViewMode}
+                                    className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name={`owners.${idx}.phone`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="sr-only">Owner {idx + 1} Phone</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Phone (Optional)" 
+                                  {...field} 
+                                  readOnly={isViewMode}
+                                  className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex items-center space-x-2 pt-1">
+                          <FormField
+                            control={form.control}
+                            name={`owners.${idx}.receiveEmailNotifications`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox 
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isViewMode}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-medium text-neutral-700 cursor-pointer">
+                                  Receive Email Notifications
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="flex items-center space-x-4 pt-2">
+                          <FormField
+                            control={form.control}
+                            name={`owners.${idx}.hasCat`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isViewMode}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-medium text-neutral-700 cursor-pointer">
+                                  Has Cat 🐱
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`owners.${idx}.hasDog`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isViewMode}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-medium text-neutral-700 cursor-pointer">
+                                  Has Dog 🐶
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        {!isViewMode && ownerFields.length > 1 && (
+                          <div className="flex justify-end pt-2">
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOwner(idx)}>
+                              <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
+                    ))}
+                  </div>
+                  <div className="pt-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-lg font-semibold text-neutral-800">Tenants (Optional)</h4>
+                      {!isViewMode && <Button type="button" variant="outline" size="sm" onClick={() => appendTenant({ ...defaultPerson })}>Add Tenant</Button>}
+                    </div>
+                    {tenantFields.map((tenantField, idx) => (
+                      <div key={tenantField.id} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`tenants.${idx}.fullName`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="sr-only">Tenant {idx + 1} Full Name</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Full Name" 
+                                    {...field} 
+                                    readOnly={isViewMode}
+                                    className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`tenants.${idx}.email`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="sr-only">Tenant {idx + 1} Email</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Email" 
+                                    type="email" 
+                                    {...field} 
+                                    readOnly={isViewMode}
+                                    className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name={`tenants.${idx}.phone`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="sr-only">Tenant {idx + 1} Phone</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Phone (Optional)" 
+                                  {...field} 
+                                  readOnly={isViewMode}
+                                  className={isViewMode ? "bg-gray-50 cursor-default" : ""}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex items-center space-x-2 pt-1">
+                          <FormField
+                            control={form.control}
+                            name={`tenants.${idx}.receiveEmailNotifications`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isViewMode}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-medium text-neutral-700 cursor-pointer">
+                                  Receive Email Notifications
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="flex items-center space-x-4 pt-2">
+                           <FormField
+                            control={form.control}
+                            name={`tenants.${idx}.hasCat`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isViewMode}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-medium text-neutral-700 cursor-pointer">
+                                  Has Cat 🐱
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`tenants.${idx}.hasDog`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isViewMode}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-medium text-neutral-700 cursor-pointer">
+                                  Has Dog 🐶
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        {!isViewMode && tenantFields.length > 1 && (
+                          <div className="flex justify-end pt-2">
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTenant(idx)}>
+                              <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {tenantFields.length === 1 && !tenantFields[0].fullName && !tenantFields[0].email && (
+                      <p className="text-xs text-neutral-500 italic">No tenants added. Click 'Add Tenant' to include tenant details.</p>
                     )}
                   </div>
-                ))}
-              </div>
-              <div className="pt-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-lg font-semibold text-neutral-800">Tenants (Optional)</h4>
-                  {!isViewMode && <Button type="button" variant="outline" size="sm" onClick={addTenant}>Add Tenant</Button>}
-                </div>
-                {tenants.map((tenant, idx) => (
-                  <div key={idx} className="p-4 border rounded-lg space-y-3 bg-neutral-50/50 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <Input 
-                        placeholder="Full Name" 
-                        aria-label={`Tenant ${idx + 1} Full Name`} 
-                        value={tenant.fullName} 
-                        onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'fullName', e.target.value)}
-                        disabled={isViewMode}
-                      />
-                      <Input 
-                        placeholder="Email" 
-                        aria-label={`Tenant ${idx + 1} Email`} 
-                        type="email" 
-                        value={tenant.email} 
-                        onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'email', e.target.value)}
-                        disabled={isViewMode}
-                      />
-                    </div>
-                    <Input 
-                      placeholder="Phone (Optional)" 
-                      aria-label={`Tenant ${idx + 1} Phone`} 
-                      value={tenant.phone} 
-                      onChange={isViewMode ? undefined : (e) => updateTenant(idx, 'phone', e.target.value)}
-                      disabled={isViewMode}
-                    />
-                    <div className="flex items-center space-x-2 pt-1">
-                      <Checkbox 
-                        id={`tenantNotif${idx}`} 
-                        checked={tenant.receiveEmailNotifications} 
-                        onCheckedChange={isViewMode ? undefined : (checked) => updateTenant(idx, 'receiveEmailNotifications', Boolean(checked))}
-                        disabled={isViewMode}
-                      />
-                      <label htmlFor={`tenantNotif${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
-                        Receive Email Notifications
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-4 pt-1">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`tenantHasCat${idx}`} 
-                          checked={!!tenant.hasCat} 
-                          onCheckedChange={isViewMode ? undefined : (checked) => updateTenant(idx, 'hasCat', Boolean(checked))}
-                          disabled={isViewMode}
-                        />
-                        <label htmlFor={`tenantHasCat${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
-                          Has Cat 🐱
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`tenantHasDog${idx}`} 
-                          checked={!!tenant.hasDog} 
-                          onCheckedChange={isViewMode ? undefined : (checked) => updateTenant(idx, 'hasDog', Boolean(checked))}
-                          disabled={isViewMode}
-                        />
-                        <label htmlFor={`tenantHasDog${idx}`} className="text-sm font-medium text-neutral-700 cursor-pointer">
-                          Has Dog 🐶
-                        </label>
-                      </div>
-                    </div>
-                    {!isViewMode && tenants.length > 1 && (
-                      <div className="flex justify-end pt-2">
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTenant(idx)}>
-                          <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {tenants.length === 1 && !tenants[0].fullName && !tenants[0].email && (
-                  <p className="text-xs text-neutral-500 italic">No tenants added. Click 'Add Tenant' to include tenant details.</p>
-                )}
-              </div>
-              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Unit Contact Phone (Optional)</FormLabel><FormControl><Input placeholder="e.g. 555-1234" {...field} disabled={isViewMode} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Input placeholder="e.g. Entry code #123" {...field} disabled={isViewMode} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField 
+                    control={form.control} 
+                    name="phone" 
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Unit Contact Phone (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="e.g. 555-1234" 
+                            {...field} 
+                            readOnly={isViewMode} 
+                            className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} 
+                  />
+                  <FormField 
+                    control={form.control} 
+                    name="notes" 
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="e.g. Entry code #123" 
+                            {...field} 
+                            readOnly={isViewMode} 
+                            className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} 
+                  />
+                </>
+              )}
 
               <DialogFooter className="px-6 py-4 border-t sticky bottom-0 bg-white z-10">
                 {isViewMode ? (
@@ -1005,15 +1313,23 @@ export default function UnitsPage() {
                     setIsAddDialogOpen(false);
                     setEditingUnit(null);
                     setIsViewMode(false);
+                    setIsFormReady(false);
                   }}>
                     Close
                   </Button>
                 ) : (
                   <>
-                    <Button type="button" variant="outline" onClick={() => editingUnit ? setEditingUnit(null) : setIsAddDialogOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => {
+                      setIsAddDialogOpen(false);
+                      setEditingUnit(null);
+                      setIsFormReady(false);
+                    }}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={(editingUnit ? updateMutation : createMutation).isPending || isCheckingDuplicate}>
+                    <Button 
+                      type="submit" 
+                      disabled={!isFormReady || (editingUnit ? updateMutation : createMutation).isPending || isCheckingDuplicate}
+                    >
                       {(editingUnit ? updateMutation : createMutation).isPending || isCheckingDuplicate ? "Saving..." : "Save"}
                     </Button>
                   </>

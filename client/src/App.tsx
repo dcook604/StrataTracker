@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/hooks/use-auth";
+import { LoadingProvider } from "@/contexts/loading-context";
+import { GlobalLoadingOverlay } from "@/components/global-loading-overlay";
 import { ProtectedRoute } from "@/lib/protected-route";
 import AuthPage from "@/pages/auth-page";
 import DashboardPage from "@/pages/dashboard-page";
@@ -32,28 +34,31 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
-            <AuthProvider>
-              <Switch>
-                <Route path="/auth" component={AuthPage} />
-                <Route path="/forgot-password" component={ForgotPasswordPage} />
-                <Route path="/reset-password" component={ResetPasswordPage} />
-                <Route path="/set-password" component={SetPasswordPage} />
-                <Route path="/violation/comment/:token" component={PublicViolationCommentPage} />
-                <ProtectedRoute path="/" component={DashboardPage} />
-                <ProtectedRoute path="/violations" component={AllViolationsPage} />
-                <ProtectedRoute path="/violations/new" component={NewViolationPage} />
-                <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
-                <ProtectedRoute path="/communications" component={CommunicationsPage} />
-                <ProtectedRoute path="/reports" component={ReportsPage} />
-                <ProtectedRoute path="/units" component={UnitsPage} />
-                <ProtectedRoute path="/categories" component={CategoriesPage} />
-                <ProtectedRoute path="/settings" component={SettingsPage} />
-                <ProtectedRoute path="/profile" component={UserProfilePage} />
-                <ProtectedRoute path="/bylaws" component={BylawsPage} />
-                <Route component={NotFound} />
-              </Switch>
-              <Toaster />
-            </AuthProvider>
+            <LoadingProvider>
+              <AuthProvider>
+                <Switch>
+                  <Route path="/auth" component={AuthPage} />
+                  <Route path="/forgot-password" component={ForgotPasswordPage} />
+                  <Route path="/reset-password" component={ResetPasswordPage} />
+                  <Route path="/set-password" component={SetPasswordPage} />
+                  <Route path="/violation/comment/:token" component={PublicViolationCommentPage} />
+                  <ProtectedRoute path="/" component={DashboardPage} />
+                  <ProtectedRoute path="/violations" component={AllViolationsPage} />
+                  <ProtectedRoute path="/violations/new" component={NewViolationPage} />
+                  <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
+                  <ProtectedRoute path="/communications" component={CommunicationsPage} />
+                  <ProtectedRoute path="/reports" component={ReportsPage} />
+                  <ProtectedRoute path="/units" component={UnitsPage} />
+                  <ProtectedRoute path="/categories" component={CategoriesPage} />
+                  <ProtectedRoute path="/settings" component={SettingsPage} />
+                  <ProtectedRoute path="/profile" component={UserProfilePage} />
+                  <ProtectedRoute path="/bylaws" component={BylawsPage} />
+                  <Route component={NotFound} />
+                </Switch>
+                <Toaster />
+                <GlobalLoadingOverlay />
+              </AuthProvider>
+            </LoadingProvider>
           </TooltipProvider>
         </ThemeProvider>
       </QueryClientProvider>
