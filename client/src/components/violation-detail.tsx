@@ -201,6 +201,18 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
   const formattedDate = violationDate ? format(violationDate, "MMM dd, yyyy") : "N/A";
   const formattedTime = violation?.violationTime || "Not specified";
 
+  // Calculate days opened (aging calculation)
+  const getDaysOpened = () => {
+    if (!violation?.createdAt) return "N/A";
+    const createdDate = new Date(violation.createdAt);
+    const currentDate = new Date();
+    const timeDiff = currentDate.getTime() - createdDate.getTime();
+    const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+    return daysDiff;
+  };
+
+  const daysOpened = getDaysOpened();
+
   const getViolationTypeName = (type: string) => {
     const typeMap: Record<string, string> = {
       noise: "Noise Complaint",
@@ -254,6 +266,23 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">Bylaw Reference</dt>
                     <dd className="text-sm text-neutral-900">{violation?.bylawReference || "Not specified"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-neutral-500">Days Opened</dt>
+                    <dd className="text-sm text-neutral-900">
+                      {daysOpened !== "N/A" ? (
+                        <span className={`font-medium ${
+                          daysOpened === 0 ? "text-green-600" :
+                          daysOpened <= 7 ? "text-yellow-600" :
+                          daysOpened <= 30 ? "text-orange-600" :
+                          "text-red-600"
+                        }`}>
+                          {daysOpened} {daysOpened === 1 ? "day" : "days"}
+                        </span>
+                      ) : (
+                        "N/A"
+                      )}
+                    </dd>
                   </div>
                   {violation?.fineAmount !== null && (
                     <div>
@@ -371,6 +400,32 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                 )}
               </div>
             </div>
+
+            {/* Add Comment */}
+            <div className="mt-6">
+              <h3 className="text-lg font-medium text-neutral-800 mb-3">Add Comment</h3>
+              <div className="bg-neutral-50 rounded-lg p-4">
+                <Textarea
+                  rows={4}
+                  placeholder="Add a comment or note about this violation"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  className="mb-3"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleAddComment}
+                    disabled={commentMutation.isPending || !comment.trim()}
+                  >
+                    {commentMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      "Add Comment"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </Card>
       </div>
@@ -445,42 +500,30 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium text-neutral-700">Owner</p>
-                <p className="text-sm text-neutral-900">{violation?.unit?.ownerName}</p>
-                <p className="text-sm text-primary-600">{violation?.unit?.ownerEmail}</p>
+                {violation?.unit?.ownerName ? (
+                  <>
+                    <p className="text-sm text-neutral-900">{violation.unit.ownerName}</p>
+                    <p className="text-sm text-primary-600">{violation.unit.ownerEmail}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-neutral-500 italic">No owner information available</p>
+                )}
               </div>
-              {violation?.unit?.tenantName && (
-                <div>
-                  <p className="text-sm font-medium text-neutral-700">Tenant</p>
-                  <p className="text-sm text-neutral-900">{violation.unit.tenantName}</p>
-                  {violation.unit.tenantEmail && (
-                    <p className="text-sm text-primary-600">{violation.unit.tenantEmail}</p>
-                  )}
-                </div>
-              )}
+              
+              <div>
+                <p className="text-sm font-medium text-neutral-700">Tenant</p>
+                {violation?.unit?.tenantName ? (
+                  <>
+                    <p className="text-sm text-neutral-900">{violation.unit.tenantName}</p>
+                    {violation.unit.tenantEmail && (
+                      <p className="text-sm text-primary-600">{violation.unit.tenantEmail}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-neutral-500 italic">No tenant information available</p>
+                )}
+              </div>
             </div>
-          </div>
-        </Card>
-        
-        {/* Add Comment */}
-        <Card className="p-6">
-          <h3 className="text-lg font-medium text-neutral-800 mb-3">Add Comment</h3>
-          <Textarea
-            rows={4}
-            placeholder="Add a comment or note about this violation"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <div className="mt-2 flex justify-end">
-            <Button
-              onClick={handleAddComment}
-              disabled={commentMutation.isPending || !comment.trim()}
-            >
-              {commentMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                "Add Comment"
-              )}
-            </Button>
           </div>
         </Card>
       </div>
