@@ -1,7 +1,10 @@
+import { createRequire } from 'module';
+import { promises as fs } from 'fs';
+import path from 'path';
+import logger from '../utils/logger.js';
+
+const require = createRequire(import.meta.url);
 const ClamScan = require('clamscan');
-const fs = require('fs/promises');
-const path = require('path');
-const logger = require('../utils/logger');
 
 export interface ScanResult {
   isClean: boolean;
