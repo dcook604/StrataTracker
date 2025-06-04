@@ -300,19 +300,12 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    console.log("Auth check - session:", !!req.session);
-    console.log("Auth check - session ID:", req.session?.id || 'none');
-    console.log("Auth check - isAuthenticated:", req.isAuthenticated());
-    console.log("Auth check - user:", !!req.user);
-    
     if (!req.isAuthenticated()) {
-      console.log("User not authenticated, returning 401");
       return res.sendStatus(401);
     }
     
     // Remove sensitive fields before sending the user object
     const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
-    console.log("Auth check successful, returning user:", safeUser.email);
     res.json(safeUser);
   });
 
@@ -478,39 +471,39 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/logout", (req, res, next) => {
-    // Log the logout attempt for security monitoring
-    console.log(`[AUTH] Logout attempt for user: ${req.user?.email || 'unknown'} (ID: ${req.user?.id || 'none'})`);
-    
     // Store session ID for logging before destroying it
     const sessionId = req.sessionID;
     
     req.logout((err) => {
       if (err) {
-        console.error(`[AUTH] Logout error for session ${sessionId}:`, err);
         return next(err);
       }
       
       // Destroy the session completely
       req.session.destroy((destroyErr) => {
         if (destroyErr) {
-          console.error(`[AUTH] Session destroy error for ${sessionId}:`, destroyErr);
           // Continue even if session destroy fails
         }
         
-        // Clear the session cookie explicitly
-        res.clearCookie('sessionId', { 
-          path: '/',
-          httpOnly: true,
-          secure: false, // Set to true in production with HTTPS
-          sameSite: 'lax'
-        });
+        // Clear the session cookie
+        res.clearCookie('connect.sid');
         
-        console.log(`[AUTH] Logout successful for session ${sessionId}`);
         res.status(200).json({ 
-          message: "Logged out successfully",
-          timestamp: new Date().toISOString()
+          success: true, 
+          message: 'Logged out successfully' 
         });
       });
     });
   });
+}
+
+export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  // Get clean user data for response
+  const safeUser = getSafeUserData(req.user);
+  
+  next();
 }

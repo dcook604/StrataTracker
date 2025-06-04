@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,17 @@ import { Card } from "@/components/ui/card";
 import { FilterX } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // START: Temporary Local Type Definitions (Mirror these in @shared/schema.ts)
 interface FacilityItem {
@@ -129,16 +140,19 @@ type UnitWithPeopleAndFacilities = PatchedPropertyUnit & {
 };
 
 export default function UnitsPage() {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
-  const [isViewMode, setIsViewMode] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editingUnit, setEditingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [isFormReady, setIsFormReady] = useState(false);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [deletingUnit, setDeletingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
+  const [unitToDelete, setUnitToDelete] = useState<{ unit: UnitWithPeopleAndFacilities; details: any } | null>(null);
   const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
-  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
-  const [isFormReady, setIsFormReady] = useState(false);
   const defaultPerson = { fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false };
 
   const form = useForm<FormValues>({
@@ -304,7 +318,43 @@ export default function UnitsPage() {
     },
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" })
   });
-  
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/units/${id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Unit deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
+      setUnitToDelete(null);
+      setDeletingUnit(null);
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" })
+  });
+
+  const fetchUnitDetails = async (unitId: number) => {
+    const res = await apiRequest("GET", `/api/units/${unitId}/details`);
+    return res.json();
+  };
+
+  const handleDelete = async (unit: UnitWithPeopleAndFacilities) => {
+    try {
+      setDeletingUnit(unit);
+      const details = await fetchUnitDetails(unit.id);
+      setUnitToDelete({ unit, details });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to fetch unit details", variant: "destructive" });
+      setDeletingUnit(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (unitToDelete) {
+      await deleteMutation.mutateAsync(unitToDelete.unit.id);
+    }
+  };
+
   const onSubmitMulti = async (values: FormValues) => {
     const validOwners = values.owners.filter(o => o.fullName.trim() && o.email.trim());
     if (validOwners.length === 0 && !editingUnit) {
@@ -501,6 +551,19 @@ export default function UnitsPage() {
         </Button>
         <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Edit Unit">
           <PencilIcon className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => handleDelete(row.original)} 
+          title="Delete Unit"
+          disabled={deletingUnit?.id === row.original.id}
+        >
+          {deletingUnit?.id === row.original.id ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-800" />
+          )}
         </Button>
       </div>
     ) }
@@ -1470,6 +1533,90 @@ export default function UnitsPage() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!unitToDelete} onOpenChange={() => setUnitToDelete(null)}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Unit Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the unit and all associated data including:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          {unitToDelete && (
+            <div className="space-y-4 py-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h4 className="font-semibold text-red-800 mb-2">Unit Information</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><strong>Unit Number:</strong> #{unitToDelete.unit.unitNumber}</div>
+                  <div><strong>Strata Lot:</strong> {unitToDelete.unit.strataLot || "N/A"}</div>
+                  <div><strong>Floor:</strong> {unitToDelete.unit.floor || "N/A"}</div>
+                  <div><strong>Townhouse:</strong> {unitToDelete.unit.townhouse ? "Yes" : "No"}</div>
+                </div>
+              </div>
+              
+              {unitToDelete.details.persons && unitToDelete.details.persons.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-800 mb-2">Associated People ({unitToDelete.details.persons.length})</h4>
+                  <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
+                    {unitToDelete.details.persons.map((person: any, idx: number) => (
+                      <div key={idx} className="flex justify-between">
+                        <span>{person.fullName} ({person.role})</span>
+                        <span className="text-gray-600">{person.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {(unitToDelete.details.facilities.parkingSpots.length > 0 || 
+                unitToDelete.details.facilities.storageLockers.length > 0 || 
+                unitToDelete.details.facilities.bikeLockers.length > 0) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-2">Facilities</h4>
+                  <div className="text-sm">
+                    {unitToDelete.details.facilities.parkingSpots.length > 0 && (
+                      <div>Parking Spots: {unitToDelete.details.facilities.parkingSpots.map((p: any) => p.identifier).join(", ")}</div>
+                    )}
+                    {unitToDelete.details.facilities.storageLockers.length > 0 && (
+                      <div>Storage Lockers: {unitToDelete.details.facilities.storageLockers.map((s: any) => s.identifier).join(", ")}</div>
+                    )}
+                    {unitToDelete.details.facilities.bikeLockers.length > 0 && (
+                      <div>Bike Lockers: {unitToDelete.details.facilities.bikeLockers.map((b: any) => b.identifier).join(", ")}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Warning</h4>
+                <p className="text-sm text-yellow-700">
+                  All violations, history records, and associated data for this unit will also be permanently deleted.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUnitToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Unit"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

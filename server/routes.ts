@@ -181,6 +181,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/units/:id/details", ensureAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid unit ID" });
+      }
+      
+      const unitDetails = await dbStorage.getUnitWithPersonsAndFacilities(id);
+      if (!unitDetails) {
+        return res.status(404).json({ message: "Unit not found" });
+      }
+      
+      res.json(unitDetails);
+    } catch (error: any) {
+      console.error("Failed to fetch unit details:", error);
+      res.status(500).json({ message: "Failed to fetch unit details", details: error.message });
+    }
+  });
+
   // Create secure upload configuration
   const { upload, virusScanMiddleware, contentValidationMiddleware } = createSecureUpload({
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
@@ -271,62 +290,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- API: Get all violations pending approval (council/admin only) ---
   app.get("/api/violations/pending-approval", ensureAuthenticated, ensureCouncilMember, async (req, res) => {
-    const userId = getUserId(req, res); // Get userId at the beginning
-    console.log(`[INFO] /api/violations/pending-approval called by userId: ${userId || 'N/A'}`); // Log who is calling
-
     try {
-      if (userId === undefined) {
-        // This case should ideally be caught by ensureAuthenticated,
-        // but as a safeguard:
-        console.error("[ERROR] /api/violations/pending-approval: userId is undefined after ensureAuthenticated.");
-        return res.status(401).json({ 
-          message: "Authentication failed: User ID not found.",
-          errorCode: "AUTH_USERID_MISSING",
-          details: "User ID was not available after authentication check." 
-        });
-      }
+      const userId = getUserId(req, res);
+      if (userId === undefined) return;
 
-      const pendingViolations = await dbStorage.getViolationsByStatus("pending_approval");
+      const pendingViolations = await dbStorage.getPendingApprovalViolations(userId);
       
-      console.log(`[INFO] /api/violations/pending-approval: Successfully fetched ${pendingViolations?.length || 0} pending violations for userId: ${userId}`);
       res.json(pendingViolations);
-    } catch (error: any) {
-      console.error("------------------------------------------------------------");
-      console.error("ERROR in /api/violations/pending-approval route for userId:", userId);
-      console.error("Raw error object received in catch block:", error);
-      const errorTimestamp = new Date().toISOString();
-      let errorDetails = "An unexpected error occurred.";
-
-      if (error instanceof Error) {
-        console.error("Error Name:", error.name);
-        console.error("Error Message:", error.message);
-        console.error("Error Stack:", error.stack);
-        if (error.cause) {
-          console.error("Error Cause:", error.cause);
-        }
-        errorDetails = error.message;
-        if (typeof error.cause === 'string') {
-          errorDetails += ` | Cause: ${error.cause}`;
-        } else if (error.cause && typeof (error.cause as any).message === 'string') {
-          errorDetails += ` | Cause: ${(error.cause as any).message}`;
-        }
-      } else {
-        console.error("Non-Error Object Thrown:", error);
-        try {
-          errorDetails = JSON.stringify(error);
-        } catch (stringifyError) {
-          errorDetails = "Could not stringify non-Error object.";
-        }
-      }
-      console.error(`Error occurred at: ${errorTimestamp}`);
-      console.error("------------------------------------------------------------");
-      
-      res.status(500).json({ 
-        message: "Failed to fetch pending violations. Please check server logs.", 
-        errorCode: "PENDING_VIOLATIONS_FETCH_FAILED",
-        details: errorDetails,
-        timestamp: errorTimestamp,
-      });
+    } catch (error) {
+      logger.error('[API] Error fetching pending violations:', error);
+      res.status(500).json({ message: "Failed to fetch pending violations" });
     }
   });
 
@@ -634,80 +607,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports API
   app.get("/api/reports/stats", ensureAuthenticated, async (req, res) => {
     try {
-      const { from, to, categoryId } = req.query;
-      const filters: { from?: Date, to?: Date, categoryId?: number } = {};
-      if (from && typeof from === 'string') {
-        const fromDate = new Date(from);
-        if (!isNaN(fromDate.getTime())) {
-          filters.from = fromDate;
-        }
-      }
-      if (to && typeof to === 'string') {
-        const toDate = new Date(to);
-        if (!isNaN(toDate.getTime())) {
-          toDate.setHours(23, 59, 59, 999);
-          filters.to = toDate;
-        }
-      }
-      if (categoryId && typeof categoryId === 'string') {
-        const catId = parseInt(categoryId, 10);
-        if (!isNaN(catId)) {
-          filters.categoryId = catId;
-        }
-      }
-      console.log('[REPORTS/STATS] Filters:', filters);
-      let stats; // Type will be inferred from dbStorage.getViolationStats
-      let violationsByMonth: { month: string, count: number }[] = []; // Explicitly type
-      let violationsByType: { type: string, count: number }[] = [];   // Explicitly type
-      try {
-        stats = await dbStorage.getViolationStats(filters);
-        console.log('[REPORTS/STATS] Stats:', stats);
-      } catch (err) {
-        console.error('[REPORTS/STATS] getViolationStats error:', err);
-        // Return mock data for now
-        stats = {
-          totalViolations: 0,
-          newViolations: 0,
-          pendingViolations: 0,
-          approvedViolations: 0,
-          disputedViolations: 0,
-          rejectedViolations: 0,
-          resolvedViolations: 0,
-          averageResolutionTimeDays: null
-        };
-      }
-      try {
-        violationsByMonth = await dbStorage.getViolationsByMonth(filters);
-        console.log('[REPORTS/STATS] ViolationsByMonth:', violationsByMonth);
-      } catch (err) {
-        console.error('[REPORTS/STATS] getViolationsByMonth error:', err);
-        violationsByMonth = []; // Ensure it's an empty array on error
-      }
-      try {
-        violationsByType = await dbStorage.getViolationsByType(filters);
-        console.log('[REPORTS/STATS] ViolationsByType:', violationsByType);
-      } catch (err) {
-        console.error('[REPORTS/STATS] getViolationsByType error:', err);
-        violationsByType = []; // Ensure it's an empty array on error
-      }
-      res.json({ stats, violationsByMonth, violationsByType });
-    } catch (error) {
-      console.error("Failed to fetch report statistics (outer catch):", error);
-      // Return mock data as fallback
+      const filters = req.query;
+
+      const stats = await dbStorage.getViolationStats(filters);
+      
+      // Get violations by month (last 12 months)
+      const violationsByMonth = await dbStorage.getViolationsByMonth(filters);
+      
+      // Get violations by type
+      const violationsByType = await dbStorage.getViolationsByType(filters);
+      
       res.json({
-        stats: {
-          totalViolations: 0,
-          newViolations: 0,
-          pendingViolations: 0,
-          approvedViolations: 0,
-          disputedViolations: 0,
-          rejectedViolations: 0,
-          resolvedViolations: 0,
-          averageResolutionTimeDays: null
-        },
-        violationsByMonth: [],
-        violationsByType: []
+        stats,
+        violationsByMonth,
+        violationsByType
       });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch report statistics" });
     }
   });
 
@@ -722,16 +638,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Violation Categories API endpoints
-  app.get("/api/violation-categories", async (req, res) => {
+  app.get("/api/violation-categories", ensureAuthenticated, async (req, res) => {
     try {
-      console.log("GET /api/violation-categories - Request received");
       const activeOnly = req.query.activeOnly === 'true';
-      console.log("Calling dbStorage.getAllViolationCategories with activeOnly:", activeOnly);
+      
       const categories = await dbStorage.getAllViolationCategories(activeOnly);
-      console.log("Categories retrieved:", JSON.stringify(categories).substring(0, 100) + "...");
+      
       res.json(categories);
     } catch (error) {
-      console.error("Failed to fetch violation categories:", error);
       res.status(500).json({ message: "Failed to fetch violation categories" });
     }
   });
@@ -1208,6 +1122,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Failed to update unit (via createUnitWithPersons logic):", error);
       res.status(500).json({ message: "Failed to update unit", details: error.message });
+    }
+  });
+
+  app.delete("/api/units/:id", ensureAuthenticated, async (req, res) => {
+    const userId = getUserId(req, res);
+    if (userId === undefined) return;
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid unit ID" });
+      }
+      
+      // Check if unit exists before deletion
+      const unit = await dbStorage.getPropertyUnit(id);
+      if (!unit) {
+        return res.status(404).json({ message: "Unit not found" });
+      }
+      
+      const deleted = await dbStorage.deleteUnit(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Unit not found" });
+      }
+      
+      logger.info(`[UNIT_DELETE] User ID ${userId} deleted unit ${id} (${unit.unitNumber})`);
+      res.json({ message: "Unit and all associated data deleted successfully" });
+    } catch (error) {
+      logger.error("Error deleting unit:", error);
+      res.status(500).json({ message: "Failed to delete unit" });
     }
   });
 

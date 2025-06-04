@@ -178,6 +178,9 @@ export interface IStorage {
 
   deleteViolation(id: number): Promise<boolean>;
   deleteViolationByUuid(uuid: string): Promise<boolean>;
+  deleteUnit(id: number): Promise<boolean>;
+  getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[] } | undefined>;
+  getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit })[]>;
 }
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
@@ -1615,6 +1618,103 @@ export class DatabaseStorage implements IStorage {
       console.error("Error during deleteAllViolationsData transaction:", error);
       throw new Error("Failed to delete all violations data. Check server logs for details.");
     }
+  }
+
+  async deleteUnit(id: number): Promise<boolean> {
+    try {
+      return await db.transaction(async (tx) => {
+        // First, delete all violations associated with this unit
+        const violationsToDelete = await tx.select().from(violations).where(eq(violations.unitId, id));
+        
+        for (const violation of violationsToDelete) {
+          // Delete violation histories and access links for each violation
+          await tx.delete(violationHistories).where(eq(violationHistories.violationId, violation.id));
+          await tx.delete(violationAccessLinks).where(eq(violationAccessLinks.violationId, violation.id));
+        }
+        
+        // Delete the violations themselves
+        await tx.delete(violations).where(eq(violations.unitId, id));
+        
+        // Delete unit_person_roles associated with this unit
+        await tx.delete(unitPersonRoles).where(eq(unitPersonRoles.unitId, id));
+        
+        // Delete facilities associated with this unit
+        await tx.delete(parkingSpots).where(eq(parkingSpots.unitId, id));
+        await tx.delete(storageLockers).where(eq(storageLockers.unitId, id));
+        await tx.delete(bikeLockers).where(eq(bikeLockers.unitId, id));
+        
+        // Finally, delete the unit itself
+        const result = await tx.delete(propertyUnits).where(eq(propertyUnits.id, id)).returning({ id: propertyUnits.id });
+        
+        return result.length > 0;
+      });
+    } catch (error) {
+      console.error("Error deleting unit:", error);
+      throw new Error("Failed to delete unit");
+    }
+  }
+
+  async getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[] } | undefined> {
+    const unit = await this.getPropertyUnit(id);
+    if (!unit) {
+      return undefined;
+    }
+
+    const personsWithRoles = await db
+      .select({
+        person: persons,
+        role: unitPersonRoles.role,
+        receiveEmailNotifications: unitPersonRoles.receiveEmailNotifications
+      })
+      .from(unitPersonRoles)
+      .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
+      .where(eq(unitPersonRoles.unitId, id));
+
+    const facilities = {
+      parkingSpots: await db.select().from(parkingSpots).where(eq(parkingSpots.unitId, id)),
+      storageLockers: await db.select().from(storageLockers).where(eq(storageLockers.unitId, id)),
+      bikeLockers: await db.select().from(bikeLockers).where(eq(bikeLockers.unitId, id))
+    };
+
+    const violations = await db
+      .select()
+      .from(violations)
+      .where(eq(violations.unitId, id));
+
+    return {
+      unit,
+      persons: personsWithRoles.map((p) => ({
+        ...p.person,
+        role: p.role,
+        receiveEmailNotifications: p.receiveEmailNotifications
+      })),
+      facilities,
+      violationCount: violations.length,
+      violations: violations.map((v) => ({
+        id: v.id,
+        referenceNumber: v.referenceNumber,
+        violationType: v.violationType,
+        status: v.status,
+        createdAt: v.createdAt
+      }))
+    };
+  }
+
+  async getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit })[]> {
+    const result = await db
+      .select({
+        violation: violations,
+        unit: propertyUnits
+      })
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(eq(violations.status, 'pending_approval'))
+      .orderBy(desc(violations.createdAt));
+    
+    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+      ...r.violation,
+      unit: r.unit
+    }));
   }
 }
 
