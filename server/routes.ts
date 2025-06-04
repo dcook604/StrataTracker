@@ -36,6 +36,8 @@ import logger from "./utils/logger";
 import { eq, desc, and, gte, lte, SQL, asc, count, like, isNull, or } from "drizzle-orm";
 import archiver from "archiver";
 import crypto from "crypto";
+import { createSecureUpload, cleanupUploadedFiles } from "./middleware/fileUploadSecurity";
+import { getVirusScanner } from "./services/virusScanner";
 
 // Ensure user is authenticated middleware
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
@@ -102,6 +104,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Failed to create uploads directory:", error);
   }
   
+  // Initialize virus scanner
+  const virusScanner = getVirusScanner();
+  try {
+    await virusScanner.initialize();
+    logger.info('[App] Virus scanner initialized successfully');
+  } catch (error) {
+    logger.warn('[App] Virus scanner initialization failed:', error);
+    if (process.env.VIRUS_SCANNING_ENABLED === 'true') {
+      logger.error('[App] Virus scanning is enabled but initialization failed. Consider disabling if ClamAV is not available.');
+    }
+  }
+  
   // Set up authentication routes first
   setupAuth(app);
   
@@ -149,33 +163,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Configure multer for file uploads
-  const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, uploadsDir);
-    },
-    filename: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      cb(null, `${randomUUID()}${ext}`);
-    }
+  // Create secure upload configuration
+  const { upload, virusScanMiddleware, contentValidationMiddleware } = createSecureUpload({
+    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
+    allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.pdf'],
+    maxFileSize: 5 * 1024 * 1024, // 5MB
+    enableVirusScanning: process.env.VIRUS_SCANNING_ENABLED === 'true',
+    enableDeepValidation: true
   });
 
-  const upload = multer({
-    storage,
-    limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB limit
-    },
-    fileFilter: function (req, file, cb) {
-      // Accept images and pdfs only
-      if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
-        cb(null, true);
-      } else {
-        cb(new Error("Only images and PDF files are allowed") as any);
-      }
+  // Health check endpoint for virus scanner
+  app.get("/api/health/virus-scanner", ensureAuthenticated, async (req, res) => {
+    const scanner = getVirusScanner();
+    try {
+      const version = await scanner.getVersion();
+      res.json({
+        enabled: scanner.isEnabled(),
+        ready: scanner.isReady(),
+        version: version || 'Unknown',
+        status: scanner.isReady() ? 'operational' : 'unavailable'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        enabled: scanner.isEnabled(),
+        ready: false,
+        version: null,
+        status: 'error',
+        error: error.message
+      });
     }
   });
-
-  // Authentication routes are already set up
 
   // Property Units API
   app.get("/api/property-units", ensureAuthenticated, async (req, res) => {
@@ -309,82 +326,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/violations", ensureAuthenticated, upload.array("attachments", 5), async (req, res) => {
-    const userId = getUserId(req, res);
-    if (userId === undefined) return;
+  app.post("/api/violations", 
+    ensureAuthenticated, 
+    upload.array("attachments", 5),
+    contentValidationMiddleware,
+    virusScanMiddleware,
+    async (req, res) => {
+      const userId = getUserId(req, res);
+      if (userId === undefined) return;
 
-    try {
-      // Handle file uploads
       const files = req.files as Express.Multer.File[];
-      const attachments = files ? files.map(file => file.filename) : [];
-      console.log("[Violation Upload] Received files:", files?.map(f => f.originalname), "Saved as:", attachments);
-      
-      const violationData = {
-        ...req.body,
-        reportedById: userId,
-        attachments,
-        categoryId: req.body.categoryId ? parseInt(req.body.categoryId, 10) : undefined,
-        unitId: req.body.unitId ? parseInt(req.body.unitId, 10) : undefined,
-      };
-      
-      const validatedData = insertViolationSchema.parse({
-        ...violationData,
-        violationDate: new Date(violationData.violationDate), 
-        attachments: Array.isArray(violationData.attachments) ? violationData.attachments : [],
-      });
 
-      const violation = await dbStorage.createViolation(validatedData);
-      console.log("[Violation Upload] Created violation with UUID:", violation.uuid);
-      
-      const unit = await dbStorage.getPropertyUnit(violation.unitId);
-      const reporterUser = req.user as User;
-
-      // Attempt to send email notification but don't let it block the response
       try {
-        if (unit && reporterUser) {
-          const emailParams: ViolationNotificationParams = {
-            violationId: violation.id,
-            unitId: unit.id,
-            unitNumber: unit.unitNumber,
-            violationType: violation.violationType, 
-            ownerEmail: unit.ownerEmail || "", 
-            ownerName: unit.ownerName || "Owner", 
-            tenantEmail: unit.tenantEmail === null ? undefined : unit.tenantEmail, 
-            tenantName: unit.tenantName === null ? undefined : unit.tenantName,   
-            reporterName: reporterUser.fullName || "System", 
-          };
-          await sendViolationNotification(emailParams);
-          console.log(`[Email] Violation notification email attempt for violation ID: ${violation.id}`);
-        } else {
-          console.warn(`[Email] Could not send violation notification for violation ID: ${violation.id}. Unit: ${!!unit}, Reporter: ${!!reporterUser}`);
+        // Handle file uploads with enhanced security
+        const attachments = files ? files.map(file => file.filename) : [];
+        logger.info(`[Violation Upload] User ${userId} uploaded ${files?.length || 0} files:`, files?.map(f => f.originalname));
+        
+        const violationData = {
+          ...req.body,
+          reportedById: userId,
+          attachments,
+          categoryId: req.body.categoryId ? parseInt(req.body.categoryId, 10) : undefined,
+          unitId: req.body.unitId ? parseInt(req.body.unitId, 10) : undefined,
+        };
+        
+        const validatedData = insertViolationSchema.parse({
+          ...violationData,
+          violationDate: new Date(violationData.violationDate), 
+          attachments: Array.isArray(violationData.attachments) ? violationData.attachments : [],
+        });
+
+        const violation = await dbStorage.createViolation(validatedData);
+        logger.info(`[Violation Upload] Created violation with UUID: ${violation.uuid}`);
+        
+        const unit = await dbStorage.getPropertyUnit(violation.unitId);
+        const reporterUser = req.user as User;
+
+        // Attempt to send email notification but don't let it block the response
+        try {
+          if (unit && reporterUser) {
+            const emailParams: ViolationNotificationParams = {
+              violationId: violation.id,
+              unitId: unit.id,
+              unitNumber: unit.unitNumber,
+              violationType: violation.violationType,
+              reporterName: reporterUser.fullName,
+              ownerEmail: unit.ownerEmail || "",
+              ownerName: unit.ownerName || "",
+              tenantEmail: unit.tenantEmail || undefined,
+              tenantName: unit.tenantName || undefined,
+            };
+
+            await sendViolationNotification(emailParams);
+            logger.info(`[Violation Upload] Email notification sent for violation ${violation.uuid}`);
+          }
+        } catch (emailError) {
+          logger.error(`[Violation Upload] Failed to send email notification for violation ${violation.uuid}:`, emailError);
+          // Continue with success response even if email fails
         }
-      } catch (emailError: any) {
-        console.error(`[Email Error] Failed to send violation notification for violation ID: ${violation.id}:`, emailError.message);
+
+        res.status(201).json(violation);
+      } catch (error: any) {
+        // Clean up uploaded files on error
+        if (files && files.length > 0) {
+          await cleanupUploadedFiles(files);
+        }
+
+        if (error instanceof z.ZodError) {
+          logger.error("[Validation Error] POST /api/violations:", error.errors);
+          return res.status(400).json({ errors: error.errors });
+        }
+        
+        logger.error("Error creating violation:", error);
+        
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' });
+        }
+        if (error.message?.includes("Only images and PDF files are allowed")) {
+          return res.status(400).json({ message: error.message });
+        }
+        if (error.message?.includes("Malware detected")) {
+          return res.status(403).json({ message: 'File rejected due to security concerns.' });
+        }
+        
+        res.status(500).json({ message: "Failed to create violation" });
       }
-      
-      await dbStorage.addViolationHistory({
-        violationId: violation.id,
-        userId: userId,
-        action: "created",
-        comment: "Violation reported."
-      });
-      
-      res.status(201).json(violation);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        console.error("[Validation Error] POST /api/violations:", error.errors);
-        return res.status(400).json({ errors: error.errors });
-      }
-      console.error("Error creating violation:", error);
-      if (error.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' });
-      }
-      if (error.message === "Only images and PDF files are allowed") {
-        return res.status(400).json({ message: error.message });
-      }
-      res.status(500).json({ message: "Failed to create violation" });
     }
-  });
+  );
 
   app.patch("/api/violations/:id/status", ensureAuthenticated, async (req, res) => {
     const userId = getUserId(req, res);
@@ -832,25 +860,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Logo upload endpoint
-  app.post("/api/settings/logo", ensureCouncilMember, upload.single("logo"), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+  // Logo upload endpoint with enhanced security
+  app.post("/api/settings/logo", 
+    ensureCouncilMember, 
+    upload.single("logo"),
+    contentValidationMiddleware,
+    virusScanMiddleware,
+    async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file uploaded" });
+        }
+        
+        // Additional validation for logo files
+        if (!req.file.mimetype.startsWith('image/')) {
+          return res.status(400).json({ message: "Only image files are allowed for logos" });
+        }
+        
+        const userId = getUserId(req, res);
+        if (userId === undefined) return;
+        
+        // Save filename in system_settings
+        await dbStorage.updateSystemSetting('strata_logo', req.file.filename, userId);
+        logger.info(`[Logo Upload] User ${userId} uploaded new logo: ${req.file.filename}`);
+        
+        res.json({ 
+          filename: req.file.filename, 
+          url: `/api/uploads/${req.file.filename}` 
+        });
+      } catch (error: any) {
+        // Clean up uploaded file on error
+        if (req.file) {
+          await cleanupUploadedFiles([req.file]);
+        }
+        
+        logger.error("[Logo Upload] Error:", error);
+        res.status(500).json({ message: "Failed to upload logo" });
       }
-      // Only allow image types
-      if (!req.file.mimetype.startsWith('image/')) {
-        return res.status(400).json({ message: "Only image files are allowed" });
-      }
-      const userId = getUserId(req, res);
-      if (userId === undefined) return;
-      // Save filename in system_settings
-      await dbStorage.updateSystemSetting('strata_logo', req.file.filename, userId);
-      res.json({ filename: req.file.filename, url: `/api/uploads/${req.file.filename}` });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to upload logo" });
     }
-  });
+  );
 
   app.get("/api/reports/violations-by-month", ensureAuthenticated, async (req, res) => {
     try {
@@ -1117,51 +1165,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- PUBLIC ENDPOINT: Add comment/evidence via access link ---
-  app.post("/public/violation/:token/comment", upload.array("attachments", 5), async (req, res) => {
-    const { token } = req.params;
-    const { comment, commenterName } = req.body;
-    try {
-      // 1. Validate token
-      const link = await dbStorage.getViolationAccessLinkByToken(token);
-      if (!link) return res.status(404).json({ message: "Invalid or expired link" });
-      if (link.usedAt) return res.status(410).json({ message: "This link has already been used" });
-      if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
-        return res.status(410).json({ message: "This link has expired" });
-      }
-
-      // 2. Handle file uploads
+  app.post("/public/violation/:token/comment", 
+    upload.array("attachments", 5),
+    contentValidationMiddleware,
+    virusScanMiddleware,
+    async (req, res) => {
+      const { token } = req.params;
+      const { comment, commenterName } = req.body;
       const files = req.files as Express.Multer.File[];
-      const attachments = files ? files.map(file => file.filename) : [];
-
-      // 3. Store comment and evidence in violation history (as anonymous/public)
-      await dbStorage.addViolationHistory({
-        violationId: link.violationId,
-        userId: 1, // Use a special system/anonymous user ID, or null if allowed
-        action: "public_comment",
-        comment: comment || undefined,
-        commenterName: commenterName || "Anonymous",
-        // Optionally, store attachments in a separate field or as part of comment text
-      });
-
-      // Optionally, store attachments in violation record or a new table
-      if (attachments.length > 0) {
-        // Fetch current violation
-        const violation = await dbStorage.getViolation(link.violationId);
-        if (violation) {
-          const updatedAttachments = Array.isArray(violation.attachments) ? [...violation.attachments, ...attachments] : attachments;
-          await dbStorage.updateViolation(link.violationId, { attachments: updatedAttachments });
+      
+      try {
+        // 1. Validate token
+        const link = await dbStorage.getViolationAccessLinkByToken(token);
+        if (!link) return res.status(404).json({ message: "Invalid or expired link" });
+        if (link.usedAt) return res.status(410).json({ message: "This link has already been used" });
+        if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
+          return res.status(410).json({ message: "This link has expired" });
         }
+
+        // 2. Handle file uploads with enhanced security
+        const attachments = files ? files.map(file => file.filename) : [];
+        logger.info(`[Public Comment] Received ${files?.length || 0} files for violation ${link.violationId}`);
+
+        // 3. Store comment and evidence in violation history (as anonymous/public)
+        await dbStorage.addViolationHistory({
+          violationId: link.violationId,
+          userId: 1, // Use a special system/anonymous user ID
+          action: "public_comment",
+          comment: comment || undefined,
+          commenterName: commenterName || "Anonymous",
+        });
+
+        // 4. Optionally, store attachments in violation record
+        if (attachments.length > 0) {
+          const violation = await dbStorage.getViolation(link.violationId);
+          if (violation) {
+            const updatedAttachments = Array.isArray(violation.attachments) ? [...violation.attachments, ...attachments] : attachments;
+            await dbStorage.updateViolation(link.violationId, { attachments: updatedAttachments });
+          }
+        }
+
+        // 5. Mark link as used (single-use)
+        await dbStorage.markViolationAccessLinkUsed(link.id);
+
+        res.json({ 
+          message: "Comment and evidence submitted successfully",
+          attachmentsCount: attachments.length
+        });
+      } catch (error: any) {
+        // Clean up uploaded files on error
+        if (files && files.length > 0) {
+          await cleanupUploadedFiles(files);
+        }
+        
+        logger.error(`[Public Comment] Error for token ${token}:`, error);
+        res.status(500).json({ message: "Failed to submit comment" });
       }
-
-      // 4. Mark link as used (single-use)
-      await dbStorage.markViolationAccessLinkUsed(link.id);
-
-      res.json({ message: "Your comment and evidence have been submitted successfully." });
-    } catch (error: any) {
-      console.error("Error in public comment endpoint:", error);
-      res.status(500).json({ message: "Failed to submit comment/evidence", details: error.message });
     }
-  });
+  );
 
   // --- PUBLIC ENDPOINT: Get link status and violation details ---
   app.get("/public/violation/:token/status", async (req, res) => {
