@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { db } from './db';
 import { systemSettings } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import logger from './utils/logger';
 
 // Email configuration types
 export interface EmailConfig {
@@ -75,7 +76,7 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
           return emailConfig;
         }
       } catch (error) {
-        console.error('Error parsing email config:', error);
+        logger.error('Error parsing email config:', error);
       }
     }
     
@@ -91,7 +92,7 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
       from: 'noreply@strataviolations.com'
     };
   } catch (error) {
-    console.error('Error loading email settings:', error);
+    logger.error('Error loading email settings:', error);
     
     // Return default config on error
     return {
@@ -112,6 +113,7 @@ export interface EmailOptions {
   subject: string;
   text?: string;
   html?: string;
+  attachments?: any[];
 }
 
 // Send email function
@@ -121,7 +123,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     const config = await loadEmailSettings();
     
     if (!config) {
-      console.error('Email configuration not found');
+      logger.error('Email configuration not found');
       return false;
     }
     
@@ -130,14 +132,15 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       to: options.to,
       subject: options.subject,
       text: options.text || '',
-      html: options.html || ''
+      html: options.html || '',
+      attachments: options.attachments,
     };
     
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.messageId);
+    logger.info('Email sent:', { messageId: info.messageId, to: options.to });
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    logger.error('Error sending email:', error);
     return false;
   }
 }
@@ -165,10 +168,10 @@ export async function verifyEmailConfig(config: EmailConfig, testEmail: string):
       html: '<p>This is a test email to verify your SMTP configuration.</p>'
     });
     
-    console.log('Test email sent:', info.messageId);
+    logger.info('Test email sent:', { messageId: info.messageId });
     return true;
   } catch (error) {
-    console.error('Error verifying email config:', error);
+    logger.error('Error verifying email config:', error);
     return false;
   }
 }
@@ -256,5 +259,5 @@ export async function sendInvitationEmail(email: string, inviteToken: string, fu
 
 // Initialize email settings
 loadEmailSettings().catch(error => {
-  console.error('Failed to load initial email settings:', error);
+  logger.error('Failed to load initial email settings:', error);
 });

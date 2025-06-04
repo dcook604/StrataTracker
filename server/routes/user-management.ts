@@ -26,23 +26,15 @@ function generatePassword(length = 12) {
 
 // Check if user is authenticated and has admin privileges
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.log('User in user-management isAdmin middleware:', req.user);
-  
-  // Check if user is authenticated - simplified check that doesn't rely on isAuthenticated()
-  if (!req.user) {
-    return res.status(401).json({ message: "Authentication required." });
+  if (!req.isAuthenticated() || !req.user) {
+    return res.status(401).json({ message: "Authentication required" });
   }
-  
-  // Check admin status using both camelCase and snake_case formats
-  const isAdminUser = 
-    (req.user.isAdmin === true) || 
-    ((req.user as any).is_admin === true);
-  
-  if (isAdminUser) {
-    return next();
+
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ message: "Admin access required" });
   }
-  
-  res.status(403).json({ message: "Forbidden - Admin access required" });
+
+  next();
 };
 
 // Get all users (admin only)
@@ -102,32 +94,11 @@ router.put('/:id', isAdmin, async (req, res) => {
     const userId = parseInt(req.params.id);
     const { fullName, isCouncilMember, isAdmin, isUser, email } = req.body;
     
-    console.log(`[USER-MGMT] Updating user ${userId} with data:`, {
-      fullName,
-      isCouncilMember,
-      isAdmin,
-      isUser,
-      email,
-      requestUserId: (req.user as any)?.id,
-      requestUserEmail: (req.user as any)?.email
-    });
-    
     // Check if user exists
-    console.log(`[USER-MGMT] Checking if user ${userId} exists...`);
     const existingUser = await dbStorage.getUser(userId);
     if (!existingUser) {
-      console.log(`[USER-MGMT] User ${userId} not found`);
       return res.status(404).json({ message: 'User not found' });
     }
-    
-    console.log(`[USER-MGMT] Found existing user:`, {
-      id: existingUser.id,
-      email: existingUser.email,
-      fullName: existingUser.fullName,
-      isAdmin: existingUser.isAdmin,
-      isCouncilMember: existingUser.isCouncilMember,
-      isUser: existingUser.isUser
-    });
     
     const updateData = {
       fullName: fullName || existingUser.fullName,
@@ -138,25 +109,19 @@ router.put('/:id', isAdmin, async (req, res) => {
       username: email || existingUser.username
     };
     
-    console.log(`[USER-MGMT] Preparing to update user ${userId} with:`, updateData);
-    
     // Update user
     const updatedUser = await dbStorage.updateUser(userId, updateData);
     
-    console.log(`[USER-MGMT] Update result:`, updatedUser ? 'Success' : 'Failed');
-    
     if (!updatedUser) {
-      console.log(`[USER-MGMT] Update returned null for user ${userId}`);
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found after update' });
     }
     
-    // Don't return sensitive data
-    const { password, ...userWithoutPassword } = updatedUser;
-    console.log(`[USER-MGMT] Successfully updated user ${userId}, returning response`);
-    res.json(userWithoutPassword);
+    // Remove sensitive fields before responding
+    const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = updatedUser;
+    
+    res.json(safeUser);
   } catch (error) {
-    console.error(`[USER-MGMT] Error updating user ${req.params.id}:`, error);
-    console.error(`[USER-MGMT] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
+    console.error('[USER-MGMT] Error updating user:', error);
     res.status(500).json({ message: 'Failed to update user' });
   }
 });

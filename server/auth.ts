@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express, Request, Response, NextFunction } from "express";
+import express from 'express';
+import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { storage as dbStorage } from "./storage";
 import { User as SelectUser, insertUserSchema } from "@shared/schema";
@@ -21,10 +22,17 @@ declare global {
   }
 }
 
+// Extend express-session to include user
+declare module "express-session" {
+  interface SessionData {
+    user?: SelectUser;
+  }
+}
+
 // Create MemoryStore with TTL
 const MemoryStoreSession = MemoryStore(session);
 
-export const authMiddleware = Express.Router();
+export const authMiddleware = express.Router();
 
 // Security headers with Helmet
 authMiddleware.use(helmet({
@@ -71,7 +79,7 @@ authMiddleware.use(session({
 }));
 
 // Authentication helper functions
-export function requireAuth(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.session?.user) {
     next();
   } else {
@@ -79,16 +87,16 @@ export function requireAuth(req: Express.Request, res: Express.Response, next: E
   }
 }
 
-export function requireAdmin(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
-  if (req.session?.user && req.session.user.role === 'admin') {
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.session?.user && req.session.user.isAdmin) {
     next();
   } else {
     res.status(403).json({ message: 'Admin access required' });
   }
 }
 
-export function requireAdminOrCouncil(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
-  if (req.session?.user && (req.session.user.role === 'admin' || req.session.user.role === 'council')) {
+export function requireAdminOrCouncil(req: Request, res: Response, next: NextFunction) {
+  if (req.session?.user && (req.session.user.isAdmin || req.session.user.isCouncilMember)) {
     next();
   } else {
     res.status(403).json({ message: 'Admin or council access required' });
@@ -116,14 +124,24 @@ export function setupAuth(app: Express) {
   // Rate limiting to prevent brute force attacks
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 login requests per window
+    max: process.env.NODE_ENV === 'production' ? 5 : 10, // Stricter in production
     message: "Too many login attempts, please try again after 15 minutes",
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests: true, // Don't count successful logins
+    skip: (req) => {
+      // Skip rate limiting for health checks and other internal calls
+      return req.path === '/api/health';
+    }
   });
 
   // Generate a secure session secret if one is not provided
   const sessionSecret = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
+  
+  // Warn if using generated secret in production
+  if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
+    logger.warn('Using generated session secret. Set SESSION_SECRET environment variable for production!');
+  }
   
   const sessionSettings: session.SessionOptions = {
     store: dbStorage.sessionStore,
@@ -133,10 +151,10 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     rolling: true, // Refresh session with each request
     cookie: {
-      maxAge: 1000 * 60 * 30, // 30 minutes by default
+      maxAge: parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30') * 60 * 1000,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === 'production' && process.env.SECURE_COOKIES === 'true',
+      sameSite: process.env.NODE_ENV === 'production' ? "strict" : "lax",
       path: "/",
       domain: undefined // Allow flexible domain configuration
     }
@@ -282,19 +300,12 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    console.log("Auth check - session:", !!req.session);
-    console.log("Auth check - session ID:", req.session?.id || 'none');
-    console.log("Auth check - isAuthenticated:", req.isAuthenticated());
-    console.log("Auth check - user:", !!req.user);
-    
     if (!req.isAuthenticated()) {
-      console.log("User not authenticated, returning 401");
       return res.sendStatus(401);
     }
     
     // Remove sensitive fields before sending the user object
     const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = req.user;
-    console.log("Auth check successful, returning user:", safeUser.email);
     res.json(safeUser);
   });
 
@@ -460,39 +471,39 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/logout", (req, res, next) => {
-    // Log the logout attempt for security monitoring
-    console.log(`[AUTH] Logout attempt for user: ${req.user?.email || 'unknown'} (ID: ${req.user?.id || 'none'})`);
-    
     // Store session ID for logging before destroying it
     const sessionId = req.sessionID;
     
     req.logout((err) => {
       if (err) {
-        console.error(`[AUTH] Logout error for session ${sessionId}:`, err);
         return next(err);
       }
       
       // Destroy the session completely
       req.session.destroy((destroyErr) => {
         if (destroyErr) {
-          console.error(`[AUTH] Session destroy error for ${sessionId}:`, destroyErr);
           // Continue even if session destroy fails
         }
         
-        // Clear the session cookie explicitly
-        res.clearCookie('sessionId', { 
-          path: '/',
-          httpOnly: true,
-          secure: false, // Set to true in production with HTTPS
-          sameSite: 'lax'
-        });
+        // Clear the session cookie
+        res.clearCookie('connect.sid');
         
-        console.log(`[AUTH] Logout successful for session ${sessionId}`);
         res.status(200).json({ 
-          message: "Logged out successfully",
-          timestamp: new Date().toISOString()
+          success: true, 
+          message: 'Logged out successfully' 
         });
       });
     });
   });
+}
+
+export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  // Get clean user data for response
+  const safeUser = getSafeUserData(req.user);
+  
+  next();
 }

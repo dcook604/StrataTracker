@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { FilterX, PlusCircle } from "lucide-react";
+import { FilterX, PlusCircle, Trash2, Loader2, Eye } from "lucide-react";
 import { 
   Select,
   SelectContent,
@@ -12,14 +12,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { ViolationStatus } from "@shared/schema";
 import { format } from "date-fns";
 import { EmptyState } from "@/components/empty-state";
 import { useQueryParams } from "@/hooks/use-query-params";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext, PaginationEllipsis } from "@/components/ui/pagination";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 type Violation = {
   id: number;
@@ -48,6 +61,11 @@ export function ViolationsList() {
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"createdAt"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_KEY + "Order") || '"desc"'));
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // All authenticated users can delete violations
+  const canDelete = !!user;
 
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
@@ -153,13 +171,52 @@ export function ViolationsList() {
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button 
-            variant="link"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={() => navigate(`/violations/${row.original.uuid}`)}
-            className="text-primary-600 hover:text-primary-900"
+            className="h-8 w-8 text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+            title="View violation details"
           >
-            View
+            <Eye className="h-4 w-4" />
           </Button>
+          {canDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-600 hover:text-red-900 hover:bg-red-50"
+                  disabled={deleteMutation.isPending}
+                  title="Delete violation"
+                >
+                  {deleteMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Violation</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete violation VIO-{row.original.id}? 
+                    This action cannot be undone and will permanently remove the violation 
+                    and all its associated history.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteMutation.mutate(row.original.uuid)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       ),
     },
@@ -169,6 +226,32 @@ export function ViolationsList() {
     navigate("/violations");
     setStatusFilter("all");
   };
+
+  // Delete violation mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (violationId: string) => {
+      const response = await apiRequest("DELETE", `/api/violations/${violationId}`);
+      if (!response.ok) {
+        throw new Error(await response.text() || 'Failed to delete violation');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Violation deleted successfully",
+      });
+      // Invalidate and refetch violations
+      queryClient.invalidateQueries({ queryKey: ['/api/violations'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -237,17 +320,103 @@ export function ViolationsList() {
                       tabIndex={page === 1 ? -1 : 0}
                     />
                   </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                    <PaginationItem key={p}>
-                      <PaginationLink
-                        isActive={p === page}
-                        onClick={() => setPage(p)}
-                        href="#"
-                      >
-                        {p}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
+                  
+                  {/* Smart pagination with limited page numbers */}
+                  {(() => {
+                    const maxVisiblePages = 7; // Show max 7 page numbers
+                    const pages = [];
+                    
+                    if (totalPages <= maxVisiblePages) {
+                      // Show all pages if total is small
+                      for (let i = 1; i <= totalPages; i++) {
+                        pages.push(
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              isActive={i === page}
+                              onClick={() => setPage(i)}
+                              href="#"
+                            >
+                              {i}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                    } else {
+                      // Smart pagination for many pages
+                      const delta = Math.floor(maxVisiblePages / 2);
+                      let start = Math.max(1, page - delta);
+                      let end = Math.min(totalPages, page + delta);
+                      
+                      // Adjust if we're near the beginning or end
+                      if (page <= delta) {
+                        end = Math.min(totalPages, maxVisiblePages);
+                      } else if (page > totalPages - delta) {
+                        start = Math.max(1, totalPages - maxVisiblePages + 1);
+                      }
+                      
+                      // Add first page if we're not starting from 1
+                      if (start > 1) {
+                        pages.push(
+                          <PaginationItem key={1}>
+                            <PaginationLink
+                              isActive={1 === page}
+                              onClick={() => setPage(1)}
+                              href="#"
+                            >
+                              1
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                        if (start > 2) {
+                          pages.push(
+                            <PaginationItem key="ellipsis-start">
+                              <span className="flex h-9 w-9 items-center justify-center">...</span>
+                            </PaginationItem>
+                          );
+                        }
+                      }
+                      
+                      // Add visible page range
+                      for (let i = start; i <= end; i++) {
+                        pages.push(
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              isActive={i === page}
+                              onClick={() => setPage(i)}
+                              href="#"
+                            >
+                              {i}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                      
+                      // Add last page if we're not ending at totalPages
+                      if (end < totalPages) {
+                        if (end < totalPages - 1) {
+                          pages.push(
+                            <PaginationItem key="ellipsis-end">
+                              <span className="flex h-9 w-9 items-center justify-center">...</span>
+                            </PaginationItem>
+                          );
+                        }
+                        pages.push(
+                          <PaginationItem key={totalPages}>
+                            <PaginationLink
+                              isActive={totalPages === page}
+                              onClick={() => setPage(totalPages)}
+                              href="#"
+                            >
+                              {totalPages}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                    }
+                    
+                    return pages;
+                  })()}
+                  
                   <PaginationItem>
                     <PaginationNext
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

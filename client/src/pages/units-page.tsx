@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,17 @@ import { Card } from "@/components/ui/card";
 import { FilterX } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // START: Temporary Local Type Definitions (Mirror these in @shared/schema.ts)
 interface FacilityItem {
@@ -54,6 +65,7 @@ interface PatchedPropertyUnit {
   unitNumber: string;
   floor?: string | null;
   strataLot?: string | null;
+  townhouse?: boolean;
   mailingStreet1?: string | null;
   mailingStreet2?: string | null;
   mailingCity?: string | null;
@@ -81,6 +93,7 @@ const formSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   strataLot: z.string().optional(),
   floor: z.string().optional(),
+  townhouse: z.boolean().default(false),
   mailingStreet1: z.string().optional(),
   mailingStreet2: z.string().optional(),
   mailingCity: z.string().optional(),
@@ -123,25 +136,37 @@ type UnitWithPeopleAndFacilities = PatchedPropertyUnit & {
   owners: PersonForm[];
   tenants: PersonForm[];
   facilities?: PatchedUnitFacility; 
+  townhouse?: boolean;
+};
+
+type UnitDetailsForDelete = {
+  unit: PatchedPropertyUnit;
+  persons: (PersonForm & { role: string })[];
+  facilities: PatchedUnitFacility;
+  violationCount: number;
+  violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[];
 };
 
 export default function UnitsPage() {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
-  const [isViewMode, setIsViewMode] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editingUnit, setEditingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [isFormReady, setIsFormReady] = useState(false);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [deletingUnit, setDeletingUnit] = useState<UnitWithPeopleAndFacilities | null>(null);
+  const [unitToDelete, setUnitToDelete] = useState<UnitDetailsForDelete | null>(null);
   const [page, setPage] = useState(() => Number(localStorage.getItem(PAGE_KEY)) || 1);
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
-  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
-  const [isFormReady, setIsFormReady] = useState(false);
   const defaultPerson = { fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      unitNumber: "", strataLot: "", floor: "",
+      unitNumber: "", strataLot: "", floor: "", townhouse: false,
       mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
       parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
       owners: [{ ...defaultPerson }],
@@ -179,8 +204,6 @@ export default function UnitsPage() {
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
   
   useEffect(() => {
-    console.log("Form useEffect triggered:", { isAddDialogOpen, editingUnit: !!editingUnit, isViewMode });
-    
     if (!isAddDialogOpen) {
       setIsFormReady(false);
       return;
@@ -189,14 +212,13 @@ export default function UnitsPage() {
     if (isAddDialogOpen && !editingUnit) {
       // Adding new unit
       const resetData = {
-        unitNumber: "", strataLot: "", floor: "",
+        unitNumber: "", strataLot: "", floor: "", townhouse: false,
         mailingStreet1: "", mailingStreet2: "", mailingCity: "", mailingStateProvince: "", mailingPostalCode: "", mailingCountry: "",
         parkingSpots: [{ identifier: "" }], storageLockers: [{ identifier: "" }], bikeLockers: [{ identifier: "" }],
         owners: [{ ...defaultPerson }],
         tenants: [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
         phone: "", notes: "",
       };
-      console.log("Resetting form for new unit:", resetData);
       form.reset(resetData);
       setIsFormReady(true);
     } else if (editingUnit) {
@@ -209,6 +231,7 @@ export default function UnitsPage() {
         unitNumber: editingUnit.unitNumber,
         strataLot: editingUnit.strataLot || "",
         floor: editingUnit.floor || "",
+        townhouse: editingUnit.townhouse || false,
         mailingStreet1: editingUnit.mailingStreet1 || "",
         mailingStreet2: editingUnit.mailingStreet2 || "",
         mailingCity: editingUnit.mailingCity || "",
@@ -242,21 +265,13 @@ export default function UnitsPage() {
           : [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
       };
       
-      console.log("Resetting form for existing unit:", { unitNumber: editingUnit.unitNumber, resetData });
       form.reset(resetData);
       // Small delay to ensure form is fully reset before enabling editing
       setTimeout(() => {
-        console.log("Form ready set to true");
         setIsFormReady(true);
       }, 100);
     }
   }, [editingUnit, isAddDialogOpen, form]);
-
-  // Debug form state changes
-  const formValues = form.watch();
-  useEffect(() => {
-    console.log("Form values changed:", formValues);
-  }, [formValues]);
 
   const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeopleAndFacilities[], total: number }>({
     queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder }],
@@ -311,7 +326,53 @@ export default function UnitsPage() {
     },
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" })
   });
-  
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/units/${id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Unit deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-units"] });
+      setUnitToDelete(null);
+      setDeletingUnit(null);
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" })
+  });
+
+  const fetchUnitDetails = async (unitId: number) => {
+    try {
+      const response = await fetch(`/api/units/${unitId}/details`);
+      if (!response.ok) throw new Error('Failed to fetch unit details');
+      const details: UnitDetailsForDelete = await response.json();
+      setUnitToDelete(details);
+    } catch (error) {
+      console.error('Error fetching unit details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch unit details for deletion",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async (unit: UnitWithPeopleAndFacilities) => {
+    try {
+      setDeletingUnit(unit);
+      await fetchUnitDetails(unit.id);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to fetch unit details", variant: "destructive" });
+      setDeletingUnit(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (unitToDelete) {
+      await deleteMutation.mutateAsync(unitToDelete.unit.id);
+    }
+  };
+
   const onSubmitMulti = async (values: FormValues) => {
     const validOwners = values.owners.filter(o => o.fullName.trim() && o.email.trim());
     if (validOwners.length === 0 && !editingUnit) {
@@ -339,7 +400,7 @@ export default function UnitsPage() {
     setIsCheckingDuplicate(false);
 
     const unitPayload = {
-      unitNumber: values.unitNumber, strataLot: values.strataLot, floor: values.floor,
+      unitNumber: values.unitNumber, strataLot: values.strataLot, floor: values.floor, townhouse: values.townhouse,
       mailingStreet1: values.mailingStreet1, mailingStreet2: values.mailingStreet2,
       mailingCity: values.mailingCity, mailingStateProvince: values.mailingStateProvince,
       mailingPostalCode: values.mailingPostalCode, mailingCountry: values.mailingCountry,
@@ -509,6 +570,19 @@ export default function UnitsPage() {
         <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Edit Unit">
           <PencilIcon className="h-4 w-4" />
         </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => handleDelete(row.original)} 
+          title="Delete Unit"
+          disabled={deletingUnit?.id === row.original.id}
+        >
+          {deletingUnit?.id === row.original.id ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-800" />
+          )}
+        </Button>
       </div>
     ) }
   ];
@@ -516,19 +590,15 @@ export default function UnitsPage() {
   const total = unitData?.total ?? 0;
   const units = unitData?.units ?? [];
 
-  // Auto-add facility input logic
+  // Facility input change handler - simplified without auto-add
   const handleFacilityInputChange = (
     fieldName: "parkingSpots" | "storageLockers" | "bikeLockers", 
     index: number, 
-    value: string,
-    fields: any[],
-    appendFn: (value: { identifier: string }) => void
+    value: string
   ) => {
-    form.setValue(`${fieldName}.${index}.identifier` as any, value);
-    // Only auto-add if this is the last field and user typed something
-    if (index === fields.length - 1 && value.trim() !== "") {
-      appendFn({ identifier: "" });
-    }
+    // Limit to 10 characters and allow alphanumeric
+    const cleanValue = value.slice(0, 10);
+    form.setValue(`${fieldName}.${index}.identifier` as any, cleanValue);
   };
 
   return (
@@ -582,17 +652,104 @@ export default function UnitsPage() {
                       tabIndex={page === 1 ? -1 : 0}
                     />
                   </PaginationItem>
-                  {Array.from({ length: Math.ceil(total / pageSize) }, (_, i) => i + 1).map((p) => (
-                    <PaginationItem key={p}>
-                      <PaginationLink
-                        isActive={p === page}
-                        onClick={() => setPage(p)}
-                        href="#"
-                      >
-                        {p}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
+                  
+                  {/* Smart pagination with limited page numbers */}
+                  {(() => {
+                    const totalPages = Math.ceil(total / pageSize);
+                    const maxVisiblePages = 7; // Show max 7 page numbers
+                    const pages = [];
+                    
+                    if (totalPages <= maxVisiblePages) {
+                      // Show all pages if total is small
+                      for (let i = 1; i <= totalPages; i++) {
+                        pages.push(
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              isActive={i === page}
+                              onClick={() => setPage(i)}
+                              href="#"
+                            >
+                              {i}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                    } else {
+                      // Smart pagination for many pages
+                      const delta = Math.floor(maxVisiblePages / 2);
+                      let start = Math.max(1, page - delta);
+                      let end = Math.min(totalPages, page + delta);
+                      
+                      // Adjust if we're near the beginning or end
+                      if (page <= delta) {
+                        end = Math.min(totalPages, maxVisiblePages);
+                      } else if (page > totalPages - delta) {
+                        start = Math.max(1, totalPages - maxVisiblePages + 1);
+                      }
+                      
+                      // Add first page if we're not starting from 1
+                      if (start > 1) {
+                        pages.push(
+                          <PaginationItem key={1}>
+                            <PaginationLink
+                              isActive={1 === page}
+                              onClick={() => setPage(1)}
+                              href="#"
+                            >
+                              1
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                        if (start > 2) {
+                          pages.push(
+                            <PaginationItem key="ellipsis-start">
+                              <span className="flex h-9 w-9 items-center justify-center">...</span>
+                            </PaginationItem>
+                          );
+                        }
+                      }
+                      
+                      // Add visible page range
+                      for (let i = start; i <= end; i++) {
+                        pages.push(
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              isActive={i === page}
+                              onClick={() => setPage(i)}
+                              href="#"
+                            >
+                              {i}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                      
+                      // Add last page if we're not ending at totalPages
+                      if (end < totalPages) {
+                        if (end < totalPages - 1) {
+                          pages.push(
+                            <PaginationItem key="ellipsis-end">
+                              <span className="flex h-9 w-9 items-center justify-center">...</span>
+                            </PaginationItem>
+                          );
+                        }
+                        pages.push(
+                          <PaginationItem key={totalPages}>
+                            <PaginationLink
+                              isActive={totalPages === page}
+                              onClick={() => setPage(totalPages)}
+                              href="#"
+                            >
+                              {totalPages}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                    }
+                    
+                    return pages;
+                  })()}
+                  
                   <PaginationItem>
                     <PaginationNext
                       onClick={() => setPage((p) => Math.min(Math.ceil(total / pageSize), p + 1))}
@@ -658,18 +815,6 @@ export default function UnitsPage() {
                 </div>
               ) : (
                 <>
-                  {/* Debug panel - remove after fixing */}
-                  {process.env.NODE_ENV === 'development' && !isViewMode && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
-                      <strong>Debug Info:</strong> 
-                      <br />isFormReady: {String(isFormReady)}
-                      <br />isViewMode: {String(isViewMode)}
-                      <br />editingUnit: {editingUnit?.unitNumber || 'none'}
-                      <br />unitNumber value: "{form.getValues('unitNumber')}"
-                      <br />Form state: {form.formState.isDirty ? 'dirty' : 'clean'}
-                    </div>
-                  )}
-                  
                   <div className="space-y-4">
                     <h4 className="text-lg font-semibold text-neutral-800">Unit Details</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -723,6 +868,34 @@ export default function UnitsPage() {
                                 className={isViewMode ? "bg-gray-50 cursor-default" : ""} 
                               />
                             </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="townhouse"
+                        render={({ field }) => (
+                          <FormItem className="sm:col-span-1">
+                            <FormLabel>Townhouse</FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(value === "true")} 
+                              value={field.value ? "true" : "false"}
+                              disabled={isViewMode}
+                            >
+                              <FormControl>
+                                <SelectTrigger className={isViewMode ? "bg-gray-50 cursor-default" : ""}>
+                                  <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="false">No</SelectItem>
+                                <SelectItem value="true">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -856,10 +1029,11 @@ export default function UnitsPage() {
                                     placeholder={`Parking Spot ${index + 1}`} 
                                     {...field} 
                                     readOnly={isViewMode}
+                                    maxLength={10}
                                     onChange={(e) => {
                                       field.onChange(e);
                                       if (!isViewMode) {
-                                        handleFacilityInputChange("parkingSpots", index, e.target.value, parkingFields, appendParking);
+                                        handleFacilityInputChange("parkingSpots", index, e.target.value);
                                       }
                                     }}
                                     className={isViewMode ? "bg-gray-50 cursor-default" : ""}
@@ -870,15 +1044,27 @@ export default function UnitsPage() {
                             )}
                           />
                           {!isViewMode && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => removeParking(index)} 
-                              disabled={parkingFields.length === 1}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => appendParking({ identifier: "" })} 
+                                title="Add parking spot"
+                              >
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => removeParking(index)} 
+                                disabled={parkingFields.length === 1}
+                                title="Remove parking spot"
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -909,10 +1095,11 @@ export default function UnitsPage() {
                                     placeholder={`Storage Locker ${index + 1}`} 
                                     {...field} 
                                     readOnly={isViewMode}
+                                    maxLength={10}
                                     onChange={(e) => {
                                       field.onChange(e);
                                       if (!isViewMode) {
-                                        handleFacilityInputChange("storageLockers", index, e.target.value, storageFields, appendStorage);
+                                        handleFacilityInputChange("storageLockers", index, e.target.value);
                                       }
                                     }}
                                     className={isViewMode ? "bg-gray-50 cursor-default" : ""}
@@ -923,15 +1110,27 @@ export default function UnitsPage() {
                             )}
                           />
                           {!isViewMode && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => removeStorage(index)} 
-                              disabled={storageFields.length === 1}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => appendStorage({ identifier: "" })} 
+                                title="Add storage locker"
+                              >
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => removeStorage(index)} 
+                                disabled={storageFields.length === 1}
+                                title="Remove storage locker"
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -962,10 +1161,11 @@ export default function UnitsPage() {
                                     placeholder={`Bike Locker ${index + 1}`} 
                                     {...field} 
                                     readOnly={isViewMode}
+                                    maxLength={10}
                                     onChange={(e) => {
                                       field.onChange(e);
                                       if (!isViewMode) {
-                                        handleFacilityInputChange("bikeLockers", index, e.target.value, bikeFields, appendBike);
+                                        handleFacilityInputChange("bikeLockers", index, e.target.value);
                                       }
                                     }}
                                     className={isViewMode ? "bg-gray-50 cursor-default" : ""}
@@ -976,15 +1176,27 @@ export default function UnitsPage() {
                             )}
                           />
                           {!isViewMode && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => removeBike(index)} 
-                              disabled={bikeFields.length === 1}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => appendBike({ identifier: "" })} 
+                                title="Add bike locker"
+                              >
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => removeBike(index)} 
+                                disabled={bikeFields.length === 1}
+                                title="Remove bike locker"
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -1339,6 +1551,123 @@ export default function UnitsPage() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!unitToDelete} onOpenChange={() => setUnitToDelete(null)}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Unit Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the unit and all associated data including:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          {unitToDelete && (
+            <div className="space-y-4 py-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h4 className="font-semibold text-red-800 mb-2">Unit Information</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><strong>Unit Number:</strong> #{unitToDelete.unit.unitNumber}</div>
+                  <div><strong>Strata Lot:</strong> {unitToDelete.unit.strataLot || "N/A"}</div>
+                  <div><strong>Floor:</strong> {unitToDelete.unit.floor || "N/A"}</div>
+                  <div><strong>Townhouse:</strong> {unitToDelete.unit.townhouse ? "Yes" : "No"}</div>
+                </div>
+              </div>
+              
+              {unitToDelete.persons.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-800 mb-2">Associated People ({unitToDelete.persons.length})</h4>
+                  <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
+                    {unitToDelete.persons.map((person: any, idx: number) => (
+                      <div key={idx} className="flex justify-between">
+                        <span>{person.fullName} ({person.role})</span>
+                        <span className="text-gray-600">{person.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {(unitToDelete.facilities?.parkingSpots?.length > 0 || 
+                unitToDelete.facilities?.storageLockers?.length > 0 || 
+                unitToDelete.facilities?.bikeLockers?.length > 0) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-2">Facilities</h4>
+                  <div className="text-sm">
+                    {unitToDelete.facilities?.parkingSpots?.length > 0 && (
+                      <div>Parking Spots: {unitToDelete.facilities.parkingSpots?.map((p: any) => p.identifier).join(", ")}</div>
+                    )}
+                    {unitToDelete.facilities?.storageLockers?.length > 0 && (
+                      <div>Storage Lockers: {unitToDelete.facilities.storageLockers?.map((s: any) => s.identifier).join(", ")}</div>
+                    )}
+                    {unitToDelete.facilities?.bikeLockers?.length > 0 && (
+                      <div>Bike Lockers: {unitToDelete.facilities.bikeLockers?.map((b: any) => b.identifier).join(", ")}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {unitToDelete.violationCount > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-800 mb-2">⚠️ Violations ({unitToDelete.violationCount})</h4>
+                  <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
+                    {unitToDelete.violations.map((violation) => (
+                      <div key={violation.id} className="flex justify-between">
+                        <span>#{violation.referenceNumber}</span>
+                        <span className="text-gray-600">{violation.violationType}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          violation.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          violation.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
+                          violation.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {violation.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-red-700 font-medium">
+                    All violation records, histories, and associated data will be permanently deleted!
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Warning</h4>
+                <div className="text-sm text-yellow-700">
+                  <p className="mb-2">This action cannot be undone. Deleting this unit will permanently remove:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>The unit record</li>
+                    <li>All associated owner and tenant information</li>
+                    <li>All facility assignments (parking, storage, bike lockers)</li>
+                    {unitToDelete.violationCount > 0 && (
+                      <li className="font-medium text-red-700">All {unitToDelete.violationCount} violation record(s) and their complete history</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUnitToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Unit"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

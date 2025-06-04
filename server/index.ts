@@ -1,11 +1,19 @@
 import { sql } from "drizzle-orm";
+import { db } from "./storage";
+import { startEmailCleanupScheduler } from "./email-cleanup-scheduler";
+import { ensureLogDirectoryExists, createAppBootstrap } from "./app-bootstrap";
+
+// Ensure log directory exists
+ensureLogDirectoryExists();
+
+// Create the app bootstrap
+console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
 
 (async () => {
   try {
     // Load environment variables first
     const dotenv = await import('dotenv');
     dotenv.config();
-    console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
 
     // Dynamically import the rest of your application
     // to ensure dotenv is configured before any other code runs.
