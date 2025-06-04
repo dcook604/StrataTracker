@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express, Request, Response, NextFunction } from "express";
+import express from 'express';
+import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { storage as dbStorage } from "./storage";
 import { User as SelectUser, insertUserSchema } from "@shared/schema";
@@ -21,10 +22,17 @@ declare global {
   }
 }
 
+// Extend express-session to include user
+declare module "express-session" {
+  interface SessionData {
+    user?: SelectUser;
+  }
+}
+
 // Create MemoryStore with TTL
 const MemoryStoreSession = MemoryStore(session);
 
-export const authMiddleware = Express.Router();
+export const authMiddleware = express.Router();
 
 // Security headers with Helmet
 authMiddleware.use(helmet({
@@ -71,7 +79,7 @@ authMiddleware.use(session({
 }));
 
 // Authentication helper functions
-export function requireAuth(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.session?.user) {
     next();
   } else {
@@ -79,16 +87,16 @@ export function requireAuth(req: Express.Request, res: Express.Response, next: E
   }
 }
 
-export function requireAdmin(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
-  if (req.session?.user && req.session.user.role === 'admin') {
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.session?.user && req.session.user.isAdmin) {
     next();
   } else {
     res.status(403).json({ message: 'Admin access required' });
   }
 }
 
-export function requireAdminOrCouncil(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
-  if (req.session?.user && (req.session.user.role === 'admin' || req.session.user.role === 'council')) {
+export function requireAdminOrCouncil(req: Request, res: Response, next: NextFunction) {
+  if (req.session?.user && (req.session.user.isAdmin || req.session.user.isCouncilMember)) {
     next();
   } else {
     res.status(403).json({ message: 'Admin or council access required' });
