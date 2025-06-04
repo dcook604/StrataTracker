@@ -391,6 +391,164 @@ export function ViolationForm() {
               </div>
             </div>
 
+            {/* Additional Violation Details */}
+            <div>
+              <h3 className="text-lg font-medium text-neutral-800 mb-4">Violation Details *</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="incidentArea"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Incident Area</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Pool area, Parking garage, Lobby" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="conciergeName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Concierge Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Name of concierge on duty" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="peopleInvolved"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>People Involved</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Names or descriptions of people involved" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="noticedBy"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Noticed By</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Who first noticed the violation" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="damageToProperty"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Is there any damage to common property?</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {watchDamageToProperty === "yes" && (
+                  <FormField
+                    control={form.control}
+                    name="damageDetails"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Damage Details</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Please provide details about the damage and attach pictures below in the evidence section"
+                            className="resize-none"
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Please describe the damage and remember to attach pictures in the evidence section below.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="policeInvolved"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Are the police involved?</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {watchPoliceInvolved === "yes" && (
+                  <FormField
+                    control={form.control}
+                    name="policeDetails"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Police Details</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Please provide police report number if applicable and any additional details"
+                            className="resize-none"
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Include police report number, officer names, case number, or any other relevant police information.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+            </div>
+
             {/* Evidence Upload */}
             <div>
               <h3 className="text-lg font-medium text-neutral-800 mb-4">Evidence</h3>
