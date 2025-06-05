@@ -44,10 +44,16 @@ echo "[INFO] Frontend will attempt to start on port $FRONTEND_PORT."
 
 
 echo "[INFO] Starting backend server on port $BACKEND_PORT..."
+# Load environment variables from .env file and pass them to the npm command
 # Pass the selected port to the backend server.
 # Assuming the backend (server/index.ts) reads process.env.PORT or process.env.BACKEND_PORT
 # If it reads process.env.PORT, this will set it. If it specifically needs BACKEND_PORT, adjust accordingly.
-PORT=$BACKEND_PORT npm run dev:backend &
+DATABASE_URL="postgres://spectrum4:spectrum4password@localhost:5432/spectrum4" \
+NODE_ENV="development" \
+SESSION_SECRET="your-session-secret-change-this-in-production" \
+VIRUS_SCANNING_ENABLED="true" \
+PORT=$BACKEND_PORT \
+npm run dev:backend &
 BACKEND_PID=$!
 echo "[INFO] Backend server process started with PID $BACKEND_PID."
 

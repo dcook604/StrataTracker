@@ -1,8 +1,8 @@
 import nodemailer from 'nodemailer';
 import { loadEmailSettings } from './email-service';
-import { sendEmailWithDeduplication } from './email-deduplication';
+import { sendEmailWithDeduplication, EmailDeduplicationService, type EmailRequest } from './email-deduplication';
 import { db } from './db';
-import { unitPersonRoles } from '../shared/schema';
+import { unitPersonRoles, persons as PersonsSchema, type User as AdminUserType, type Violation } from '../shared/schema';
 import { and, eq } from 'drizzle-orm';
 
 // Initialize with default local configuration
@@ -15,18 +15,21 @@ let transporter = nodemailer.createTransport({
   }
 });
 
-// Interface for violation notification
-export interface ViolationNotificationParams {
+// NEW Interface for notifying occupants about a new violation
+export interface NewViolationToOccupantsNotificationParams {
   violationId: number;
+  unitId: number; // Still needed for metadata or context
   unitNumber: string;
   violationType: string;
-  ownerEmail: string;
-  ownerName: string;
-  tenantEmail?: string;
-  tenantName?: string;
-  reporterName: string;
-  unitId: number;
-  accessLinks?: { owner?: string; tenant?: string };
+  reporterName: string; // Name of the user who reported the violation
+  personsToNotify: Array<{
+    personId: number;
+    fullName: string;
+    email: string;
+    role: string; // 'owner' or 'tenant'
+    receiveEmailNotifications: boolean;
+    accessLink?: string; // The unique dispute link for this person
+  }>;
 }
 
 // Interface for violation approved notification
@@ -40,6 +43,46 @@ interface ViolationApprovedParams {
   unitId: number;
   tenantEmail?: string;
   tenantName?: string;
+}
+
+export interface ViolationPendingApprovalAdminNotificationParams {
+  violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string }; // Key violation details
+  adminUser: Pick<AdminUserType, 'id' | 'fullName' | 'email'>; // Added 'id' to the Pick
+  reporterName: string;
+  appUrl: string; // Base URL of the application
+}
+
+export interface ViolationDisputedAdminNotificationParams {
+  violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string };
+  adminUser: Pick<AdminUserType, 'id' | 'fullName' | 'email'>;
+  disputedBy: string; // Name of person who disputed (from commenterName or person record)
+  appUrl: string;
+}
+
+export interface ViolationRejectedOccupantNotificationParams {
+  violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string };
+  rejectionReason: string;
+  rejectedBy: string; // Name of admin/council member who rejected it
+  personsToNotify: Array<{
+    personId: number;
+    fullName: string;
+    email: string;
+    role: string; // 'owner' or 'tenant'
+    receiveEmailNotifications: boolean;
+  }>;
+}
+
+export interface ViolationApprovedOccupantNotificationParams {
+  violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string };
+  fineAmount: number;
+  approvedBy: string; // Name of admin/council member who approved it
+  personsToNotify: Array<{
+    personId: number;
+    fullName: string;
+    email: string;
+    role: string; // 'owner' or 'tenant'
+    receiveEmailNotifications: boolean;
+  }>;
 }
 
 // Always try to send email with current SMTP settings
@@ -83,99 +126,74 @@ const sendEmail = async (mailOptions: nodemailer.SendMailOptions) => {
   }
 };
 
-// Send notification when a new violation is reported
-export const sendViolationNotification = async (params: ViolationNotificationParams) => {
+// Send notification when a new violation is reported to occupants (owners/tenants)
+export const sendNewViolationToOccupantsNotification = async (params: NewViolationToOccupantsNotificationParams) => {
   const {
     violationId,
+    unitId,
     unitNumber,
     violationType,
-    ownerEmail,
-    ownerName,
-    tenantEmail,
-    tenantName,
     reporterName,
-    unitId,
-    accessLinks,
+    personsToNotify,
   } = params;
 
-  // Base email content
-  const subject = `[StrataGuard] New Violation Report for Unit ${unitNumber}`;
-  const ownerLinkText = accessLinks?.owner ? `\nYou may respond directly using this secure link: ${accessLinks.owner}\n` : "";
-  const text = `
-    Dear ${ownerName},
+  for (const person of personsToNotify) {
+    if (person.receiveEmailNotifications && person.accessLink && person.email) {
+      const subject = `[StrataGuard] New Violation Reported for Unit ${unitNumber}`;
+      // TODO: Create a proper HTML template
+      const textContent = `
+Dear ${person.fullName},
 
-    A new violation has been reported for Unit ${unitNumber}.
+A new violation has been reported for Unit ${unitNumber} associated with your ${person.role === 'owner' ? 'ownership' : 'tenancy'}.
 
-    Violation Details:
-    - Violation ID: ${violationId}
-    - Type: ${violationType}
-    - Reported by: ${reporterName}
+Violation Details:
+- Violation ID: ${violationId} (Ref: ${params.violationId})
+- Unit Number: ${unitNumber}
+- Type: ${violationType}
+- Reported by: ${reporterName}
 
-    You have 30 days to respond to this violation. If you would like to dispute this violation, you may:\n
-    1. Log in to the StrataGuard system and submit your response, OR
-    2. Use the secure link below to add a comment and upload evidence (photos, PDFs):
-    ${ownerLinkText}
+You have 30 days to respond to this violation. If you would like to dispute this violation, or add comments and evidence, please use the following secure link:
+${person.accessLink}
 
-    If no response is received within 30 days, this violation will be automatically approved by the strata council and a fine may be levied as per the strata bylaws.
+If no response is received within 30 days, this violation may proceed according to the strata bylaws.
 
-    Thank you,
-    StrataGuard System
-  `;
+Thank you,
+StrataGuard System
+      `;
 
-  // Get notification preferences
-  const [ownerRole] = await db.select().from(unitPersonRoles)
-    .where(and(
-      eq(unitPersonRoles.unitId, unitId),
-      eq(unitPersonRoles.role, 'owner')
-    ));
-
-  // Send to owner if they want notifications
-  if (ownerRole?.receiveEmailNotifications) {
-    const emailResult = await sendEmailWithDeduplication({
-      from: '"StrataGuard System" <notifications@strataguard.com>',
-      to: ownerEmail,
-      subject,
-      text,
-      emailType: 'violation_notification',
-      metadata: {
-        violationId,
-        unitId,
-        unitNumber,
-        recipientType: 'owner',
-        recipientEmail: ownerEmail
-      }
-    });
-
-    console.log(`[VIOLATION_EMAIL] Owner notification for violation ${violationId}: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
-  }
-
-  // Get tenant notification preferences if tenant exists
-  if (tenantEmail && tenantName) {
-    const [tenantRole] = await db.select().from(unitPersonRoles)
-      .where(and(
-        eq(unitPersonRoles.unitId, unitId),
-        eq(unitPersonRoles.role, 'tenant')
-      ));
-
-    // Send to tenant if they want notifications
-    if (tenantRole?.receiveEmailNotifications) {
-      const tenantLinkText = accessLinks?.tenant ? `\nYou may respond directly using this secure link: ${accessLinks.tenant}\n` : "";
-      const tenantEmailResult = await sendEmailWithDeduplication({
-        from: '"StrataGuard System" <notifications@strataguard.com>',
-        to: tenantEmail,
+      const emailRequest: EmailRequest = {
+        to: person.email,
         subject,
-        text: text.replace(ownerName, tenantName) + tenantLinkText,
+        text: textContent,
+        // html: "...", // TODO: Add HTML content using a template
+        from: '"StrataGuard System" <notifications@strataguard.com>', // Consider making this configurable
         emailType: 'violation_notification',
         metadata: {
           violationId,
           unitId,
           unitNumber,
-          recipientType: 'tenant',
-          recipientEmail: tenantEmail
-        }
-      });
+          personId: person.personId,
+          recipientType: person.role,
+          recipientEmail: person.email,
+        },
+        // Idempotency key can be generated by the service or explicitly here:
+        // idempotencyKey: `violation-${violationId}-new-occupant-${person.personId}`
+      };
 
-      console.log(`[VIOLATION_EMAIL] Tenant notification for violation ${violationId}: ${tenantEmailResult.message} ${tenantEmailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
+      try {
+        const emailResult = await EmailDeduplicationService.sendEmailWithDeduplication(emailRequest);
+        if (emailResult.success) {
+          console.log(`[VIOLATION_EMAIL] New violation notification sent to ${person.role} ${person.fullName} (${person.email}) for violation ${violationId}. Message: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
+        } else {
+          console.error(`[VIOLATION_EMAIL] Failed to send new violation notification to ${person.role} ${person.fullName} (${person.email}) for violation ${violationId}. Reason: ${emailResult.message}`);
+        }
+      } catch (error) {
+        console.error(`[VIOLATION_EMAIL] Error sending new violation notification to ${person.role} ${person.fullName} (${person.email}) for violation ${violationId}:`, error);
+      }
+    } else if (!person.receiveEmailNotifications) {
+      console.log(`[VIOLATION_EMAIL] Skipping notification for ${person.role} ${person.fullName} (${person.email}) for violation ${violationId} due to notification preferences.`);
+    } else if (!person.accessLink) {
+      console.warn(`[VIOLATION_EMAIL] Skipping notification for ${person.role} ${person.fullName} (${person.email}) for violation ${violationId} due to missing access link, though notifications are enabled.`);
     }
   }
 };
@@ -270,3 +288,248 @@ export const sendViolationApprovedNotification = async (params: ViolationApprove
     }
   }
 };
+
+export const sendViolationPendingApprovalToAdminsNotification = async (params: ViolationPendingApprovalAdminNotificationParams) => {
+  const { violation, adminUser, reporterName, appUrl } = params;
+
+  if (!adminUser.email) {
+    console.warn(`[ADMIN_NOTIFICATION_SKIP] Admin user ${adminUser.fullName} has no email address.`);
+    return;
+  }
+
+  const subject = `[StrataGuard] New Violation Awaiting Approval: Ref ${violation.referenceNumber}`;
+  // TODO: Create a proper HTML template for this email
+  const violationDetailsLink = `${appUrl}/violations/${violation.uuid || violation.id}`;
+
+  const textContent = `
+Dear ${adminUser.fullName},
+
+A new violation has been reported and is awaiting approval:
+
+Violation Details:
+- Reference Number: ${violation.referenceNumber}
+- Type: ${violation.violationType}
+- Unit Number: ${violation.unitNumber || 'N/A'}
+- Reported By: ${reporterName}
+
+Please review this violation at your earliest convenience.
+
+View Violation Details: ${violationDetailsLink}
+
+Thank you,
+StrataGuard System
+  `;
+
+  const emailRequest: EmailRequest = {
+    to: adminUser.email,
+    subject,
+    text: textContent,
+    // html: "...", // TODO: Add HTML content using a template
+    from: '"StrataGuard System" <notifications@strataguard.com>', // Consider making this configurable
+    emailType: 'system', // Or a more specific type like 'admin_violation_alert'
+    metadata: {
+      violationId: violation.id,
+      violationUuid: violation.uuid,
+      adminUserId: (adminUser as any).id, // If adminUser has an ID, include it
+      recipientType: 'admin/council',
+    },
+    // Idempotency key can be generated by the service or explicitly here:
+    idempotencyKey: `violation-${violation.uuid || violation.id}-pending-approval-admin-${(adminUser as any).id || adminUser.email}`
+  };
+
+  try {
+    const emailResult = await EmailDeduplicationService.sendEmailWithDeduplication(emailRequest);
+    if (emailResult.success) {
+      console.log(`[ADMIN_NOTIFICATION] Pending approval notification sent to ${adminUser.fullName} (${adminUser.email}) for violation ${violation.id}. Message: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
+    } else {
+      console.error(`[ADMIN_NOTIFICATION] Failed to send pending approval notification to ${adminUser.fullName} (${adminUser.email}) for violation ${violation.id}. Reason: ${emailResult.message}`);
+    }
+  } catch (error) {
+    console.error(`[ADMIN_NOTIFICATION] Error sending pending approval notification to ${adminUser.fullName} (${adminUser.email}) for violation ${violation.id}:`, error);
+  }
+};
+
+export const sendViolationDisputedToAdminsNotification = async (params: ViolationDisputedAdminNotificationParams) => {
+  const { violation, adminUser, disputedBy, appUrl } = params;
+
+  if (!adminUser.email) {
+    console.warn(`[ADMIN_DISPUTE_NOTIFICATION_SKIP] Admin user ${adminUser.fullName} has no email address.`);
+    return;
+  }
+
+  const subject = `[StrataGuard] Violation Disputed: Ref ${violation.referenceNumber}`;
+  const violationDetailsLink = `${appUrl}/violations/${violation.uuid || violation.id}`;
+
+  const textContent = `
+Dear ${adminUser.fullName},
+
+A violation has been disputed by the occupant and requires your review:
+
+Violation Details:
+- Reference Number: ${violation.referenceNumber}
+- Type: ${violation.violationType}
+- Unit Number: ${violation.unitNumber || 'N/A'}
+- Disputed By: ${disputedBy}
+
+The violation status has been changed to "Disputed" and is awaiting your decision to either approve or reject the violation based on the occupant's response.
+
+Please review the dispute and any evidence provided:
+${violationDetailsLink}
+
+Thank you,
+StrataGuard System
+  `;
+
+  const emailRequest: EmailRequest = {
+    to: adminUser.email,
+    subject,
+    text: textContent,
+    // html: "...", // TODO: Add HTML content using a template
+    from: '"StrataGuard System" <notifications@strataguard.com>',
+    emailType: 'system',
+    metadata: {
+      violationId: violation.id,
+      violationUuid: violation.uuid,
+      adminUserId: adminUser.id,
+      recipientType: 'admin/council',
+      action: 'dispute',
+    },
+    idempotencyKey: `violation-${violation.uuid || violation.id}-disputed-admin-${adminUser.id}`
+  };
+
+  try {
+    const emailResult = await EmailDeduplicationService.sendEmailWithDeduplication(emailRequest);
+    if (emailResult.success) {
+      console.log(`[ADMIN_DISPUTE_NOTIFICATION] Dispute notification sent to ${adminUser.fullName} (${adminUser.email}) for violation ${violation.id}. Message: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
+    } else {
+      console.error(`[ADMIN_DISPUTE_NOTIFICATION] Failed to send dispute notification to ${adminUser.fullName} (${adminUser.email}) for violation ${violation.id}. Reason: ${emailResult.message}`);
+    }
+  } catch (error) {
+    console.error(`[ADMIN_DISPUTE_NOTIFICATION] Error sending dispute notification to ${adminUser.fullName} (${adminUser.email}) for violation ${violation.id}:`, error);
+  }
+};
+
+export const sendViolationRejectedToOccupantsNotification = async (params: ViolationRejectedOccupantNotificationParams) => {
+  const { violation, rejectionReason, rejectedBy, personsToNotify } = params;
+
+  for (const person of personsToNotify) {
+    if (person.receiveEmailNotifications && person.email) {
+      const subject = `[StrataGuard] Violation Rejected: Ref ${violation.referenceNumber}`;
+      
+      const textContent = `
+Dear ${person.fullName},
+
+The violation reported for Unit ${violation.unitNumber || 'N/A'} has been reviewed and rejected by the strata council.
+
+Violation Details:
+- Reference Number: ${violation.referenceNumber}
+- Type: ${violation.violationType}
+- Unit Number: ${violation.unitNumber || 'N/A'}
+- Rejected By: ${rejectedBy}
+
+Reason for Rejection:
+${rejectionReason}
+
+This violation has been closed and no further action is required on your part. If you have any questions about this decision, please contact the strata council directly.
+
+Thank you,
+StrataGuard System
+      `;
+
+      const emailRequest: EmailRequest = {
+        to: person.email,
+        subject,
+        text: textContent,
+        // html: "...", // TODO: Add HTML content using a template
+        from: '"StrataGuard System" <notifications@strataguard.com>',
+        emailType: 'violation_notification',
+        metadata: {
+          violationId: violation.id,
+          violationUuid: violation.uuid,
+          personId: person.personId,
+          recipientType: person.role,
+          recipientEmail: person.email,
+          action: 'rejection',
+        },
+        idempotencyKey: `violation-${violation.uuid || violation.id}-rejected-occupant-${person.personId}`
+      };
+
+      try {
+        const emailResult = await EmailDeduplicationService.sendEmailWithDeduplication(emailRequest);
+        if (emailResult.success) {
+          console.log(`[VIOLATION_REJECTION_EMAIL] Rejection notification sent to ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id}. Message: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
+        } else {
+          console.error(`[VIOLATION_REJECTION_EMAIL] Failed to send rejection notification to ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id}. Reason: ${emailResult.message}`);
+        }
+      } catch (error) {
+        console.error(`[VIOLATION_REJECTION_EMAIL] Error sending rejection notification to ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id}:`, error);
+      }
+    } else if (!person.receiveEmailNotifications) {
+      console.log(`[VIOLATION_REJECTION_EMAIL] Skipping rejection notification for ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id} due to notification preferences.`);
+    }
+  }
+};
+
+export const sendViolationApprovedToOccupantsNotification = async (params: ViolationApprovedOccupantNotificationParams) => {
+  const { violation, fineAmount, approvedBy, personsToNotify } = params;
+
+  for (const person of personsToNotify) {
+    if (person.receiveEmailNotifications && person.email) {
+      const subject = `[StrataGuard] Violation Approved: Ref ${violation.referenceNumber}`;
+      
+      const textContent = `
+Dear ${person.fullName},
+
+The violation reported for Unit ${violation.unitNumber || 'N/A'} has been reviewed and approved by the strata council.
+
+Violation Details:
+- Reference Number: ${violation.referenceNumber}
+- Type: ${violation.violationType}
+- Unit Number: ${violation.unitNumber || 'N/A'}
+- Fine Amount: $${fineAmount.toFixed(2)}
+- Approved By: ${approvedBy}
+
+This fine will be added to your strata fee account. Please ensure that the payment is made within 30 days to avoid additional penalties.
+
+If you have any questions about this decision, please contact the strata council directly.
+
+Thank you,
+StrataGuard System
+      `;
+
+      const emailRequest: EmailRequest = {
+        to: person.email,
+        subject,
+        text: textContent,
+        // html: "...", // TODO: Add HTML content using a template
+        from: '"StrataGuard System" <notifications@strataguard.com>',
+        emailType: 'violation_approved',
+        metadata: {
+          violationId: violation.id,
+          violationUuid: violation.uuid,
+          personId: person.personId,
+          recipientType: person.role,
+          recipientEmail: person.email,
+          fineAmount: fineAmount,
+          action: 'approval',
+        },
+        idempotencyKey: `violation-${violation.uuid || violation.id}-approved-occupant-${person.personId}`
+      };
+
+      try {
+        const emailResult = await EmailDeduplicationService.sendEmailWithDeduplication(emailRequest);
+        if (emailResult.success) {
+          console.log(`[VIOLATION_APPROVAL_EMAIL] Approval notification sent to ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id}. Message: ${emailResult.message} ${emailResult.isDuplicate ? '(duplicate prevented)' : ''}`);
+        } else {
+          console.error(`[VIOLATION_APPROVAL_EMAIL] Failed to send approval notification to ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id}. Reason: ${emailResult.message}`);
+        }
+      } catch (error) {
+        console.error(`[VIOLATION_APPROVAL_EMAIL] Error sending approval notification to ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id}:`, error);
+      }
+    } else if (!person.receiveEmailNotifications) {
+      console.log(`[VIOLATION_APPROVAL_EMAIL] Skipping approval notification for ${person.role} ${person.fullName} (${person.email}) for violation ${violation.id} due to notification preferences.`);
+    }
+  }
+};
+
+export { sendEmailWithDeduplication } from "./email-deduplication";
