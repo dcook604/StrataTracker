@@ -33,6 +33,7 @@ const { upload, virusScanMiddleware, contentValidationMiddleware } = createSecur
 });
 
 
+
 // --- VIOLATIONS API ---
 
 // GET /api/violations
@@ -278,7 +279,10 @@ router.delete("/:id", ensureAuthenticated, async (req, res) => {
 });
 
 // --- VIOLATION CATEGORIES API ---
-// GET /api/violation-categories
+// Note: These routes will be mounted at both /api/violations/categories and /api/violation-categories
+// The latter is handled by a separate route registration in routes.ts
+
+// GET /api/violations/categories (also available as /api/violation-categories via separate mount)
 router.get("/categories", ensureAuthenticated, async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
@@ -288,7 +292,17 @@ router.get("/categories", ensureAuthenticated, async (req, res) => {
     }
 });
 
-// POST /api/violation-categories
+// GET /api/violations/categories 
+router.get("/categories", ensureAuthenticated, async (req, res) => {
+    try {
+      const categories = await dbStorage.getAllViolationCategories();
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+});
+
+// POST /api/violations/categories
 router.post("/categories", ensureAuthenticated, async (req, res) => {
     try {
       const category = await dbStorage.createViolationCategory({ name: req.body.name });
@@ -298,7 +312,7 @@ router.post("/categories", ensureAuthenticated, async (req, res) => {
     }
 });
 
-// PUT /api/violation-categories/:id
+// PUT /api/violations/categories/:id
 router.put("/categories/:id", ensureAuthenticated, async (req, res) => {
     try {
       const category = await dbStorage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
@@ -308,7 +322,7 @@ router.put("/categories/:id", ensureAuthenticated, async (req, res) => {
     }
 });
 
-// DELETE /api/violation-categories/:id
+// DELETE /api/violations/categories/:id
 router.delete("/categories/:id", ensureAuthenticated, async (req, res) => {
     try {
       await dbStorage.deleteViolationCategory(parseInt(req.params.id));
@@ -317,6 +331,5 @@ router.delete("/categories/:id", ensureAuthenticated, async (req, res) => {
       res.status(500).json({ message: "Failed to delete category" });
     }
 });
-
 
 export default router; 

@@ -128,4 +128,15 @@ router.delete("/:id", ensureAuthenticated, async (req, res) => {
   }
 });
 
+// GET /api/units/count (publicly accessible)
+router.get("/count", async (req, res) => {
+  try {
+    const units = await dbStorage.getAllPropertyUnits();
+    res.json({ total: units.length });
+  } catch (error: any) {
+    logger.error("Failed to fetch unit count:", error);
+    res.status(500).json({ message: "Failed to fetch unit count", details: error.message });
+  }
+});
+
 export default router; 

@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Building2, ListChecks, AlertTriangle, HelpCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import React from "react";
 
 /**
@@ -47,13 +48,35 @@ function StatCard({ label, value, icon }: { label: string; value: React.ReactNod
  * @param propertyImage - Image URL for the property (optional).
  */
 export function ViolationSummaryCard() {
-  const { data: units = [] } = useQuery({
-    queryKey: ['/api/property-units'],
+  const { data: unitsData, isLoading: unitsLoading } = useQuery<{ total: number }>({
+    queryKey: ['property-units-count'],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/units/count");
+      if (!res.ok) throw new Error('Failed to fetch unit count');
+      return res.json();
+    },
   });
-  const { data: stats = {} } = useQuery({
-    queryKey: ['/api/reports/stats'],
+  
+  const { data: reportData, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      // Get current month data for dashboard
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      const params = new URLSearchParams({
+        from: startOfMonth.toISOString(),
+        to: endOfMonth.toISOString(),
+      });
+      
+      const res = await apiRequest("GET", `/api/reports/stats?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
   });
-  const isLoading = !units || !stats;
+  
+  const isLoading = unitsLoading || statsLoading;
 
   if (isLoading) {
     return (
@@ -72,10 +95,11 @@ export function ViolationSummaryCard() {
     );
   }
 
-  const unitCount = (units as any[]).length || 0;
-  const monthlyViolations = (stats as any).totalViolations ?? 0;
-  const openCases = ((stats as any).newViolations ?? 0) + ((stats as any).pendingViolations ?? 0);
-  const disputedCases = (stats as any).disputedViolations ?? 0;
+  const unitCount = unitsData?.total || 0;
+  const stats = reportData?.stats || {};
+  const monthlyViolations = stats.totalViolations ?? 0;
+  const openCases = (stats.newViolations ?? 0) + (stats.pendingViolations ?? 0);
+  const disputedCases = stats.disputedViolations ?? 0;
 
   return (
     <Card className="shadow rounded-lg p-6">

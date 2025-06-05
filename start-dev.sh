@@ -4,6 +4,52 @@ DEFAULT_BACKEND_PORT=3001
 DEFAULT_FRONTEND_PORT=3002
 MAX_PORT_SEARCH_ATTEMPTS=10 # How many ports to try after the default one
 
+# Function to stop existing development processes
+stop_existing_processes() {
+    echo "[INFO] Checking for existing development processes..."
+    
+    # Find existing npm dev processes
+    local EXISTING_PIDS=$(pgrep -f "npm run dev" 2>/dev/null)
+    local BACKEND_PIDS=$(pgrep -f "npm run dev:backend" 2>/dev/null)
+    
+    if [ -n "$EXISTING_PIDS" ] || [ -n "$BACKEND_PIDS" ]; then
+        echo "[INFO] Found existing development processes. Stopping them..."
+        
+        # Kill npm dev processes
+        if [ -n "$EXISTING_PIDS" ]; then
+            echo "[INFO] Stopping frontend processes (PIDs: $EXISTING_PIDS)..."
+            echo "$EXISTING_PIDS" | xargs kill -TERM 2>/dev/null
+        fi
+        
+        # Kill npm dev:backend processes
+        if [ -n "$BACKEND_PIDS" ]; then
+            echo "[INFO] Stopping backend processes (PIDs: $BACKEND_PIDS)..."
+            echo "$BACKEND_PIDS" | xargs kill -TERM 2>/dev/null
+        fi
+        
+        # Wait a moment for graceful shutdown
+        echo "[INFO] Waiting for processes to terminate gracefully..."
+        sleep 3
+        
+        # Force kill if any are still running
+        local REMAINING_PIDS=$(pgrep -f "npm run dev" 2>/dev/null)
+        local REMAINING_BACKEND_PIDS=$(pgrep -f "npm run dev:backend" 2>/dev/null)
+        
+        if [ -n "$REMAINING_PIDS" ] || [ -n "$REMAINING_BACKEND_PIDS" ]; then
+            echo "[INFO] Force killing remaining processes..."
+            [ -n "$REMAINING_PIDS" ] && echo "$REMAINING_PIDS" | xargs kill -KILL 2>/dev/null
+            [ -n "$REMAINING_BACKEND_PIDS" ] && echo "$REMAINING_BACKEND_PIDS" | xargs kill -KILL 2>/dev/null
+        fi
+        
+        echo "[INFO] Existing processes stopped."
+    else
+        echo "[INFO] No existing development processes found."
+    fi
+}
+
+# Stop any existing development processes first
+stop_existing_processes
+
 # Function to find an available port starting from a base port
 find_available_port() {
   local BASE_PORT=$1

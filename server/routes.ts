@@ -10,6 +10,7 @@ import emailConfigRoutes from "./routes/email-config";
 import communicationsRoutes from "./routes/communications";
 import bylawsRoutes from './routes/bylaws';
 import violationsRoutes from './routes/violations'; // Import the new violations router
+import violationCategoriesRoutes from './routes/violation-categories'; // Import the dedicated violation categories router
 import unitsRoutes from './routes/units'; // Import the new units router
 import reportsRoutes from './routes/reports'; // Import the new reports router
 import path from "path";
@@ -86,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/communications", communicationsRoutes);
   app.use("/api/bylaws", bylawsRoutes);
   app.use("/api/violations", violationsRoutes);
-  app.use('/api/violation-categories', violationsRoutes);
+  app.use('/api/violation-categories', violationCategoriesRoutes);
   app.use('/api/units', unitsRoutes);
   app.use('/api/property-units', unitsRoutes);
   app.use('/api/reports', reportsRoutes); // Register the reports router
