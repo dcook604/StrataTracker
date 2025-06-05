@@ -38,10 +38,11 @@ import {
   bikeLockers,
   type ParkingSpot,
   type StorageLocker,
-  type BikeLocker
+  type BikeLocker,
+  emailVerificationCodes
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray, isNull } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
@@ -202,6 +203,10 @@ export interface IStorage {
     email: string;
     fullName: string;
   }>>;
+
+  addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void>;
+  getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any>;
+  markEmailVerificationCodeUsed(id: number): Promise<void>;
 }
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
@@ -1813,6 +1818,30 @@ export class DatabaseStorage implements IStorage {
       console.error("Error fetching admin and council users:", error);
       throw error; 
     }
+  }
+
+  async addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }) {
+    // Invalidate previous unused codes for this person/violation
+    await db.update(emailVerificationCodes)
+      .set({ usedAt: new Date() })
+      .where(and(eq(emailVerificationCodes.personId, params.personId), eq(emailVerificationCodes.violationId, params.violationId), isNull(emailVerificationCodes.usedAt)));
+    // Insert new code
+    await db.insert(emailVerificationCodes).values({ personId: params.personId, violationId: params.violationId, codeHash: params.codeHash, expiresAt: params.expiresAt });
+  }
+
+  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string) {
+    return await db.select().from(emailVerificationCodes)
+      .where(and(
+        eq(emailVerificationCodes.personId, personId),
+        eq(emailVerificationCodes.violationId, violationId),
+        eq(emailVerificationCodes.codeHash, codeHash),
+        eq(emailVerificationCodes.usedAt, null),
+        gte(emailVerificationCodes.expiresAt, new Date())
+      ));
+  }
+
+  async markEmailVerificationCodeUsed(id: number) {
+    await db.update(emailVerificationCodes).set({ usedAt: new Date() }).where(eq(emailVerificationCodes.id, id));
   }
 }
 

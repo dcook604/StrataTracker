@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 
 interface ViolationDetails {
   unitNumber: string;
@@ -32,6 +33,12 @@ export default function PublicViolationCommentPage() {
   const [linkStatus, setLinkStatus] = useState<"valid" | "expired" | "used" | "invalid">("valid");
   const [violation, setViolation] = useState<ViolationDetails | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
+  const [codeSent, setCodeSent] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -58,6 +65,32 @@ export default function PublicViolationCommentPage() {
         setLoading(false);
       });
   }, [token]);
+
+  useEffect(() => {
+    if (selectedPersonId && violation && violation.persons) {
+      setSendingCode(true);
+      fetch(`/public/violation/${token}/send-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personId: selectedPersonId }),
+      })
+        .then(async (res) => {
+          setSendingCode(false);
+          if (!res.ok) {
+            setCodeError("Failed to send verification code. Please try again or contact support.");
+            setSelectedPersonId(null);
+            return;
+          }
+          setCodeSent(true);
+        })
+        .catch(() => {
+          setSendingCode(false);
+          setCodeError("Failed to send verification code. Please try again.");
+          setSelectedPersonId(null);
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPersonId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -165,6 +198,98 @@ export default function PublicViolationCommentPage() {
     );
   }
 
+  // Show code input if codeSent and not yet verified
+  if (violation && violation.persons && selectedPersonId && !codeVerified) {
+    const person = violation.persons.find(p => p.personId === selectedPersonId);
+    return (
+      <div className="max-w-md mx-auto mt-16 p-6 bg-white rounded shadow">
+        <h2 className="text-xl font-bold mb-4">Email Verification</h2>
+        <p className="mb-4">A 6-digit code has been sent to <span className="font-semibold">{person ? obfuscateEmail(person.email) : "your email"}</span>. Please enter it below to continue.</p>
+        {sendingCode && <div className="mb-4 flex items-center gap-2 text-blue-600"><Loader2 className="animate-spin h-4 w-4" /> Sending code...</div>}
+        <Input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          placeholder="Enter 6-digit code"
+          value={code}
+          onChange={e => setCode(e.target.value)}
+          className="mb-2"
+          disabled={verifying || sendingCode}
+        />
+        <Button
+          className="w-full mb-2"
+          onClick={async () => {
+            setVerifying(true);
+            setCodeError(null);
+            try {
+              const res = await fetch(`/public/violation/${token}/verify-code`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ personId: selectedPersonId, code }),
+              });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.message || "Invalid code");
+              }
+              setCodeVerified(true);
+              toast({ title: "Verified", description: "Email code verified. You may now submit your dispute." });
+            } catch (err: any) {
+              setCodeError(err.message || "Invalid code");
+            } finally {
+              setVerifying(false);
+            }
+          }}
+          disabled={verifying || sendingCode || code.length !== 6}
+        >
+          {verifying ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+          Verify Code
+        </Button>
+        {codeError && <div className="text-destructive text-sm mb-2">{codeError}</div>}
+        <Button variant="ghost" className="w-full" onClick={() => setSelectedPersonId(null)} disabled={verifying || sendingCode}>
+          Choose a different name
+        </Button>
+      </div>
+    );
+  }
+
+  // Only show form if identity is selected and code is verified
+  if ((!violation?.persons || (selectedPersonId && codeVerified)) && <>
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="commenterName" className="block mb-2 font-medium">Your Name *</label>
+      <Input
+        id="commenterName"
+        type="text"
+        placeholder="Enter your full name"
+        value={commenterName}
+        onChange={(e) => setCommenterName(e.target.value)}
+        required
+        className="mb-4"
+      />
+      <label htmlFor="comment" className="block mb-2 font-medium">Comment *</label>
+      <Textarea
+        id="comment"
+        rows={4}
+        placeholder="Add your comment or explanation"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        required
+      />
+      <label className="block mt-4 mb-2 font-medium">Attach Evidence (optional)</label>
+      <input
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        onChange={handleFileChange}
+        className="mb-4"
+      />
+      {error && <div className="text-red-600 mb-2">{error}</div>}
+      <Button type="submit" disabled={submitting || !comment.trim() || !commenterName.trim()} className="w-full">
+        {submitting ? "Submitting..." : "Submit"}
+      </Button>
+    </form>
+  </>)
+
   return (
     <div className="max-w-md mx-auto mt-16 p-6 bg-white rounded shadow">
       <h2 className="text-xl font-bold mb-4">Respond to Violation</h2>
@@ -175,42 +300,6 @@ export default function PublicViolationCommentPage() {
           <div className="mb-2"><span className="font-medium">Description:</span> {violation.description}</div>
         </div>
       )}
-      <form onSubmit={handleSubmit}>
-        {/* Only show form if identity is selected or not required */}
-        {(!violation?.persons || selectedPersonId) && <>
-          <label htmlFor="commenterName" className="block mb-2 font-medium">Your Name *</label>
-          <Input
-            id="commenterName"
-            type="text"
-            placeholder="Enter your full name"
-            value={commenterName}
-            onChange={(e) => setCommenterName(e.target.value)}
-            required
-            className="mb-4"
-          />
-          <label htmlFor="comment" className="block mb-2 font-medium">Comment *</label>
-          <Textarea
-            id="comment"
-            rows={4}
-            placeholder="Add your comment or explanation"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            required
-          />
-          <label className="block mt-4 mb-2 font-medium">Attach Evidence (optional)</label>
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            multiple
-            onChange={handleFileChange}
-            className="mb-4"
-          />
-          {error && <div className="text-red-600 mb-2">{error}</div>}
-          <Button type="submit" disabled={submitting || !comment.trim() || !commenterName.trim()} className="w-full">
-            {submitting ? "Submitting..." : "Submit"}
-          </Button>
-        </>}
-      </form>
     </div>
   );
 } 

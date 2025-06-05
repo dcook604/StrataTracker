@@ -41,6 +41,7 @@ import archiver from "archiver";
 import crypto from "crypto";
 import { createSecureUpload, cleanupUploadedFiles } from "./middleware/fileUploadSecurity";
 import { getVirusScanner } from "./services/virusScanner";
+import { sendEmailWithDeduplication } from "./email";
 
 // Ensure user is authenticated middleware
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
@@ -1603,6 +1604,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to delete all violation data.", 
         details: error.message || "An unexpected error occurred. Check server logs."
       });
+    }
+  });
+
+  // POST /public/violation/:token/send-code
+  app.post('/public/violation/:token/send-code', async (req, res) => {
+    const { token } = req.params;
+    const { personId } = req.body;
+    try {
+      const link = await dbStorage.getViolationAccessLinkByToken(token);
+      if (!link) return res.status(404).json({ message: 'Invalid or expired link' });
+      const violation = await dbStorage.getViolation(link.violationId);
+      if (!violation) return res.status(404).json({ message: 'Violation not found' });
+      const person = (await dbStorage.getPersonsWithRolesForUnit(violation.unitId)).find(p => p.personId === personId);
+      if (!person || !person.receiveEmailNotifications) return res.status(400).json({ message: 'Person not eligible' });
+      // Generate 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      // Store code (invalidate previous unused codes for this person/violation)
+      await dbStorage.addEmailVerificationCode({
+        personId: person.personId,
+        violationId: violation.id,
+        codeHash: codeHash,
+        expiresAt: expiresAt
+      });
+      // Send email
+      await sendEmailWithDeduplication({
+        to: person.email,
+        subject: 'Your Verification Code',
+        text: `Your verification code for disputing violation #${violation.id} is: ${code}\nThis code will expire in 10 minutes.`
+      });
+      res.json({ message: 'Verification code sent' });
+    } catch (error) {
+      console.error('Error sending verification code:', error);
+      res.status(500).json({ message: 'Failed to send verification code' });
+    }
+  });
+
+  // POST /public/violation/:token/verify-code
+  app.post('/public/violation/:token/verify-code', async (req, res) => {
+    const { token } = req.params;
+    const { personId, code } = req.body;
+    try {
+      const link = await dbStorage.getViolationAccessLinkByToken(token);
+      if (!link) return res.status(404).json({ message: 'Invalid or expired link' });
+      const violation = await dbStorage.getViolation(link.violationId);
+      if (!violation) return res.status(404).json({ message: 'Violation not found' });
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      const result = await dbStorage.getEmailVerificationCode(personId, violation.id, codeHash);
+      if (result.length === 0) {
+        // Log failed attempt
+        console.warn(`Failed verification attempt for person ${personId}, violation ${violation.id}`);
+        return res.status(400).json({ message: 'Invalid or expired code' });
+      }
+      // Mark as used
+      await dbStorage.markEmailVerificationCodeUsed(result[0].id);
+      // Log success
+      console.info(`Verification code accepted for person ${personId}, violation ${violation.id}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error verifying code:', error);
+      res.status(500).json({ message: 'Failed to verify code' });
     }
   });
 

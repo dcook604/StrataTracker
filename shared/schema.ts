@@ -823,3 +823,16 @@ export type InsertEmailSendAttempt = typeof emailSendAttempts.$inferInsert;
 export type EmailDeduplicationLog = typeof emailDeduplicationLog.$inferSelect;
 export type InsertEmailDeduplicationLog = typeof emailDeduplicationLog.$inferInsert;
 
+// Email verification codes for public dispute workflow
+export const emailVerificationCodes = pgTable("email_verification_codes", {
+  id: serial("id").primaryKey(),
+  personId: integer("person_id").notNull().references(() => persons.id),
+  violationId: integer("violation_id").notNull().references(() => violations.id),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type EmailVerificationCode = typeof emailVerificationCodes.$inferSelect;
+
