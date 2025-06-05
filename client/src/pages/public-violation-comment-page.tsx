@@ -9,6 +9,13 @@ interface ViolationDetails {
   unitNumber: string;
   violationType: string;
   description: string;
+  persons?: Array<{
+    personId: number;
+    fullName: string;
+    email: string;
+    role: string;
+    receiveEmailNotifications: boolean;
+  }>;
 }
 
 export default function PublicViolationCommentPage() {
@@ -24,6 +31,7 @@ export default function PublicViolationCommentPage() {
   const [loading, setLoading] = useState(true);
   const [linkStatus, setLinkStatus] = useState<"valid" | "expired" | "used" | "invalid">("valid");
   const [violation, setViolation] = useState<ViolationDetails | null>(null);
+  const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -128,6 +136,35 @@ export default function PublicViolationCommentPage() {
     );
   }
 
+  // Helper to obfuscate email
+  function obfuscateEmail(email: string) {
+    const [name, domain] = email.split('@');
+    if (!name || !domain) return email;
+    return name[0] + '***' + name[name.length - 1] + '@' + domain;
+  }
+
+  // Show identity selection if persons are available and not yet selected
+  if (violation && violation.persons && !selectedPersonId) {
+    return (
+      <div className="max-w-md mx-auto mt-16 p-6 bg-white rounded shadow">
+        <h2 className="text-xl font-bold mb-4">Identify Yourself</h2>
+        <p className="mb-4">Please select your name to continue. Only owners and tenants with notifications enabled can dispute this violation.</p>
+        <ul className="mb-6">
+          {violation.persons.map(person => (
+            <li key={person.personId} className="mb-2">
+              <button
+                className="w-full p-3 rounded border hover:bg-neutral-100 text-left"
+                onClick={() => setSelectedPersonId(person.personId)}
+              >
+                <span className="font-medium">{person.fullName}</span> <span className="text-xs text-gray-500">({obfuscateEmail(person.email)})</span> <span className="ml-2 text-xs text-gray-400">[{person.role}]</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto mt-16 p-6 bg-white rounded shadow">
       <h2 className="text-xl font-bold mb-4">Respond to Violation</h2>
@@ -139,37 +176,40 @@ export default function PublicViolationCommentPage() {
         </div>
       )}
       <form onSubmit={handleSubmit}>
-        <label htmlFor="commenterName" className="block mb-2 font-medium">Your Name *</label>
-        <Input
-          id="commenterName"
-          type="text"
-          placeholder="Enter your full name"
-          value={commenterName}
-          onChange={(e) => setCommenterName(e.target.value)}
-          required
-          className="mb-4"
-        />
-        <label htmlFor="comment" className="block mb-2 font-medium">Comment *</label>
-        <Textarea
-          id="comment"
-          rows={4}
-          placeholder="Add your comment or explanation"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          required
-        />
-        <label className="block mt-4 mb-2 font-medium">Attach Evidence (optional)</label>
-        <input
-          type="file"
-          accept="image/*,application/pdf"
-          multiple
-          onChange={handleFileChange}
-          className="mb-4"
-        />
-        {error && <div className="text-red-600 mb-2">{error}</div>}
-        <Button type="submit" disabled={submitting || !comment.trim() || !commenterName.trim()} className="w-full">
-          {submitting ? "Submitting..." : "Submit"}
-        </Button>
+        {/* Only show form if identity is selected or not required */}
+        {(!violation?.persons || selectedPersonId) && <>
+          <label htmlFor="commenterName" className="block mb-2 font-medium">Your Name *</label>
+          <Input
+            id="commenterName"
+            type="text"
+            placeholder="Enter your full name"
+            value={commenterName}
+            onChange={(e) => setCommenterName(e.target.value)}
+            required
+            className="mb-4"
+          />
+          <label htmlFor="comment" className="block mb-2 font-medium">Comment *</label>
+          <Textarea
+            id="comment"
+            rows={4}
+            placeholder="Add your comment or explanation"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            required
+          />
+          <label className="block mt-4 mb-2 font-medium">Attach Evidence (optional)</label>
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            multiple
+            onChange={handleFileChange}
+            className="mb-4"
+          />
+          {error && <div className="text-red-600 mb-2">{error}</div>}
+          <Button type="submit" disabled={submitting || !comment.trim() || !commenterName.trim()} className="w-full">
+            {submitting ? "Submitting..." : "Submit"}
+          </Button>
+        </>}
       </form>
     </div>
   );

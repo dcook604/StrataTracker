@@ -532,6 +532,25 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
       
       {/* Right Column - Actions and Contact */}
       <div className="space-y-6">
+        {/* Status */}
+        <Card className="p-6 mb-4">
+          <h3 className="text-lg font-medium text-neutral-800 mb-3">Status</h3>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={violation.status} />
+            <span className="text-base font-semibold">
+              {(() => {
+                switch (violation.status) {
+                  case 'pending_approval': return 'Pending Approval';
+                  case 'disputed': return 'Disputed';
+                  case 'rejected': return 'Rejected';
+                  case 'approved': return 'Approved';
+                  default: return violation.status.charAt(0).toUpperCase() + violation.status.slice(1);
+                }
+              })()}
+            </span>
+          </div>
+        </Card>
+
         {/* Actions */}
         <Card className="p-6">
           <h3 className="text-lg font-medium text-neutral-800 mb-3">Actions</h3>

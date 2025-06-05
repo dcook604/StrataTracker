@@ -1385,6 +1385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           unitNumber: violation.unitId, // will be replaced below
           violationType: violation.violationType,
           description: violation.description,
+          persons: []
         } : null });
       }
       // Valid link, fetch violation details
@@ -1392,12 +1393,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!violation) return res.status(404).json({ message: "Violation not found" });
       // Fetch unit number
       const unit = await dbStorage.getPropertyUnit(violation.unitId);
+      // Fetch eligible persons (owners/tenants with notifications enabled)
+      const persons = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
+      const eligiblePersons = persons.filter(p => p.receiveEmailNotifications);
       res.json({
         status: "valid",
         violation: {
           unitNumber: unit?.unitNumber || "",
           violationType: violation.violationType,
           description: violation.description,
+          persons: eligiblePersons.map(p => ({
+            personId: p.personId,
+            fullName: p.fullName,
+            email: p.email,
+            role: p.role,
+            receiveEmailNotifications: p.receiveEmailNotifications
+          }))
         }
       });
     } catch (error) {
