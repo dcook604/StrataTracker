@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   CheckCircle, 
   XCircle, 
@@ -66,6 +67,8 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
   const [showFineModal, setShowFineModal] = useState(false);
   const [pendingApprove, setPendingApprove] = useState(false);
   const [fineInput, setFineInput] = useState<number | "">("");
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
   
   // Fetch violation details
   const { data: violation, isLoading } = useQuery<Violation & { unit?: PropertyUnit }>({
@@ -86,8 +89,8 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
 
   // Status change mutation
   const statusMutation = useMutation({
-    mutationFn: async ({ status, comment }: { status: ViolationStatus, comment?: string }) => {
-      const res = await apiRequest("PATCH", `/api/violations/${id}/status`, { status, comment });
+    mutationFn: async ({ status, comment, rejectionReason }: { status: ViolationStatus, comment?: string, rejectionReason?: string }) => {
+      const res = await apiRequest("PATCH", `/api/violations/${id}/status`, { status, comment, rejectionReason });
       return await res.json();
     },
     onSuccess: () => {
@@ -185,8 +188,20 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
     },
   });
 
-  const handleStatusChange = (status: ViolationStatus) => {
-    statusMutation.mutate({ status, comment: comment || undefined });
+  const handleStatusChange = (status: ViolationStatus, rejectionReason?: string) => {
+    statusMutation.mutate({ status, comment: comment || undefined, rejectionReason });
+  };
+
+  const handleRejectClick = () => {
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = () => {
+    if (rejectionReason.trim()) {
+      handleStatusChange("rejected", rejectionReason);
+      setShowRejectModal(false);
+      setRejectionReason("");
+    }
   };
 
   const handleSetFine = () => {
@@ -269,6 +284,42 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Left Column - Details */}
       <div className="md:col-span-2 space-y-6">
+        {/* Dispute Alert - Show if violation is disputed */}
+        {violation.status === "disputed" && (
+          <Card className="border-orange-200 bg-orange-50 p-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-6 w-6 text-orange-600 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-orange-900 mb-2">🚨 Violation Under Dispute</h3>
+                <p className="text-sm text-orange-800 mb-3">
+                  This violation has been disputed by the unit occupant. Review the dispute details in the history section below 
+                  and take appropriate action to either approve or reject the violation.
+                </p>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    onClick={handleApproveClick}
+                    disabled={statusMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Quick Approve
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive"
+                    onClick={handleRejectClick}
+                    disabled={statusMutation.isPending}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Quick Reject
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <Card className="overflow-hidden">
           {/* Header with status */}
           <div className="bg-neutral-800 px-6 py-4">
@@ -414,17 +465,27 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
                         title = entry.action;
                       }
                       
+                      const isDisputed = entry.action === "status_changed_to_disputed";
+                      
                       return (
-                        <li key={entry.id} className="flex items-start">
-                          <div className="flex-shrink-0 h-5 w-5 rounded-full bg-primary flex items-center justify-center mt-1">
+                        <li key={entry.id} className={`flex items-start ${isDisputed ? 'bg-orange-50 p-3 rounded-lg border border-orange-200' : ''}`}>
+                          <div className={`flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center mt-1 ${isDisputed ? 'bg-orange-500' : 'bg-primary'}`}>
                             {icon}
                           </div>
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-neutral-900">{title}</p>
+                          <div className="ml-3 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className={`text-sm font-medium ${isDisputed ? 'text-orange-900' : 'text-neutral-900'}`}>{title}</p>
+                              {isDisputed && (
+                                <Badge className="bg-orange-100 text-orange-800 text-xs border-orange-300">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  Requires Action
+                                </Badge>
+                              )}
+                            </div>
                             {entry.comment && (
-                              <p className="text-sm text-neutral-600 mt-1">{entry.comment}</p>
+                              <p className={`text-sm mt-1 ${isDisputed ? 'text-orange-800 font-medium' : 'text-neutral-600'}`}>{entry.comment}</p>
                             )}
-                            <p className="text-xs text-neutral-500 mt-1">
+                            <p className={`text-xs mt-1 ${isDisputed ? 'text-orange-700' : 'text-neutral-500'}`}>
                               {/* Display userFullName for logged-in users, or commenterName for public comments */}
                               {entry.userFullName ? `${entry.userFullName} - ` : (entry.commenterName ? `${entry.commenterName} (Public) - ` : 'Anonymous - ')}
                               {entry.createdAt ? format(new Date(entry.createdAt), "MMM dd, yyyy 'at' h:mm a") : "N/A"}
@@ -492,7 +553,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
             <Button
               className="w-full"
               variant="destructive"
-              onClick={() => handleStatusChange("rejected")}
+              onClick={handleRejectClick}
               disabled={
                 violation.status === "rejected" || 
                 statusMutation.isPending
@@ -629,6 +690,52 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
             <Button variant="outline" onClick={() => setShowFineModal(false)} disabled={pendingApprove}>Cancel</Button>
             <Button variant="default" onClick={handleConfirmFineAndApprove} disabled={pendingApprove || fineInput === ""}>
               {pendingApprove ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm and Approve"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Modal */}
+      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Violation</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this violation. This reason will be communicated to the unit occupants.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-1">Rejection Reason</label>
+            <Textarea
+              rows={4}
+              placeholder="Enter the reason for rejecting this violation (e.g., insufficient evidence, procedural error, etc.)"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="mb-3"
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowRejectModal(false);
+                setRejectionReason("");
+              }} 
+              disabled={statusMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleConfirmReject} 
+              disabled={statusMutation.isPending || !rejectionReason.trim()}
+            >
+              {statusMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-2" />
+              )}
+              Confirm Rejection
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -7,9 +7,12 @@ import { createServer, type Server } from "http";
 import { storage as dbStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { 
-  sendViolationNotification, 
+  sendNewViolationToOccupantsNotification,
   sendViolationApprovedNotification, 
-  type ViolationNotificationParams 
+  sendViolationApprovedToOccupantsNotification,
+  sendViolationPendingApprovalToAdminsNotification,
+  sendViolationDisputedToAdminsNotification,
+  sendViolationRejectedToOccupantsNotification
 } from "./email";
 import { z } from "zod";
 import { format } from 'date-fns'; // Added for CSV date formatting
@@ -353,27 +356,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const unit = await dbStorage.getPropertyUnit(violation.unitId);
         const reporterUser = req.user as User;
 
-        // Attempt to send email notification but don't let it block the response
-        try {
-          if (unit && reporterUser) {
-            const emailParams: ViolationNotificationParams = {
-              violationId: violation.id,
-              unitId: unit.id,
-              unitNumber: unit.unitNumber,
-              violationType: violation.violationType,
-              reporterName: reporterUser.fullName,
-              ownerEmail: unit.ownerEmail || "",
-              ownerName: unit.ownerName || "",
-              tenantEmail: unit.tenantEmail || undefined,
-              tenantName: unit.tenantName || undefined,
-            };
+        // NEW LOGIC: Send notification to occupants
+        if (unit && reporterUser) {
+          try {
+            const personsForUnit = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
+            const personsToNotifyForEmail = [];
 
-            await sendViolationNotification(emailParams);
-            logger.info(`[Violation Upload] Email notification sent for violation ${violation.uuid}`);
+            for (const person of personsForUnit) {
+              let accessLinkForPerson: string | undefined = undefined;
+              // Generate access link if person is set to receive notifications OR always generate and let email function decide?
+              // For now, generate if notifications are enabled, as the link is for them to use.
+              if (person.receiveEmailNotifications && person.email) {
+                const token = await dbStorage.createViolationAccessLink({
+                  violationId: violation.id,
+                  violationUuid: violation.uuid,
+                  recipientEmail: person.email,
+                  // role and personId are not stored in violationAccessLinks table per schema
+                });
+                if (token) {
+                  // Ensure APP_URL is available in your environment variables
+                  const appUrl = process.env.APP_URL || 'http://localhost:5173'; 
+                  accessLinkForPerson = `${appUrl}/public/violation-dispute/${token}`;
+                }
+              }
+              personsToNotifyForEmail.push({
+                ...person, // includes personId, fullName, email, role, receiveEmailNotifications
+                accessLink: accessLinkForPerson,
+              });
+            }
+
+            if (personsToNotifyForEmail.length > 0) {
+              await sendNewViolationToOccupantsNotification({
+                violationId: violation.id,
+                unitId: unit.id, // or violation.unitId
+                unitNumber: unit.unitNumber,
+                violationType: violation.violationType,
+                reporterName: reporterUser.fullName,
+                personsToNotify: personsToNotifyForEmail,
+              });
+              logger.info(`[Violation Upload] Attempted to send new violation notifications for violation ${violation.uuid}`);
+            }
+          } catch (emailError) {
+            logger.error(`[Violation Upload] Failed to prepare or send new violation notifications for violation ${violation.uuid}:`, emailError);
+            // Continue with success response even if email preparation/sending fails
           }
-        } catch (emailError) {
-          logger.error(`[Violation Upload] Failed to send email notification for violation ${violation.uuid}:`, emailError);
-          // Continue with success response even if email fails
+        }
+        // END OF NEW LOGIC for occupant notifications
+
+        // NEW: Admin/Council Notification for Pending Approval
+        if (reporterUser) { // reporterUser implies successful user auth and detail fetch
+          try {
+            const adminCouncilUsers = await dbStorage.getAdminAndCouncilUsers();
+            const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+            for (const adminUser of adminCouncilUsers) {
+              await sendViolationPendingApprovalToAdminsNotification({
+                violation: {
+                  id: violation.id,
+                  uuid: violation.uuid,
+                  referenceNumber: violation.referenceNumber,
+                  violationType: violation.violationType,
+                  unitNumber: unit?.unitNumber, // unit might be null if not found, handle gracefully
+                },
+                adminUser: {
+                  id: adminUser.id, // Assumes getAdminAndCouncilUsers returns id
+                  fullName: adminUser.fullName,
+                  email: adminUser.email,
+                },
+                reporterName: reporterUser.fullName,
+                appUrl: appUrl,
+              });
+            }
+            logger.info(`[Violation Upload] Attempted to send pending approval notifications to admins/council for violation ${violation.uuid}`);
+          } catch (adminEmailError) {
+            logger.error(`[Violation Upload] Failed to send pending approval notifications to admins/council for ${violation.uuid}:`, adminEmailError);
+          }
         }
 
         res.status(201).json(violation);
@@ -409,11 +466,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req, res);
     if (userId === undefined) return;
     try {
-      const { status, comment } = req.body;
+      const { status, comment, rejectionReason } = req.body;
       
       // Validate status
       if (!["new", "pending_approval", "approved", "disputed", "rejected"].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      // Validate rejection reason if status is rejected
+      if (status === "rejected" && (!rejectionReason || rejectionReason.trim() === "")) {
+        return res.status(400).json({ message: "Rejection reason is required when rejecting a violation" });
       }
       
       // Update the violation status using UUID or ID
@@ -432,40 +494,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Violation not found" });
       }
       
-      // Add to history
+      // Get the user who made this status change for history/notifications
+      const statusChangedByUser = req.user as User;
+      
+      // Add to history with rejection reason if applicable
+      const historyComment = status === "rejected" 
+        ? `${comment || ''} Rejection reason: ${rejectionReason}`.trim()
+        : comment;
+        
       await dbStorage.addViolationHistory({
         violationId: violation.id,
         userId,
         action: `status_changed_to_${status}`,
-        comment
+        comment: historyComment
       });
       
-      // If approved and has fine amount, send approval notification
+      // Handle notifications based on status change
       if (status === "approved" && violation.fineAmount) {
-        const unit = await dbStorage.getPropertyUnit(violation.unitId);
-        if (unit) {
-          try {
-            await sendViolationApprovedNotification({
-              violationId: String(violation.id),
-              unitNumber: unit.unitNumber,
-              violationType: violation.violationType,
-              ownerEmail: unit.ownerEmail ?? "",
-              ownerName: unit.ownerName ?? "",
+        // NEW: Modern approval notification using persons table and EmailDeduplicationService
+        try {
+          const unit = await dbStorage.getPropertyUnit(violation.unitId);
+          const personsForUnit = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
+          
+          if (personsForUnit.length > 0) {
+            await sendViolationApprovedToOccupantsNotification({
+              violation: {
+                id: violation.id,
+                uuid: violation.uuid,
+                referenceNumber: violation.referenceNumber,
+                violationType: violation.violationType,
+                unitNumber: unit?.unitNumber,
+              },
               fineAmount: violation.fineAmount ?? 0,
-              unitId: unit.id,
-              tenantEmail: unit.tenantEmail ?? undefined,
-              tenantName: unit.tenantName ?? undefined
+              approvedBy: statusChangedByUser?.fullName || 'Council Member',
+              personsToNotify: personsForUnit,
             });
-            logger.info(`[Email] Violation approval email attempt for violation ID: ${violation.id}`);
-          } catch (emailError: any) {
-            logger.error(`[Email Error] Failed to send violation approval notification for violation ID: ${violation.id}: ${emailError.message}`, { stack: emailError.stack });
-            // Do not re-throw; allow the main operation to succeed
+            logger.info(`[Email] Violation approval notification sent for violation ID: ${violation.id}`);
+          } else {
+            logger.info(`[Email] No persons to notify for violation ${violation.id} approval`);
           }
+        } catch (emailError: any) {
+          logger.error(`[Email Error] Failed to send violation approval notification for violation ID: ${violation.id}: ${emailError.message}`, { stack: emailError.stack });
+          // Do not re-throw; allow the main operation to succeed
+        }
+      } else if (status === "rejected") {
+        // NEW: Send rejection notification to occupants
+        try {
+          const unit = await dbStorage.getPropertyUnit(violation.unitId);
+          const personsForUnit = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
+          
+          if (personsForUnit.length > 0) {
+            await sendViolationRejectedToOccupantsNotification({
+              violation: {
+                id: violation.id,
+                uuid: violation.uuid,
+                referenceNumber: violation.referenceNumber,
+                violationType: violation.violationType,
+                unitNumber: unit?.unitNumber,
+              },
+              rejectionReason: rejectionReason,
+              rejectedBy: statusChangedByUser?.fullName || 'Council Member',
+              personsToNotify: personsForUnit,
+            });
+            logger.info(`[Email] Violation rejection notification sent for violation ID: ${violation.id}`);
+          }
+        } catch (emailError: any) {
+          logger.error(`[Email Error] Failed to send violation rejection notification for violation ID: ${violation.id}: ${emailError.message}`, { stack: emailError.stack });
+          // Do not re-throw; allow the main operation to succeed
         }
       }
       
       res.json(violation);
     } catch (error) {
+      logger.error('Error updating violation status:', error);
       res.status(500).json({ message: "Failed to update violation status" });
     }
   });
@@ -504,20 +605,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comment: `Fine amount set to $${amount}`
       });
       
-      // If violation is already approved, send approval notification with fine
+      // If violation is already approved, send approval notification with fine using new system
       if (violation.status === "approved") {
         const unit = await dbStorage.getPropertyUnit(violation.unitId);
-        if (unit) {
-          await sendViolationApprovedNotification({
-            violationId: String(violation.id),
-            unitNumber: unit.unitNumber,
-            violationType: violation.violationType,
-            ownerEmail: unit.ownerEmail ?? "",
-            ownerName: unit.ownerName ?? "",
+        const personsForUnit = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
+        
+        if (personsForUnit.length > 0) {
+          await sendViolationApprovedToOccupantsNotification({
+            violation: {
+              id: violation.id,
+              uuid: violation.uuid,
+              referenceNumber: violation.referenceNumber,
+              violationType: violation.violationType,
+              unitNumber: unit?.unitNumber,
+            },
             fineAmount: amount ?? 0,
-            unitId: unit.id,
-            tenantEmail: unit.tenantEmail ?? undefined,
-            tenantName: unit.tenantName ?? undefined
+            approvedBy: 'Council Member', // Fine setting context
+            personsToNotify: personsForUnit,
           });
         }
       }
@@ -1196,12 +1300,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // 5. Mark link as used (single-use)
+        // 5. NEW: Change violation status to "disputed" and notify admins
+        const violation = await dbStorage.getViolation(link.violationId);
+        if (violation && violation.status === "pending_approval") {
+          // Update status to disputed
+          const updatedViolation = await dbStorage.updateViolationStatus(link.violationId, "disputed");
+          
+          if (updatedViolation) {
+            // Add history entry for status change
+            await dbStorage.addViolationHistory({
+              violationId: link.violationId,
+              userId: 1, // System user for automated status change
+              action: "status_changed_to_disputed",
+              comment: `Status automatically changed to disputed due to occupant response. Disputed by: ${commenterName || "Anonymous"}`,
+            });
+
+            // Get unit details for notification
+            const unit = await dbStorage.getPropertyUnit(violation.unitId);
+            
+            // Send notifications to all admins/council members
+            try {
+              const adminCouncilUsers = await dbStorage.getAdminAndCouncilUsers();
+              const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+              for (const adminUser of adminCouncilUsers) {
+                await sendViolationDisputedToAdminsNotification({
+                  violation: {
+                    id: violation.id,
+                    uuid: violation.uuid,
+                    referenceNumber: violation.referenceNumber,
+                    violationType: violation.violationType,
+                    unitNumber: unit?.unitNumber,
+                  },
+                  adminUser: {
+                    id: adminUser.id,
+                    fullName: adminUser.fullName,
+                    email: adminUser.email,
+                  },
+                  disputedBy: commenterName || "Anonymous",
+                  appUrl: appUrl,
+                });
+              }
+              logger.info(`[Public Comment] Sent dispute notifications to admins for violation ${violation.id}`);
+            } catch (notificationError) {
+              logger.error(`[Public Comment] Failed to send dispute notifications for violation ${violation.id}:`, notificationError);
+              // Don't fail the main operation if notifications fail
+            }
+          }
+        }
+
+        // 6. Mark link as used (single-use)
         await dbStorage.markViolationAccessLinkUsed(link.id);
 
         res.json({ 
-          message: "Comment and evidence submitted successfully",
-          attachmentsCount: attachments.length
+          message: "Comment and evidence submitted successfully. The violation status has been updated to 'Disputed' and council members have been notified.",
+          attachmentsCount: attachments.length,
+          statusChanged: violation?.status === "pending_approval" ? "disputed" : null
         });
       } catch (error: any) {
         // Clean up uploaded files on error

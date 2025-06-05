@@ -52,6 +52,7 @@ import { drizzle, NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
 import connectPgSimple from 'connect-pg-simple';
 import logger from './utils/logger';
 import { Buffer } from 'buffer';
+import { randomUUID } from "crypto";
 
 const scryptAsync = promisify(scrypt);
 
@@ -172,7 +173,6 @@ export interface IStorage {
   }): Promise<{ unit: PropertyUnit; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; persons: Person[]; roles: UnitPersonRole[] }>;
 
   // Violation access link operations
-  createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink>;
   getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined>;
   markViolationAccessLinkUsed(id: number): Promise<void>;
 
@@ -181,6 +181,27 @@ export interface IStorage {
   deleteUnit(id: number): Promise<boolean>;
   getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[] } | undefined>;
   getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit })[]>;
+
+  getPersonsWithRolesForUnit(unitId: number): Promise<Array<{
+    personId: number;
+    fullName: string;
+    email: string;
+    role: string;
+    receiveEmailNotifications: boolean;
+  }>>;
+
+  createViolationAccessLink(data: {
+    violationId: number;
+    violationUuid: string;
+    recipientEmail: string;
+    expiresInDays?: number;
+  }): Promise<string | null>;
+
+  getAdminAndCouncilUsers(): Promise<Array<{
+    id: number;
+    email: string;
+    fullName: string;
+  }>>;
 }
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
@@ -1540,17 +1561,6 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async createViolationAccessLink(link: InsertViolationAccessLink): Promise<ViolationAccessLink> {
-    // Get the violation UUID for the given violation ID
-    const violation = await this.getViolation(link.violationId);
-    
-    const [newLink] = await db.insert(violationAccessLinks).values({
-      ...link,
-      violationUuid: violation?.uuid, // Populate UUID if available
-    }).returning();
-    return newLink;
-  }
-
   async getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined> {
     const [link] = await db.select().from(violationAccessLinks).where(eq(violationAccessLinks.token, token));
     return link;
@@ -1676,7 +1686,7 @@ export class DatabaseStorage implements IStorage {
       bikeLockers: await db.select().from(bikeLockers).where(eq(bikeLockers.unitId, id))
     };
 
-    const violations = await db
+    const unitViolations: Violation[] = await db
       .select()
       .from(violations)
       .where(eq(violations.unitId, id));
@@ -1689,8 +1699,8 @@ export class DatabaseStorage implements IStorage {
         receiveEmailNotifications: p.receiveEmailNotifications
       })),
       facilities,
-      violationCount: violations.length,
-      violations: violations.map((v) => ({
+      violationCount: unitViolations.length,
+      violations: unitViolations.map((v) => ({
         id: v.id,
         referenceNumber: v.referenceNumber,
         violationType: v.violationType,
@@ -1719,6 +1729,89 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error(`[ERROR_DB] Failed to getPendingApprovalViolations:`, error);
       throw error;
+    }
+  }
+
+  async getPersonsWithRolesForUnit(unitId: number): Promise<Array<{
+    personId: number;
+    fullName: string;
+    email: string;
+    role: string;
+    receiveEmailNotifications: boolean;
+  }>> {
+    try {
+      const result = await db
+        .select({
+          personId: persons.id,
+          fullName: persons.fullName,
+          email: persons.email,
+          role: unitPersonRoles.role,
+          receiveEmailNotifications: unitPersonRoles.receiveEmailNotifications,
+        })
+        .from(unitPersonRoles)
+        .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
+        .where(eq(unitPersonRoles.unitId, unitId))
+        .execute();
+      
+      // Ensure role is one of the expected values, though DB constraint might exist
+      return result.map(r => ({
+        ...r,
+        role: r.role || 'unknown', // Default or throw error if role is critical and nullable
+        receiveEmailNotifications: r.receiveEmailNotifications ?? true // Default if nullable, though schema says notNull().default(true)
+      }));
+    } catch (error) {
+      console.error(`Error fetching persons for unit ${unitId}:`, error);
+      throw error; // Or return empty array / handle as appropriate
+    }
+  }
+
+  async createViolationAccessLink(data: {
+    violationId: number;
+    violationUuid: string;
+    recipientEmail: string;
+    expiresInDays?: number;
+  }): Promise<string | null> {
+    try {
+      const token = randomUUID();
+      const expiresInDays = data.expiresInDays || 30;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+
+      const newLinkData: InsertViolationAccessLink = {
+        violationId: data.violationId,
+        violationUuid: data.violationUuid,
+        recipientEmail: data.recipientEmail,
+        token: token,
+        expiresAt: expiresAt,
+      };
+      
+      await db.insert(violationAccessLinks).values(newLinkData);
+      return token;
+    } catch (error) {
+      console.error('Error creating violation access link:', error);
+      return null;
+    }
+  }
+
+  async getAdminAndCouncilUsers(): Promise<Array<{
+    id: number;
+    email: string;
+    fullName: string;
+  }>> {
+    try {
+      const result = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          fullName: users.fullName,
+        })
+        .from(users)
+        .where(or(eq(users.isAdmin, true), eq(users.isCouncilMember, true)))
+        .execute();
+      return result;
+    } catch (error) {
+      console.error("Error fetching admin and council users:", error);
+      throw error; 
     }
   }
 }

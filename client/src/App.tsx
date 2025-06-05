@@ -27,6 +27,7 @@ import { Route } from "wouter";
 import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BylawsPage from "@/pages/bylaws-page";
+import DisputeManagementPage from "@/pages/dispute-management-page";
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
                   <ProtectedRoute path="/settings" component={SettingsPage} />
                   <ProtectedRoute path="/profile" component={UserProfilePage} />
                   <ProtectedRoute path="/bylaws" component={BylawsPage} />
+                  <ProtectedRoute path="/disputes" component={DisputeManagementPage} />
                   <Route component={NotFound} />
                 </Switch>
                 <Toaster />

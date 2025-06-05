@@ -441,10 +441,10 @@ export const violationAccessLinks = pgTable("violation_access_links", {
 
 export const insertViolationAccessLinkSchema = createInsertSchema(violationAccessLinks).pick({
   violationId: true,
+  violationUuid: true,
   recipientEmail: true,
   token: true,
   expiresAt: true,
-  usedAt: true,
 });
 
 export type ViolationAccessLink = typeof violationAccessLinks.$inferSelect;
