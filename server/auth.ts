@@ -11,6 +11,9 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import logger from "./utils/logger";
 import MemoryStore from 'memorystore';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 declare global {
   namespace Express {
@@ -164,6 +167,80 @@ export function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // GET all system settings
+  app.get("/api/settings", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const settings = await dbStorage.getAllSystemSettings();
+      const logoSetting = settings.find(s => s.settingKey === 'strata_logo_url');
+      let logoUrl = null;
+
+      if (logoSetting && logoSetting.settingValue) {
+        // Assuming the value is just the filename, construct a URL
+        // In a real S3 setup, you'd generate a pre-signed URL here
+        logoUrl = `/api/uploads/${logoSetting.settingValue}`;
+      }
+
+      res.json({ settings, logoUrl });
+    } catch (error) {
+      logger.error('Failed to get system settings:', error);
+      res.status(500).json({ message: 'Failed to retrieve system settings' });
+    }
+  });
+  
+  // POST to update a specific system setting
+  app.post("/api/settings/:key", ensureAuthenticated, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      const userId = req.user?.id;
+
+      if (typeof value === 'undefined' || !userId) {
+        return res.status(400).json({ message: 'Value and user authentication are required.' });
+      }
+
+      await dbStorage.updateSystemSetting(key, value, userId);
+      res.status(200).json({ message: `Setting ${key} updated successfully.` });
+    } catch (error) {
+      logger.error(`Failed to update system setting ${req.params.key}:`, error);
+      res.status(500).json({ message: 'Failed to update system setting.' });
+    }
+  });
+
+  // Multer setup for file uploads
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, uploadsDir);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  const upload = multer({ storage: storage });
+
+  app.post('/api/settings/upload-logo', ensureAuthenticated, requireAdmin, upload.single('logo'), async (req, res) => {
+    if (!req.file) {
+      return res.status(400).send('No file uploaded.');
+    }
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      await dbStorage.updateSystemSetting('strata_logo_url', req.file.filename, userId);
+      res.status(200).json({ filename: req.file.filename });
+    } catch (error) {
+      logger.error('Failed to upload logo and update setting:', error);
+      res.status(500).json({ message: 'Failed to upload logo' });
+    }
+  });
 
   // Configure Passport to use email as the username field
   passport.use(
@@ -392,88 +469,8 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // User management APIs (admin only)
-  app.get("/api/users", async (req, res, next) => {
-    try {
-      // Check if user is authenticated and is an admin
-      if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      // Check both isAdmin and is_admin flags to support both formats
-      const isAdmin = req.user.isAdmin === true || (req.user as any).is_admin === true;
-      if (!isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const users = await dbStorage.getAllUsers();
-      
-      // Remove sensitive information before sending
-      const safeUsers = users.map(user => {
-        const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
-        return safeUser;
-      });
-      
-      res.json(safeUsers);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.patch("/api/users/:id", async (req, res, next) => {
-    try {
-      // Check if the request is from an admin
-      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
-        return res.status(403).json({ message: "Only administrators can update users" });
-      }
-
-      const userId = parseInt(req.params.id, 10);
-      
-      // Don't allow changing email to one that already exists
-      if (req.body.email) {
-        const existingUser = await dbStorage.getUserByEmail(req.body.email);
-        if (existingUser && existingUser.id !== userId) {
-          return res.status(400).json({ message: "Email already in use" });
-        }
-      }
-      
-      const updatedUser = await dbStorage.updateUser(userId, req.body);
-      if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // Remove sensitive fields before sending the user object
-      const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = updatedUser;
-      res.json(safeUser);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.delete("/api/users/:id", async (req, res, next) => {
-    try {
-      // Check if the request is from an admin
-      if (!req.isAuthenticated() || !(req.user.isAdmin || (req.user as any).is_admin)) {
-        return res.status(403).json({ message: "Only administrators can delete users" });
-      }
-
-      const userId = parseInt(req.params.id, 10);
-      
-      // Don't allow admins to delete themselves
-      if (req.user.id === userId) {
-        return res.status(400).json({ message: "Cannot delete your own account" });
-      }
-      
-      const deleted = await dbStorage.deleteUser(userId);
-      if (!deleted) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.sendStatus(204);
-    } catch (error) {
-      next(error);
-    }
-  });
+  // Note: User management APIs have been moved to /routes/user-management.ts
+  // This avoids route conflicts and provides better organization
 
   app.post("/api/logout", (req, res, next) => {
     // Store session ID for logging before destroying it

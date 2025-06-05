@@ -840,10 +840,23 @@ export default function SettingsPage() {
                               <Input id={`pm-phone-${index}`} placeholder="Phone Number" {...systemForm.register(`propertyManagers.${index}.phone` as const)} />
                             </div>
                           </div>
-                          <div className="flex items-center justify-between pt-2">
+                                                      <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center space-x-2">
-                              <Switch id={`pm-notify-${index}`} {...systemForm.register(`propertyManagers.${index}.receiveAllViolationEmails` as const)} />
-                              <label htmlFor={`pm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                              <FormField
+                                control={systemForm.control}
+                                name={`propertyManagers.${index}.receiveAllViolationEmails`}
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
                             </div>
                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => propertyManagersArray.remove(index)}>
                               <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
@@ -877,10 +890,23 @@ export default function SettingsPage() {
                               <Input id={`ct-phone-${index}`} placeholder="Phone Number" {...systemForm.register(`caretakers.${index}.phone` as const)} />
                             </div>
                           </div>
-                          <div className="flex items-center justify-between pt-2">
+                                                      <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center space-x-2">
-                              <Switch id={`ct-notify-${index}`} {...systemForm.register(`caretakers.${index}.receiveAllViolationEmails` as const)} />
-                              <label htmlFor={`ct-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                              <FormField
+                                control={systemForm.control}
+                                name={`caretakers.${index}.receiveAllViolationEmails`}
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
                             </div>
                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => caretakersArray.remove(index)}>
                               <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
@@ -914,10 +940,23 @@ export default function SettingsPage() {
                               <Input id={`cm-phone-${index}`} placeholder="Phone Number" {...systemForm.register(`councilMembers.${index}.phone` as const)} />
                             </div>
                           </div>
-                          <div className="flex items-center justify-between pt-2">
+                                                      <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center space-x-2">
-                              <Switch id={`cm-notify-${index}`} {...systemForm.register(`councilMembers.${index}.receiveAllViolationEmails` as const)} />
-                              <label htmlFor={`cm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                              <FormField
+                                control={systemForm.control}
+                                name={`councilMembers.${index}.receiveAllViolationEmails`}
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
                             </div>
                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => councilMembersArray.remove(index)}>
                               <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
