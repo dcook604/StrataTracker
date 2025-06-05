@@ -7,6 +7,8 @@ import { setupGlobalErrorHandlers, errorHandlerMiddleware } from "./utils/error-
 import { startPerformanceMonitoring, logSystemResources } from "./utils/performance-monitor";
 import { pool } from "./db";
 import { createServer } from "http";
+import fs from "fs";
+import path from "path";
 
 // Initialize global error handlers
 setupGlobalErrorHandlers();
@@ -14,16 +16,19 @@ setupGlobalErrorHandlers();
 // Start resource monitoring (check every 30 seconds)
 const resourceMonitor = startPerformanceMonitoring(30000);
 
-// Create logs directory if it doesn't exist
-import fs from "fs";
-import path from "path";
-try {
-  if (!fs.existsSync("./logs")) {
-    fs.mkdirSync("./logs", { recursive: true });
+// Export function to ensure log directory exists
+export function ensureLogDirectoryExists() {
+  try {
+    if (!fs.existsSync("./logs")) {
+      fs.mkdirSync("./logs", { recursive: true });
+    }
+  } catch (error) {
+    console.error("Failed to create logs directory:", error);
   }
-} catch (error) {
-  console.error("Failed to create logs directory:", error);
 }
+
+// Create logs directory if it doesn't exist
+ensureLogDirectoryExists();
 
 const app = express();
 
@@ -86,6 +91,15 @@ async function startServer() {
     logger.error('Failed to start server:', error);
     process.exit(1);
   }
+}
+
+// Export function to create app bootstrap
+export function createAppBootstrap() {
+  return {
+    startServer,
+    app,
+    server
+  };
 }
 
 // Graceful shutdown handler
