@@ -325,7 +325,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
           <div className="bg-neutral-800 px-6 py-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white">Violation #{violation.id}</h2>
+                <h2 className="text-xl font-bold text-white">{`VIO-${format(new Date(violation.createdAt), 'yyyyMMdd')}-${violation.id.toString().padStart(3, '0')}`}</h2>
                 <p className="text-neutral-300 text-sm">
                   Reported on {violation?.createdAt ? format(new Date(violation.createdAt), "MMM dd, yyyy") : "N/A"}
                 </p>
@@ -566,30 +566,6 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
               )}
               Reject Violation
             </Button>
-            
-            {violation.status !== "disputed" && (
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => handleStatusChange("disputed")}
-                disabled={statusMutation.isPending}
-              >
-                <AlertCircle className="h-4 w-4 mr-2" />
-                Mark as Disputed
-              </Button>
-            )}
-            
-            {violation.status !== "pending_approval" && (
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => handleStatusChange("pending_approval")}
-                disabled={statusMutation.isPending}
-              >
-                <Clock className="h-4 w-4 mr-2" />
-                Mark as Pending
-              </Button>
-            )}
             
             <AlertDialog>
               <AlertDialogTrigger asChild>

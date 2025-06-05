@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { format } from "date-fns";
 
 interface DisputedViolation {
   id: number;
@@ -69,7 +70,7 @@ export default function DisputeManagementPage() {
   const [quickFineAmount, setQuickFineAmount] = useState<number | "">("");
 
   // Fetch disputed violations
-  const { data: disputedViolations, isLoading, error } = useQuery<DisputedViolation[]>({
+  const { data: disputedViolationsData, isLoading, error } = useQuery<{ violations: DisputedViolation[], total: number }>({
     queryKey: ['/api/violations', { status: 'disputed' }],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/violations?status=disputed");
@@ -77,6 +78,9 @@ export default function DisputeManagementPage() {
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  const disputedViolations = disputedViolationsData?.violations ?? [];
+  const disputedViolationsTotal = disputedViolationsData?.total ?? 0;
 
   // Quick action mutation
   const quickActionMutation = useMutation({
@@ -124,13 +128,13 @@ export default function DisputeManagementPage() {
     },
   });
 
-  const filteredViolations = disputedViolations?.filter(violation =>
+  const filteredViolations = disputedViolations.filter(violation =>
     violation.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     violation.violationType.toLowerCase().includes(searchTerm.toLowerCase()) ||
     violation.unit.unitNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (violation.unit.ownerName && violation.unit.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (violation.unit.tenantName && violation.unit.tenantName.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) ?? [];
+  );
 
   const handleQuickAction = (violation: DisputedViolation, action: 'approve' | 'reject') => {
     setSelectedViolation(violation);
@@ -231,7 +235,7 @@ export default function DisputeManagementPage() {
               />
             </div>
             <div className="text-sm text-gray-600">
-              {filteredViolations.length} of {disputedViolations?.length || 0} violations
+              {filteredViolations.length} of {disputedViolationsTotal} violations
             </div>
           </div>
         </Card>
@@ -253,7 +257,7 @@ export default function DisputeManagementPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <Badge variant="outline" className="font-mono">
-                        {violation.referenceNumber}
+                        {`VIO-${format(new Date(violation.createdAt), 'yyyyMMdd')}-${violation.id.toString().padStart(3, '0')}`}
                       </Badge>
                       <StatusBadge status={violation.status as any} />
                       <Badge variant="secondary" className="bg-orange-100 text-orange-800">
@@ -331,7 +335,7 @@ export default function DisputeManagementPage() {
               <DialogDescription>
                 {selectedViolation && (
                   <>
-                    Reference: {selectedViolation.referenceNumber} | Unit {selectedViolation.unit.unitNumber}
+                    Reference: {`VIO-${format(new Date(selectedViolation.createdAt), 'yyyyMMdd')}-${selectedViolation.id.toString().padStart(3, '0')}`} | Unit {selectedViolation.unit.unitNumber}
                   </>
                 )}
               </DialogDescription>

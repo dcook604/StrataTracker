@@ -118,7 +118,11 @@ export function ViolationsList() {
           Violation ID {sortBy === 'id' && (sortOrder === 'asc' ? '▲' : '▼')}
         </span>
       ),
-      cell: ({ row }) => <div className="font-semibold">VIO-{row.original.id}</div>,
+      cell: ({ row }) => {
+        const createdAt = row.original.createdAt;
+        const id = row.original.id;
+        return <div className="font-semibold">{`VIO-${format(new Date(createdAt), 'yyyyMMdd')}-${id.toString().padStart(3, '0')}`}</div>;
+      },
     },
     {
       id: "unitNumber",
