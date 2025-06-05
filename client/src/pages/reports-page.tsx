@@ -117,6 +117,9 @@ interface CombinedReportData {
   violationsByType: ViolationTypeData[];
 }
 
+// --- Monthly Fines Report Types ---
+type MonthlyFines = { month: string; totalFines: number }[];
+
 export default function ReportsPage() {
   const { user } = useAuth();
   // Default to the last 30 days
@@ -128,6 +131,7 @@ export default function ReportsPage() {
   const [dateRange, setDateRange] = useState({ from: priorDate, to: today });
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all"); // Store ID
   const [isExporting, setIsExporting] = useState<boolean>(false); // New state for export loading
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => format(dateRange.to, 'yyyy-MM'));
 
   // Fetch violation categories for the dropdown
   const { data: categories, isLoading: categoriesLoading } = useQuery<ViolationCategory[]>({
@@ -293,6 +297,31 @@ export default function ReportsPage() {
   };
 
   const isLoading = reportDataLoading || categoriesLoading; // Overall loading state
+
+  // Fetch monthly fines data
+  const { data: monthlyFinesData, isLoading: monthlyFinesLoading, error: monthlyFinesError, refetch: refetchMonthlyFines } = useQuery<MonthlyFines>({
+    queryKey: ['reports', 'monthlyFines', selectedMonth, selectedCategoryId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      // Always fetch a full year for chart, but filter for selected month for total
+      const year = selectedMonth.split('-')[0];
+      params.append('from', `${year}-01-01T00:00:00.000Z`);
+      params.append('to', `${year}-12-31T23:59:59.999Z`);
+      if (selectedCategoryId !== "all") params.append('categoryId', selectedCategoryId);
+      const res = await apiRequest("GET", `/api/reports/monthly-fines?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch monthly fines');
+      return res.json();
+    },
+    enabled: !!user && !!selectedMonth,
+  });
+
+  // Handler for month picker
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedMonth(e.target.value);
+  };
+
+  // Find the total for the selected month
+  const selectedMonthTotal = monthlyFinesData?.find(m => m.month === selectedMonth)?.totalFines ?? 0;
 
   return (
     <Layout title="Reports & Analytics">
@@ -498,6 +527,43 @@ export default function ReportsPage() {
               )}
             </CardContent>
           </Card>
+
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Violations Monthly Fines</CardTitle>
+                <div className="flex flex-col md:flex-row md:items-center gap-4 mt-2">
+                  <label className="font-medium">Select Month:</label>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={handleMonthChange}
+                    className="border rounded p-2 w-[160px]"
+                  />
+                  <span className="ml-4 text-lg font-semibold">Total Fines: <span className="text-blue-700">${selectedMonthTotal.toFixed(2)}</span></span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {monthlyFinesLoading ? (
+                  <div className="h-48 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /> Loading fines...</div>
+                ) : monthlyFinesError ? (
+                  <div className="text-destructive">Error loading monthly fines: {monthlyFinesError.message}</div>
+                ) : (
+                  <div className="h-[300px] md:h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsBarChart data={monthlyFinesData || []} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" tickFormatter={m => format(new Date(m + '-02'), 'MMM yyyy')} />
+                        <YAxis tickFormatter={v => `$${v}`} />
+                        <Tooltip formatter={v => `$${v}`} labelFormatter={m => format(new Date(m + '-02'), 'MMM yyyy')} />
+                        <Bar dataKey="totalFines" fill="#2563eb" name="Total Fines" />
+                      </RechartsBarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
         </div>
       </div>

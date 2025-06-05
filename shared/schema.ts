@@ -290,14 +290,16 @@ export const insertViolationSchema = createInsertSchema(violations).pick({
 // Violation history/comments schema
 export const violationHistories = pgTable("violation_histories", {
   id: serial("id").primaryKey(),
-  violationId: integer("violation_id").notNull().references(() => violations.id),
+  violationId: integer("violation_id").notNull().references(() => violations.id, { onDelete: 'cascade' }),
   violationUuid: uuid("violation_uuid").references(() => violations.uuid),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").references(() => users.id), // Can be null if action is by system/occupant
   action: text("action").notNull(),
   comment: text("comment"),
-  commenterName: text("commenter_name"),
+  rejectionReason: text("rejection_reason"), // New field for rejection reason
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const insertViolationHistorySchema = createInsertSchema(violationHistories);
 
 export const violationHistoriesRelations = relations(violationHistories, ({ one }) => ({
   violation: one(violations, {
@@ -309,14 +311,6 @@ export const violationHistoriesRelations = relations(violationHistories, ({ one 
     references: [users.id],
   }),
 }));
-
-export const insertViolationHistorySchema = createInsertSchema(violationHistories).pick({
-  violationId: true,
-  userId: true,
-  action: true,
-  comment: true,
-  commenterName: true,
-});
 
 // Types
 // Define relationships for property units

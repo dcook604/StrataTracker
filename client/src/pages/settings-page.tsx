@@ -30,7 +30,6 @@ import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle, Users as UsersI
 import { useAuth } from "@/hooks/use-auth";
 import { useLoading, useAsyncLoading } from "@/contexts/loading-context";
 import { ButtonLoading } from "@/components/ui/loading-spinner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { Layout } from "@/components/layout";
 import { useLocation, Link } from "wouter";
@@ -134,10 +133,26 @@ const systemSettingsSchema = z.object({
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<string>("email");
-  const [testEmailAddress, setTestEmailAddress] = useState<string>("");
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const queryClientHook = useQueryClient();
+
+  // Determine active tab based on URL
+  const getActiveTabFromUrl = (path: string): string => {
+    if (path.includes('/settings/email')) return 'email';
+    if (path.includes('/settings/system')) return 'system';
+    if (path.includes('/settings/smtp')) return 'smtp';
+    if (path.includes('/settings/users')) return 'users';
+    return 'email'; // default
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(() => getActiveTabFromUrl(location));
+  const [testEmailAddress, setTestEmailAddress] = useState<string>("");
+
+  // Update activeTab when location changes
+  useEffect(() => {
+    const newTab = getActiveTabFromUrl(location);
+    setActiveTab(newTab);
+  }, [location]);
 
   // Use the new loading system
   const emailSaveLoading = useAsyncLoading('settings-email-save');
@@ -524,648 +539,606 @@ export default function SettingsPage() {
   return (
     <Layout title="System Settings">
       <div className="space-y-6 px-2 sm:px-4 md:px-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex items-center justify-between overflow-x-auto">
-            <TabsList className="flex gap-2 w-full overflow-x-auto scrollbar-thin scrollbar-thumb-rounded-md scrollbar-thumb-neutral-300">
-              <TabsTrigger value="email" className="min-w-[140px]"> <MailIcon className="mr-2 h-4 w-4" /> Email Settings </TabsTrigger>
-              <TabsTrigger value="system" className="min-w-[140px]"> <Settings className="mr-2 h-4 w-4" /> System Settings </TabsTrigger>
-              <TabsTrigger value="smtp" className="min-w-[140px]"> <MailIcon className="mr-2 h-4 w-4" /> SMTP Settings </TabsTrigger>
-              <TabsTrigger value="users" className="min-w-[140px]"> <UsersIconLucide className="mr-2 h-4 w-4" /> User Management </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="email">
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Notification Settings</CardTitle>
-                <CardDescription>Configure how email notifications are sent to residents</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...emailForm}>
-                  <form onSubmit={emailForm.handleSubmit(onEmailFormSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={emailForm.control}
-                        name="emailSenderName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Sender Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Strata Management" {...field} />
-                            </FormControl>
-                            <FormDescription>
-                              This name will appear as the sender of all notification emails
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={emailForm.control}
-                        name="emailSenderAddress"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Sender Email Address</FormLabel>
-                            <FormControl>
-                              <Input placeholder="violations@example.com" {...field} />
-                            </FormControl>
-                            <FormDescription>
-                              The email address that will be used to send all notifications
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={emailForm.control}
-                        name="emailNotificationsEnabled"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                            <div className="space-y-0.5">
-                              <FormLabel>Email Notifications</FormLabel>
-                              <FormDescription>
-                                Enable or disable all email notifications
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={emailForm.control}
-                        name="emailLogoEnabled"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                            <div className="space-y-0.5">
-                              <FormLabel>Include Logo in Emails</FormLabel>
-                              <FormDescription>
-                                Show the strata logo in notification emails
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+        {activeTab === 'email' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Notification Settings</CardTitle>
+              <CardDescription>Configure how email notifications are sent to residents</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...emailForm}>
+                <form onSubmit={emailForm.handleSubmit(onEmailFormSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={emailForm.control}
+                      name="emailSenderName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sender Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Strata Management" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            This name will appear as the sender of all notification emails
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     
                     <FormField
                       control={emailForm.control}
-                      name="emailFooterText"
+                      name="emailNotificationsEnabled"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email Footer Text</FormLabel>
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                          <div className="space-y-0.5">
+                            <FormLabel>Email Notifications</FormLabel>
+                            <FormDescription>
+                              Enable or disable all email notifications
+                            </FormDescription>
+                          </div>
                           <FormControl>
-                            <Input className="w-full" placeholder="© Strata Management System" {...field} />
-                          </FormControl>
-                          <FormDescription>Text to appear at the bottom of all notification emails</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={emailForm.control}
-                        name="violationSubmittedSubject"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>New Violation Subject</FormLabel>
-                            <FormControl>
-                              <Input placeholder="New Violation Report" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={emailForm.control}
-                        name="violationApprovedSubject"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Violation Approved Subject</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Violation Approved - Action Required" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={emailForm.control}
-                        name="violationDisputedSubject"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Violation Disputed Subject</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Violation Disputed" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={emailForm.control}
-                        name="violationRejectedSubject"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Violation Rejected Subject</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Violation Rejected" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <CardFooter className="flex flex-col md:flex-row md:justify-between gap-4 border-t pt-6 px-0">
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
-                        <Input className="w-full sm:w-64" placeholder="Enter email for test" value={testEmailAddress} onChange={(e) => setTestEmailAddress(e.target.value)} />
-                        <Button type="button" variant="outline" onClick={() => setIsSmtpTestDialogOpen(true)} disabled={testEmailLoading.isLoading} className="w-full sm:w-auto">
-                          {testEmailLoading.isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : "Test Email"}
-                        </Button>
-                      </div>
-                      <Button type="submit" disabled={emailSaveLoading.isLoading} className="w-full md:w-auto">
-                        {emailSaveLoading.isLoading ? (
-                          <ButtonLoading message="Saving Settings" showMessage={true} />
-                        ) : (
-                          "Save Settings"
-                        )}
-                      </Button>
-                    </CardFooter>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="smtp">
-            <Card>
-              <CardHeader>
-                <CardTitle>SMTP Configuration</CardTitle>
-                <CardDescription>Configure your SMTP server settings for sending system emails.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {smtpConfigError ? (
-                   <Alert variant="destructive">
-                     <AlertCircle className="h-4 w-4" />
-                     <AlertTitle>Error Loading SMTP Config</AlertTitle>
-                     <AlertDescription>
-                       {(smtpConfigError as Error).message || "Could not load SMTP configuration. Please try again."}
-                       <Button 
-                         variant="link" 
-                         className="p-0 h-auto ml-2" 
-                         onClick={() => queryClientHook.invalidateQueries({ queryKey: ['/api/email-config'] })}
-                       >
-                         Retry
-                       </Button>
-                     </AlertDescription>
-                   </Alert>
-                ) : (
-                <Form {...smtpForm}>
-                  <form onSubmit={smtpForm.handleSubmit(onSmtpConfigSubmit)} className="space-y-4">
-                    <FormField
-                      control={smtpForm.control}
-                      name="host"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>SMTP Host</FormLabel>
-                          <FormControl>
-                            <Input className="w-full" placeholder="smtp.example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField
-                        control={smtpForm.control}
-                        name="port"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SMTP Port</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="587" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={smtpForm.control}
-                        name="secure"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mt-2 sm:mt-0 sm:pt-[2.1rem] sm:pb-[2.1rem]">
-                            <div className="space-y-0.5">
-                              <FormLabel>Use SSL/TLS</FormLabel>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormField
-                      control={smtpForm.control}
-                      name="authUser"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>SMTP Username</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Optional" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={smtpForm.control}
-                      name="authPass"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>SMTP Password</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="password" 
-                              placeholder={field.value === '********' ? 'Password saved (leave unchanged or enter new password)' : 'Enter password'} 
-                              {...field} 
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
                             />
                           </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={emailForm.control}
+                      name="emailLogoEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                          <div className="space-y-0.5">
+                            <FormLabel>Include Logo in Emails</FormLabel>
+                            <FormDescription>
+                              Show the strata logo in notification emails
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={emailForm.control}
+                    name="emailFooterText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Footer Text</FormLabel>
+                        <FormControl>
+                          <Input className="w-full" placeholder="© Strata Management System" {...field} />
+                        </FormControl>
+                        <FormDescription>Text to appear at the bottom of all notification emails</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={emailForm.control}
+                      name="violationSubmittedSubject"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Violation Subject</FormLabel>
+                          <FormControl>
+                            <Input placeholder="New Violation Report" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={emailForm.control}
+                      name="violationApprovedSubject"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Violation Approval Subject</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Violation Approved - Action Required" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={emailForm.control}
+                      name="violationDisputedSubject"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Violation Disputed Subject</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Violation Disputed" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={emailForm.control}
+                      name="violationRejectedSubject"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Violation Rejected Subject</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Violation Rejected" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <CardFooter className="flex flex-col md:flex-row md:justify-between gap-4 border-t pt-6 px-0">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
+                      <Input className="w-full sm:w-64" placeholder="Enter email for test" value={testEmailAddress} onChange={(e) => setTestEmailAddress(e.target.value)} />
+                      <Button type="button" variant="outline" onClick={() => setIsSmtpTestDialogOpen(true)} disabled={testEmailLoading.isLoading} className="w-full sm:w-auto">
+                        {testEmailLoading.isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : "Test Email"}
+                      </Button>
+                    </div>
+                    <Button type="submit" disabled={emailSaveLoading.isLoading} className="w-full md:w-auto">
+                      {emailSaveLoading.isLoading ? (
+                        <ButtonLoading message="Saving Settings" showMessage={true} />
+                      ) : (
+                        "Save Settings"
+                      )}
+                    </Button>
+                  </CardFooter>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'system' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>General Settings</CardTitle>
+              <CardDescription>Configure system-wide settings and preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4">
+                <label className="font-medium">Strata Name</label>
+                <Input value={systemForm.strataName} onChange={e => setSystemForm((prev: any) => ({ ...prev, strataName: e.target.value }))} />
+                
+                {/* Property Address Section */}
+                <div>
+                  <label className="font-medium block mb-1">Property Address (Canada)</label>
+                  <div className="space-y-2">
+                    <div>
+                      <label htmlFor="streetLine1" className="text-sm font-medium">Street Address Line 1</label>
+                      <Input id="streetLine1" placeholder="e.g., 123 Main St" value={systemForm.propertyAddress.streetLine1} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine1: e.target.value } }))} />
+                    </div>
+                    <div>
+                      <label htmlFor="streetLine2" className="text-sm font-medium">Street Address Line 2 (Optional)</label>
+                      <Input id="streetLine2" placeholder="e.g., Apt/Suite 100" value={systemForm.propertyAddress.streetLine2} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine2: e.target.value } }))} />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="city" className="text-sm font-medium">City</label>
+                        <Input id="city" placeholder="e.g., Vancouver" value={systemForm.propertyAddress.city} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, city: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label htmlFor="province" className="text-sm font-medium">Province</label>
+                        <select id="province" value={systemForm.propertyAddress.province} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, province: e.target.value } }))} className="w-full border rounded-md px-2 py-2 h-[38px] bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                          <option value="">Select Province</option>
+                          <option value="AB">Alberta</option>
+                          <option value="BC">British Columbia</option>
+                          <option value="MB">Manitoba</option>
+                          <option value="NB">New Brunswick</option>
+                          <option value="NL">Newfoundland and Labrador</option>
+                          <option value="NS">Nova Scotia</option>
+                          <option value="ON">Ontario</option>
+                          <option value="PE">Prince Edward Island</option>
+                          <option value="QC">Quebec</option>
+                          <option value="SK">Saskatchewan</option>
+                          <option value="NT">Northwest Territories</option>
+                          <option value="NU">Nunavut</option>
+                          <option value="YT">Yukon</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="postalCode" className="text-sm font-medium">Postal Code</label>
+                        <Input id="postalCode" placeholder="e.g., A1B 2C3" value={systemForm.propertyAddress.postalCode} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, postalCode: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label htmlFor="country" className="text-sm font-medium">Country</label>
+                        <Input id="country" value={systemForm.propertyAddress.country} readOnly disabled className="bg-neutral-100" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-medium">Admin First Name</label>
+                    <Input value={systemForm.adminFirstName} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminFirstName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="font-medium">Admin Last Name</label>
+                    <Input value={systemForm.adminLastName} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminLastName: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-medium">Admin Email</label>
+                    <Input value={systemForm.adminEmail} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminEmail: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="font-medium">Admin Phone</label>
+                    <Input value={systemForm.adminPhone} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminPhone: e.target.value }))} />
+                  </div>
+                </div>
+
+                {/* Property Managers Section */}
+                <div className="space-y-3 pt-4 border-t mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-base font-semibold">Property Managers</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, propertyManagers: [...(prev.propertyManagers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                      Add Manager
+                    </Button>
+                  </div>
+                  {(systemForm.propertyManagers && systemForm.propertyManagers.length > 0) ? systemForm.propertyManagers.map((pm: any, index: number) => (
+                    <div key={`pm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label htmlFor={`pm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
+                          <Input id={`pm-name-${index}`} placeholder="Full Name" value={pm.name} onChange={e => {
+                            const updated = [...systemForm.propertyManagers];
+                            updated[index].name = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                          }} />
+                        </div>
+                        <div>
+                          <label htmlFor={`pm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
+                          <Input id={`pm-email-${index}`} type="email" placeholder="Email Address" value={pm.email} onChange={e => {
+                            const updated = [...systemForm.propertyManagers];
+                            updated[index].email = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                          }} />
+                        </div>
+                        <div>
+                          <label htmlFor={`pm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
+                          <Input id={`pm-phone-${index}`} placeholder="Phone Number" value={pm.phone} onChange={e => {
+                            const updated = [...systemForm.propertyManagers];
+                            updated[index].phone = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                          }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center space-x-2">
+                          <Switch id={`pm-notify-${index}`} checked={pm.receiveAllViolationEmails} onCheckedChange={checked => {
+                            const updated = [...systemForm.propertyManagers];
+                            updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
+                            setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                          }} />
+                          <label htmlFor={`pm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                          const updated = systemForm.propertyManagers.filter((_: any, i: number) => i !== index);
+                          setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
+                        }}>
+                          <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                        </Button>
+                      </div>
+                    </div>
+                  )) : <p className="text-xs text-neutral-500 italic">No property managers added.</p>}
+                </div>
+
+                {/* Caretakers Section */}
+                <div className="space-y-3 pt-4 border-t mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-base font-semibold">Caretakers</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, caretakers: [...(prev.caretakers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                      Add Caretaker
+                    </Button>
+                  </div>
+                  {(systemForm.caretakers && systemForm.caretakers.length > 0) ? systemForm.caretakers.map((ct: any, index: number) => (
+                    <div key={`ct-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                         <div>
+                          <label htmlFor={`ct-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
+                          <Input id={`ct-name-${index}`} placeholder="Full Name" value={ct.name} onChange={e => {
+                            const updated = [...systemForm.caretakers];
+                            updated[index].name = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                          }} />
+                        </div>
+                        <div>
+                          <label htmlFor={`ct-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
+                          <Input id={`ct-email-${index}`} type="email" placeholder="Email Address" value={ct.email} onChange={e => {
+                            const updated = [...systemForm.caretakers];
+                            updated[index].email = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                          }} />
+                        </div>
+                        <div>
+                          <label htmlFor={`ct-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
+                          <Input id={`ct-phone-${index}`} placeholder="Phone Number" value={ct.phone} onChange={e => {
+                            const updated = [...systemForm.caretakers];
+                            updated[index].phone = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                          }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center space-x-2">
+                          <Switch id={`ct-notify-${index}`} checked={ct.receiveAllViolationEmails} onCheckedChange={checked => {
+                            const updated = [...systemForm.caretakers];
+                            updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
+                            setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                          }} />
+                          <label htmlFor={`ct-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                          const updated = systemForm.caretakers.filter((_: any, i: number) => i !== index);
+                          setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
+                        }}>
+                          <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                        </Button>
+                      </div>
+                    </div>
+                  )) : <p className="text-xs text-neutral-500 italic">No caretakers added.</p>}
+                </div>
+
+                {/* Council Members Section */}
+                <div className="space-y-3 pt-4 border-t mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-base font-semibold">Council Members</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, councilMembers: [...(prev.councilMembers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                      Add Council Member
+                    </Button>
+                  </div>
+                  {(systemForm.councilMembers && systemForm.councilMembers.length > 0) ? systemForm.councilMembers.map((cm: any, index: number) => (
+                    <div key={`cm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label htmlFor={`cm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
+                          <Input id={`cm-name-${index}`} placeholder="Full Name" value={cm.name} onChange={e => {
+                            const updated = [...systemForm.councilMembers];
+                            updated[index].name = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                          }} />
+                        </div>
+                        <div>
+                          <label htmlFor={`cm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
+                          <Input id={`cm-email-${index}`} type="email" placeholder="Email Address" value={cm.email} onChange={e => {
+                            const updated = [...systemForm.councilMembers];
+                            updated[index].email = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                          }} />
+                        </div>
+                        <div>
+                          <label htmlFor={`cm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
+                          <Input id={`cm-phone-${index}`} placeholder="Phone Number" value={cm.phone} onChange={e => {
+                            const updated = [...systemForm.councilMembers];
+                            updated[index].phone = e.target.value;
+                            setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                          }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center space-x-2">
+                          <Switch id={`cm-notify-${index}`} checked={cm.receiveAllViolationEmails} onCheckedChange={checked => {
+                            const updated = [...systemForm.councilMembers];
+                            updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
+                            setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                          }} />
+                          <label htmlFor={`cm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                          const updated = systemForm.councilMembers.filter((_: any, i: number) => i !== index);
+                          setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
+                        }}>
+                          <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
+                        </Button>
+                      </div>
+                    </div>
+                  )) : <p className="text-xs text-neutral-500 italic">No council members added.</p>}
+                </div>
+
+                <div>
+                  <label className="font-medium">Strata Logo</label>
+                  <FileUpload maxFiles={1} acceptedTypes={["image/png", "image/jpeg", "image/svg+xml"]} onChange={handleLogoUpload} />
+                  {logoUrl && <img src={logoUrl} alt="Strata Logo" className="mt-2 h-24" />}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-medium">Default Timezone</label>
+                    <select value={systemForm.defaultTimezone} onChange={e => setSystemForm((prev: any) => ({ ...prev, defaultTimezone: e.target.value }))} className="w-full border rounded-md px-2 py-2">
+                      <option value="America/Vancouver">America/Vancouver</option>
+                      <option value="America/Toronto">America/Toronto</option>
+                      {/* ...more... */}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-medium">Default Language</label>
+                    <select value={systemForm.defaultLanguage} onChange={e => setSystemForm((prev: any) => ({ ...prev, defaultLanguage: e.target.value }))} className="w-full border rounded-md px-2 py-2">
+                      <option value="en">English</option>
+                      <option value="fr">French</option>
+                      {/* ...more... */}
+                    </select>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  disabled={systemSaveLoading.isLoading}
+                  onClick={async () => {
+                    await systemSaveLoading.executeWithLoading(async () => {
+                      // Save all system settings fields
+                      const updates = [
+                        { settingKey: 'strata_name', settingValue: systemForm.strataName },
+                        { settingKey: 'property_address', settingValue: JSON.stringify(systemForm.propertyAddress) },
+                        { settingKey: 'admin_first_name', settingValue: systemForm.adminFirstName },
+                        { settingKey: 'admin_last_name', settingValue: systemForm.adminLastName },
+                        { settingKey: 'admin_email', settingValue: systemForm.adminEmail },
+                        { settingKey: 'admin_phone', settingValue: systemForm.adminPhone },
+                        { settingKey: 'property_managers', settingValue: JSON.stringify(systemForm.propertyManagers) },
+                        { settingKey: 'caretakers', settingValue: JSON.stringify(systemForm.caretakers) },
+                        { settingKey: 'council_members', settingValue: JSON.stringify(systemForm.councilMembers) },
+                        { settingKey: 'default_timezone', settingValue: systemForm.defaultTimezone },
+                        { settingKey: 'default_language', settingValue: systemForm.defaultLanguage },
+                        { settingKey: 'strata_logo', settingValue: systemForm.strataLogo || "" },
+                      ];
+                      for (const update of updates) {
+                        await apiRequest("POST", `/api/settings/${update.settingKey}`, { value: update.settingValue });
+                      }
+                      toast({ title: "Settings Updated", description: "General system settings updated." });
+                      queryClientHook.invalidateQueries({ queryKey: ["/api/settings"] });
+                    }, "Saving general settings...");
+                  }}
+                >
+                  {systemSaveLoading.isLoading ? (
+                    <ButtonLoading message="Saving Settings" showMessage={true} />
+                  ) : (
+                    "Save General Settings"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'smtp' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>SMTP Configuration</CardTitle>
+              <CardDescription>Configure your SMTP server settings for sending system emails.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {smtpConfigError ? (
+                 <Alert variant="destructive">
+                   <AlertCircle className="h-4 w-4" />
+                   <AlertTitle>Error Loading SMTP Config</AlertTitle>
+                   <AlertDescription>
+                     {(smtpConfigError as Error).message || "Could not load SMTP configuration. Please try again."}
+                     <Button 
+                       variant="link" 
+                       className="p-0 h-auto ml-2" 
+                       onClick={() => queryClientHook.invalidateQueries({ queryKey: ['/api/email-config'] })}
+                     >
+                       Retry
+                     </Button>
+                   </AlertDescription>
+                 </Alert>
+              ) : (
+              <Form {...smtpForm}>
+                <form onSubmit={smtpForm.handleSubmit(onSmtpConfigSubmit)} className="space-y-4">
+                  <FormField
+                    control={smtpForm.control}
+                    name="host"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Host</FormLabel>
+                        <FormControl>
+                          <Input className="w-full" placeholder="smtp.example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={smtpForm.control}
+                      name="port"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Port</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="587" {...field} />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     <FormField
                       control={smtpForm.control}
-                      name="from"
+                      name="secure"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>From Email Address</FormLabel>
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mt-2 sm:mt-0 sm:pt-[2.1rem] sm:pb-[2.1rem]">
+                          <div className="space-y-0.5">
+                            <FormLabel>Use SSL/TLS</FormLabel>
+                          </div>
                           <FormControl>
-                            <Input placeholder="noreply@example.com" {...field} />
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
                           </FormControl>
-                          <FormDescription>This email will be used as the sender for system notifications.</FormDescription>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <CardFooter className="flex flex-col md:flex-row md:justify-end gap-4 px-0 pt-6 border-t">
-                      <Button type="submit" disabled={smtpSaveLoading.isLoading} className="w-full md:w-auto">
-                        {smtpSaveLoading.isLoading ? (
-                          <ButtonLoading message="Saving SMTP Settings" showMessage={true} />
-                        ) : (
-                          "Save SMTP Settings"
-                        )}
-                      </Button>
-                    </CardFooter>
-                  </form>
-                </Form>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="system">
-            <Card>
-              <CardHeader>
-                <CardTitle>General Settings</CardTitle>
-                <CardDescription>Configure system-wide settings and preferences</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form className="space-y-4">
-                  <label className="font-medium">Strata Name</label>
-                  <Input value={systemForm.strataName} onChange={e => setSystemForm((prev: any) => ({ ...prev, strataName: e.target.value }))} />
-                  
-                  {/* Property Address Section */}
-                  <div>
-                    <label className="font-medium block mb-1">Property Address (Canada)</label>
-                    <div className="space-y-2">
-                      <div>
-                        <label htmlFor="streetLine1" className="text-sm font-medium">Street Address Line 1</label>
-                        <Input id="streetLine1" placeholder="e.g., 123 Main St" value={systemForm.propertyAddress.streetLine1} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine1: e.target.value } }))} />
-                      </div>
-                      <div>
-                        <label htmlFor="streetLine2" className="text-sm font-medium">Street Address Line 2 (Optional)</label>
-                        <Input id="streetLine2" placeholder="e.g., Apt/Suite 100" value={systemForm.propertyAddress.streetLine2} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine2: e.target.value } }))} />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label htmlFor="city" className="text-sm font-medium">City</label>
-                          <Input id="city" placeholder="e.g., Vancouver" value={systemForm.propertyAddress.city} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, city: e.target.value } }))} />
-                        </div>
-                        <div>
-                          <label htmlFor="province" className="text-sm font-medium">Province</label>
-                          <select id="province" value={systemForm.propertyAddress.province} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, province: e.target.value } }))} className="w-full border rounded-md px-2 py-2 h-[38px] bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                            <option value="">Select Province</option>
-                            <option value="AB">Alberta</option>
-                            <option value="BC">British Columbia</option>
-                            <option value="MB">Manitoba</option>
-                            <option value="NB">New Brunswick</option>
-                            <option value="NL">Newfoundland and Labrador</option>
-                            <option value="NS">Nova Scotia</option>
-                            <option value="ON">Ontario</option>
-                            <option value="PE">Prince Edward Island</option>
-                            <option value="QC">Quebec</option>
-                            <option value="SK">Saskatchewan</option>
-                            <option value="NT">Northwest Territories</option>
-                            <option value="NU">Nunavut</option>
-                            <option value="YT">Yukon</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label htmlFor="postalCode" className="text-sm font-medium">Postal Code</label>
-                          <Input id="postalCode" placeholder="e.g., A1B 2C3" value={systemForm.propertyAddress.postalCode} onChange={e => setSystemForm((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, postalCode: e.target.value } }))} />
-                        </div>
-                        <div>
-                          <label htmlFor="country" className="text-sm font-medium">Country</label>
-                          <Input id="country" value={systemForm.propertyAddress.country} readOnly disabled className="bg-neutral-100" />
-                        </div>
-                      </div>
-                    </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="font-medium">Admin First Name</label>
-                      <Input value={systemForm.adminFirstName} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminFirstName: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="font-medium">Admin Last Name</label>
-                      <Input value={systemForm.adminLastName} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminLastName: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="font-medium">Admin Email</label>
-                      <Input value={systemForm.adminEmail} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminEmail: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="font-medium">Admin Phone</label>
-                      <Input value={systemForm.adminPhone} onChange={e => setSystemForm((prev: any) => ({ ...prev, adminPhone: e.target.value }))} />
-                    </div>
-                  </div>
-
-                  {/* Property Managers Section */}
-                  <div className="space-y-3 pt-4 border-t mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-base font-semibold">Property Managers</h4>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, propertyManagers: [...(prev.propertyManagers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
-                        Add Manager
-                      </Button>
-                    </div>
-                    {(systemForm.propertyManagers && systemForm.propertyManagers.length > 0) ? systemForm.propertyManagers.map((pm: any, index: number) => (
-                      <div key={`pm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>
-                            <label htmlFor={`pm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
-                            <Input id={`pm-name-${index}`} placeholder="Full Name" value={pm.name} onChange={e => {
-                              const updated = [...systemForm.propertyManagers];
-                              updated[index].name = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
-                            }} />
-                          </div>
-                          <div>
-                            <label htmlFor={`pm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
-                            <Input id={`pm-email-${index}`} type="email" placeholder="Email Address" value={pm.email} onChange={e => {
-                              const updated = [...systemForm.propertyManagers];
-                              updated[index].email = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
-                            }} />
-                          </div>
-                          <div>
-                            <label htmlFor={`pm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
-                            <Input id={`pm-phone-${index}`} placeholder="Phone Number" value={pm.phone} onChange={e => {
-                              const updated = [...systemForm.propertyManagers];
-                              updated[index].phone = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
-                            }} />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-2">
-                          <div className="flex items-center space-x-2">
-                            <Switch id={`pm-notify-${index}`} checked={pm.receiveAllViolationEmails} onCheckedChange={checked => {
-                              const updated = [...systemForm.propertyManagers];
-                              updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
-                              setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
-                            }} />
-                            <label htmlFor={`pm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
-                          </div>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                            const updated = systemForm.propertyManagers.filter((_: any, i: number) => i !== index);
-                            setSystemForm((prev: any) => ({ ...prev, propertyManagers: updated }));
-                          }}>
-                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
-                          </Button>
-                        </div>
-                      </div>
-                    )) : <p className="text-xs text-neutral-500 italic">No property managers added.</p>}
-                  </div>
-
-                  {/* Caretakers Section */}
-                  <div className="space-y-3 pt-4 border-t mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-base font-semibold">Caretakers</h4>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, caretakers: [...(prev.caretakers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
-                        Add Caretaker
-                      </Button>
-                    </div>
-                    {(systemForm.caretakers && systemForm.caretakers.length > 0) ? systemForm.caretakers.map((ct: any, index: number) => (
-                      <div key={`ct-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                           <div>
-                            <label htmlFor={`ct-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
-                            <Input id={`ct-name-${index}`} placeholder="Full Name" value={ct.name} onChange={e => {
-                              const updated = [...systemForm.caretakers];
-                              updated[index].name = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
-                            }} />
-                          </div>
-                          <div>
-                            <label htmlFor={`ct-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
-                            <Input id={`ct-email-${index}`} type="email" placeholder="Email Address" value={ct.email} onChange={e => {
-                              const updated = [...systemForm.caretakers];
-                              updated[index].email = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
-                            }} />
-                          </div>
-                          <div>
-                            <label htmlFor={`ct-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
-                            <Input id={`ct-phone-${index}`} placeholder="Phone Number" value={ct.phone} onChange={e => {
-                              const updated = [...systemForm.caretakers];
-                              updated[index].phone = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
-                            }} />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-2">
-                          <div className="flex items-center space-x-2">
-                            <Switch id={`ct-notify-${index}`} checked={ct.receiveAllViolationEmails} onCheckedChange={checked => {
-                              const updated = [...systemForm.caretakers];
-                              updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
-                              setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
-                            }} />
-                            <label htmlFor={`ct-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
-                          </div>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                            const updated = systemForm.caretakers.filter((_: any, i: number) => i !== index);
-                            setSystemForm((prev: any) => ({ ...prev, caretakers: updated }));
-                          }}>
-                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
-                          </Button>
-                        </div>
-                      </div>
-                    )) : <p className="text-xs text-neutral-500 italic">No caretakers added.</p>}
-                  </div>
-
-                  {/* Council Members Section */}
-                  <div className="space-y-3 pt-4 border-t mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-base font-semibold">Council Members</h4>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSystemForm((prev: any) => ({ ...prev, councilMembers: [...(prev.councilMembers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
-                        Add Council Member
-                      </Button>
-                    </div>
-                    {(systemForm.councilMembers && systemForm.councilMembers.length > 0) ? systemForm.councilMembers.map((cm: any, index: number) => (
-                      <div key={`cm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>
-                            <label htmlFor={`cm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
-                            <Input id={`cm-name-${index}`} placeholder="Full Name" value={cm.name} onChange={e => {
-                              const updated = [...systemForm.councilMembers];
-                              updated[index].name = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
-                            }} />
-                          </div>
-                          <div>
-                            <label htmlFor={`cm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
-                            <Input id={`cm-email-${index}`} type="email" placeholder="Email Address" value={cm.email} onChange={e => {
-                              const updated = [...systemForm.councilMembers];
-                              updated[index].email = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
-                            }} />
-                          </div>
-                          <div>
-                            <label htmlFor={`cm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
-                            <Input id={`cm-phone-${index}`} placeholder="Phone Number" value={cm.phone} onChange={e => {
-                              const updated = [...systemForm.councilMembers];
-                              updated[index].phone = e.target.value;
-                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
-                            }} />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-2">
-                          <div className="flex items-center space-x-2">
-                            <Switch id={`cm-notify-${index}`} checked={cm.receiveAllViolationEmails} onCheckedChange={checked => {
-                              const updated = [...systemForm.councilMembers];
-                              updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
-                              setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
-                            }} />
-                            <label htmlFor={`cm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
-                          </div>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                            const updated = systemForm.councilMembers.filter((_: any, i: number) => i !== index);
-                            setSystemForm((prev: any) => ({ ...prev, councilMembers: updated }));
-                          }}>
-                            <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
-                          </Button>
-                        </div>
-                      </div>
-                    )) : <p className="text-xs text-neutral-500 italic">No council members added.</p>}
-                  </div>
-
-                  <div>
-                    <label className="font-medium">Strata Logo</label>
-                    <FileUpload maxFiles={1} acceptedTypes={["image/png", "image/jpeg", "image/svg+xml"]} onChange={handleLogoUpload} />
-                    {logoUrl && <img src={logoUrl} alt="Strata Logo" className="mt-2 h-24" />}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="font-medium">Default Timezone</label>
-                      <select value={systemForm.defaultTimezone} onChange={e => setSystemForm((prev: any) => ({ ...prev, defaultTimezone: e.target.value }))} className="w-full border rounded-md px-2 py-2">
-                        <option value="America/Vancouver">America/Vancouver</option>
-                        <option value="America/Toronto">America/Toronto</option>
-                        {/* ...more... */}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="font-medium">Default Language</label>
-                      <select value={systemForm.defaultLanguage} onChange={e => setSystemForm((prev: any) => ({ ...prev, defaultLanguage: e.target.value }))} className="w-full border rounded-md px-2 py-2">
-                        <option value="en">English</option>
-                        <option value="fr">French</option>
-                        {/* ...more... */}
-                      </select>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    disabled={systemSaveLoading.isLoading}
-                    onClick={async () => {
-                      await systemSaveLoading.executeWithLoading(async () => {
-                        // Save all system settings fields
-                        const updates = [
-                          { settingKey: 'strata_name', settingValue: systemForm.strataName },
-                          { settingKey: 'property_address', settingValue: JSON.stringify(systemForm.propertyAddress) },
-                          { settingKey: 'admin_first_name', settingValue: systemForm.adminFirstName },
-                          { settingKey: 'admin_last_name', settingValue: systemForm.adminLastName },
-                          { settingKey: 'admin_email', settingValue: systemForm.adminEmail },
-                          { settingKey: 'admin_phone', settingValue: systemForm.adminPhone },
-                          { settingKey: 'property_managers', settingValue: JSON.stringify(systemForm.propertyManagers) },
-                          { settingKey: 'caretakers', settingValue: JSON.stringify(systemForm.caretakers) },
-                          { settingKey: 'council_members', settingValue: JSON.stringify(systemForm.councilMembers) },
-                          { settingKey: 'default_timezone', settingValue: systemForm.defaultTimezone },
-                          { settingKey: 'default_language', settingValue: systemForm.defaultLanguage },
-                          { settingKey: 'strata_logo', settingValue: systemForm.strataLogo || "" },
-                        ];
-                        for (const update of updates) {
-                          await apiRequest("POST", `/api/settings/${update.settingKey}`, { value: update.settingValue });
-                        }
-                        toast({ title: "Settings Updated", description: "General system settings updated." });
-                        queryClientHook.invalidateQueries({ queryKey: ["/api/settings"] });
-                      }, "Saving general settings...");
-                    }}
-                  >
-                    {systemSaveLoading.isLoading ? (
-                      <ButtonLoading message="Saving Settings" showMessage={true} />
-                    ) : (
-                      "Save General Settings"
+                  <FormField
+                    control={smtpForm.control}
+                    name="authUser"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Optional" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </Button>
+                  />
+                  <FormField
+                    control={smtpForm.control}
+                    name="authPass"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Password</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="password" 
+                            placeholder={field.value === '********' ? 'Password saved (leave unchanged or enter new password)' : 'Enter password'} 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <CardFooter className="flex flex-col md:flex-row md:justify-end gap-4 px-0 pt-6 border-t">
+                    <Button type="submit" disabled={smtpSaveLoading.isLoading} className="w-full md:w-auto">
+                      {smtpSaveLoading.isLoading ? (
+                        <ButtonLoading message="Saving SMTP Settings" showMessage={true} />
+                      ) : (
+                        "Save SMTP Settings"
+                      )}
+                    </Button>
+                  </CardFooter>
                 </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </Form>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-          <TabsContent value="users">
-            <UserManagementTabContent />
-          </TabsContent>
+        {activeTab === 'users' && (
+          <UserManagementTabContent />
+        )}
 
-        </Tabs>
       </div>
     </Layout>
   );

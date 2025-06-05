@@ -51,6 +51,7 @@ export function Sidebar({ className }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [violationsOpen, setViolationsOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -62,6 +63,24 @@ export function Sidebar({ className }: SidebarProps) {
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
+  };
+
+  // Handler for expandable sections with mutual exclusion
+  const handleExpandableClick = (section: 'violations' | 'settings') => {
+    if (section === 'violations') {
+      setViolationsOpen(prev => !prev);
+      setSettingsOpen(false); // Close settings when violations is toggled
+    } else if (section === 'settings') {
+      setSettingsOpen(prev => !prev);
+      setViolationsOpen(false); // Close violations when settings is toggled
+    }
+  };
+
+  // Handler for regular nav items - collapses all expandable sections
+  const handleRegularNavClick = () => {
+    setViolationsOpen(false);
+    setSettingsOpen(false);
+    setOpen(false); // Also close mobile menu
   };
 
   const navItems: NavItem[] = [
@@ -110,7 +129,12 @@ export function Sidebar({ className }: SidebarProps) {
     {
       title: "Settings",
       icon: <Settings className="h-5 w-5" />,
-      href: "/settings",
+      subItems: [
+        { title: "Email Settings", href: "/settings/email", adminOnly: true },
+        { title: "System Settings", href: "/settings/system", adminOnly: true },
+        { title: "SMTP Settings", href: "/settings/smtp", adminOnly: true },
+        { title: "User Management", href: "/settings/users", adminOnly: true },
+      ],
       adminOnly: true,
     },
   ];
@@ -147,13 +171,20 @@ export function Sidebar({ className }: SidebarProps) {
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
             if (item.subItems) {
-              // Violations section with sub-items
+              // Expandable sections (Violations and Settings) with sub-items
               const visibleSubItems = item.subItems.filter(sub => {
                 if (sub.adminOnly) return user && user.isAdmin;
                 if (sub.adminOrCouncil) return user && (user.isAdmin || user.isCouncilMember);
                 return true;
               });
               if (visibleSubItems.length === 0) return null;
+              
+              // Determine which section this is and its open state
+              const isViolationsSection = item.title === "Violations";
+              const isSettingsSection = item.title === "Settings";
+              const sectionOpen = isViolationsSection ? violationsOpen : isSettingsSection ? settingsOpen : false;
+              const sectionType = isViolationsSection ? 'violations' : isSettingsSection ? 'settings' : null;
+              
               return (
                 <div key={item.title} className="mb-1">
                   <Button
@@ -163,9 +194,9 @@ export function Sidebar({ className }: SidebarProps) {
                       collapsed ? "h-10 px-2 justify-center" : "h-10 px-3 justify-start",
                       "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
                     )}
-                    onClick={() => setViolationsOpen((open) => !open)}
-                    aria-expanded={violationsOpen}
-                    aria-controls="violations-subnav"
+                    onClick={() => sectionType && handleExpandableClick(sectionType)}
+                    aria-expanded={sectionOpen}
+                    aria-controls={`${item.title.toLowerCase()}-subnav`}
                     tabIndex={0}
                     title={collapsed ? item.title : undefined}
                   >
@@ -173,30 +204,30 @@ export function Sidebar({ className }: SidebarProps) {
                       {item.icon}
                       {!collapsed && <span className="truncate">{item.title}</span>}
                     </span>
-                    {!collapsed && (violationsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                    {!collapsed && (sectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                   </Button>
-                  {violationsOpen && !collapsed && (
-                    <div id="violations-subnav" className="ml-4 flex flex-col gap-1 mt-1 border-l border-neutral-300 pl-2">
-                      {visibleSubItems.map(sub => (
-                        <Link key={sub.href} href={sub.href}>
-                          <Button
-                            variant="ghost"
-                            tabIndex={0}
-                            className={cn(
-                              "w-full text-left font-normal px-3 py-2 text-sm justify-start h-9",
-                              isActive(sub.href)
-                                ? "bg-blue-700 text-white font-bold border-l-4 border-blue-500 shadow"
-                                : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
-                            )}
-                            aria-current={isActive(sub.href) ? "page" : undefined}
-                            onClick={() => setOpen(false)}
-                          >
-                            {sub.title}
-                          </Button>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+                                      {sectionOpen && !collapsed && (
+                      <div id={`${item.title.toLowerCase()}-subnav`} className="ml-4 flex flex-col gap-1 mt-1 border-l border-neutral-300 pl-2">
+                        {visibleSubItems.map(sub => (
+                          <Link key={sub.href} href={sub.href}>
+                            <Button
+                              variant="ghost"
+                              tabIndex={0}
+                              className={cn(
+                                "w-full text-left font-normal px-3 py-2 text-sm justify-start h-9",
+                                isActive(sub.href)
+                                  ? "bg-blue-700 text-white font-bold border-l-4 border-blue-500 shadow"
+                                  : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
+                              )}
+                              aria-current={isActive(sub.href) ? "page" : undefined}
+                              onClick={() => setOpen(false)}
+                            >
+                              {sub.title}
+                            </Button>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                 </div>
               );
             }
@@ -216,7 +247,7 @@ export function Sidebar({ className }: SidebarProps) {
                       : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
                   )}
                   aria-current={isActive(item.href as string) ? "page" : undefined}
-                  onClick={() => setOpen(false)}
+                  onClick={handleRegularNavClick}
                   title={collapsed ? item.title : undefined}
                 >
                   {item.icon}

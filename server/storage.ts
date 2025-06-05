@@ -49,7 +49,7 @@ import session from "express-session";
 import memorystore from "memorystore";
 import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
 import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, PgTransaction } from 'drizzle-orm/pg-core';
-import { drizzle, NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
+import { drizzle, NodePgQueryResultHKT, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import connectPgSimple from 'connect-pg-simple';
 import logger from './utils/logger';
 import { Buffer } from 'buffer';
@@ -93,6 +93,7 @@ export interface IStorage {
   getAllViolationCategories(activeOnly?: boolean): Promise<ViolationCategory[]>;
   createViolationCategory(category: InsertViolationCategory): Promise<ViolationCategory>;
   updateViolationCategory(id: number, category: Partial<InsertViolationCategory>): Promise<ViolationCategory | undefined>;
+  deleteViolationCategory(id: number): Promise<boolean>;
   
   // System settings operations
   getSystemSetting(key: string): Promise<SystemSetting | undefined>;
@@ -207,11 +208,32 @@ export interface IStorage {
   addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void>;
   getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any>;
   markEmailVerificationCodeUsed(id: number): Promise<void>;
+
+  /**
+   * Returns total fines issued per month, filtered by date/category if provided.
+   * Each entry: { month: 'YYYY-MM', totalFines: number }
+   */
+  getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
+
+  /**
+   * Updates a unit with its associated persons, roles, and facilities within a single transaction.
+   * This method will replace existing persons/roles and facilities with the new data provided.
+   * @param unitId The ID of the unit to update.
+   * @param unitData The new data for the property_units table.
+   * @param personsData An array of new persons and their roles for the unit.
+   * @param facilitiesData An object containing arrays of new facility numbers (parking, storage, etc.).
+   * @returns The fully updated unit object.
+   */
+  updateUnitWithPersonsAndFacilities(
+    unitId: number,
+    unitData: Partial<InsertPropertyUnit>,
+    personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
+    facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
+  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }>;
 }
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
   userFullName?: string | null;
-  violationUuid: string | null;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -366,15 +388,30 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateViolationCategory(id: number, category: Partial<InsertViolationCategory>): Promise<ViolationCategory | undefined> {
-    const [updatedCategory] = await db.update(violationCategories)
-      .set({
-        ...category, 
-        updatedAt: new Date()
-      })
-      .where(eq(violationCategories.id, id))
-      .returning();
-      
-    return updatedCategory;
+    try {
+      const [updatedCategory] = await db.update(violationCategories)
+        .set({ ...category, updatedAt: new Date() })
+        .where(eq(violationCategories.id, id))
+        .returning();
+      return updatedCategory;
+    } catch (error) {
+      logger.error(`Error updating violation category ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async deleteViolationCategory(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(violationCategories).where(eq(violationCategories.id, id));
+      return (result.rowCount ?? 0) > 0;
+    } catch (e: unknown) {
+      logger.error(`Error deleting violation category ${id}:`, e);
+      const error = e as { code?: string }; // Type assertion
+      if (error.code === '23503') { 
+        throw new Error('Cannot delete category as it is currently associated with existing violations.');
+      }
+      return false;
+    }
   }
   
   // System settings operations
@@ -900,35 +937,31 @@ export class DatabaseStorage implements IStorage {
   
   // Violation history operations
   async getViolationHistory(violationId: number): Promise<ViolationHistoryWithUser[]> {
-    const historyItems = await db
-      .select({
-        id: violationHistories.id,
-        violationId: violationHistories.violationId,
-        userId: violationHistories.userId,
-        action: violationHistories.action,
-        comment: violationHistories.comment,
-        commenterName: violationHistories.commenterName,
-        createdAt: violationHistories.createdAt,
-        userFullName: users.fullName,
-        violationUuid: violations.uuid
-      })
-      .from(violationHistories)
-      .leftJoin(users, eq(violationHistories.userId, users.id))
-      .leftJoin(violations, eq(violationHistories.violationId, violations.id))
-      .where(eq(violationHistories.violationId, violationId))
-      .orderBy(desc(violationHistories.createdAt));
+    try {
+      const historyItems = await db
+        .select({
+          id: violationHistories.id,
+          violationId: violationHistories.violationId,
+          userId: violationHistories.userId,
+          action: violationHistories.action,
+          comment: violationHistories.comment,
+          rejectionReason: violationHistories.rejectionReason,
+          createdAt: violationHistories.createdAt,
+          userFullName: users.fullName,
+          violationUuid: violations.uuid,
+        })
+        .from(violationHistories)
+        .leftJoin(users, eq(violationHistories.userId, users.id))
+        .leftJoin(violations, eq(violationHistories.violationId, violations.id))
+        .where(eq(violationHistories.violationId, violationId))
+        .orderBy(desc(violationHistories.createdAt));
+      
+      return historyItems;
 
-    return historyItems.map((item: { id: number; violationId: number; userId: number | null; action: string; comment: string | null; commenterName: string | null; createdAt: Date; userFullName: string | null; violationUuid: string | null; }) => ({
-      id: item.id,
-      violationId: item.violationId,
-      userId: item.userId ?? 1, // Default to system user ID 1 if null
-      action: item.action,
-      comment: item.comment,
-      commenterName: item.commenterName,
-      createdAt: item.createdAt,
-      userFullName: item.userFullName,
-      violationUuid: item.violationUuid
-    }));
+    } catch (error) {
+      logger.error(`Error fetching violation history for violation ${violationId}:`, error);
+      return [];
+    }
   }
   
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
@@ -1715,7 +1748,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit })[]> {
+  async getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit; })[]> {
     try {
       const result = await db
         .select({
@@ -1842,6 +1875,131 @@ export class DatabaseStorage implements IStorage {
 
   async markEmailVerificationCodeUsed(id: number) {
     await db.update(emailVerificationCodes).set({ usedAt: new Date() }).where(eq(emailVerificationCodes.id, id));
+  }
+
+  /**
+   * Returns total fines issued per month, filtered by date/category if provided.
+   * Each entry: { month: 'YYYY-MM', totalFines: number }
+   */
+  async getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]> {
+    filters = filters || {};
+    const { from, to, categoryId } = filters;
+    const conditions = [];
+    let queryFromDate = from;
+    let queryToDate = to;
+    if (!queryFromDate && !queryToDate) {
+      const now = new Date();
+      queryFromDate = new Date(now.getFullYear(), 0, 1);
+      queryToDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (queryFromDate && !queryToDate) {
+      queryToDate = new Date(queryFromDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (!queryFromDate && queryToDate) {
+      queryFromDate = new Date(queryToDate.getFullYear(), 0, 1);
+    }
+    if (queryFromDate) conditions.push(gte(violations.createdAt, queryFromDate));
+    if (queryToDate) conditions.push(lte(violations.createdAt, queryToDate));
+    if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    // Group by YYYY-MM, sum fine_amount
+    const finesByMonthRaw = await db.select({
+      yearMonth: sql<string>`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`,
+      totalFines: sql<number>`COALESCE(SUM(${violations.fineAmount}), 0)`
+    })
+    .from(violations)
+    .where(whereClause)
+    .groupBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`)
+    .orderBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`);
+    // Fill in months with zero if missing
+    const result: { month: string, totalFines: number }[] = [];
+    if (queryFromDate && queryToDate) {
+      let currentDate = new Date(queryFromDate.getFullYear(), queryFromDate.getMonth(), 1);
+      const finalDate = new Date(queryToDate.getFullYear(), queryToDate.getMonth(), 1);
+      while (currentDate <= finalDate) {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        const yearMonthStr = `${year}-${month.toString().padStart(2, '0')}`;
+        const monthData = finesByMonthRaw.find(v => v.yearMonth === yearMonthStr);
+        result.push({ month: yearMonthStr, totalFines: monthData ? Number(monthData.totalFines) : 0 });
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      }
+    } else {
+      finesByMonthRaw.forEach(item => {
+        result.push({ month: item.yearMonth, totalFines: Number(item.totalFines) });
+      });
+    }
+    return result;
+  }
+
+  async updateUnitWithPersonsAndFacilities(
+    unitId: number,
+    unitData: Partial<InsertPropertyUnit>,
+    personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
+    facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
+  ) {
+    return db.transaction(async (tx) => {
+      // 1. Update the core unit details
+      const [updatedUnit] = await tx.update(propertyUnits)
+        .set({ ...unitData, updatedAt: new Date() })
+        .where(eq(propertyUnits.id, unitId))
+        .returning();
+
+      // 2. Clear existing persons and roles for this unit
+      const existingRoles = await tx.select({ personId: unitPersonRoles.personId }).from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unitId));
+      const personIdsToDelete = existingRoles.map((r: { personId: number }) => r.personId);
+
+      if (personIdsToDelete.length > 0) {
+        await tx.delete(unitPersonRoles).where(eq(unitPersonRoles.unitId, unitId));
+        
+        const otherRoles = await tx.select({ personId: unitPersonRoles.personId }).from(unitPersonRoles).where(inArray(unitPersonRoles.personId, personIdsToDelete));
+        const personsStillInUse = new Set(otherRoles.map((r: { personId: number }) => r.personId));
+        const finalPersonIdsToDelete = personIdsToDelete.filter((id: number) => !personsStillInUse.has(id));
+
+        if (finalPersonIdsToDelete.length > 0) {
+          await tx.delete(persons).where(inArray(persons.id, finalPersonIdsToDelete));
+        }
+      }
+
+      // 3. Create new persons and roles
+      const createdPersons: Person[] = [];
+      const createdRoles: UnitPersonRole[] = [];
+      for (const personData of personsData) {
+        let [person] = await tx.select().from(persons).where(eq(persons.email, personData.email));
+        if (!person) {
+          [person] = await tx.insert(persons).values({
+            fullName: personData.fullName,
+            email: personData.email,
+            phone: personData.phone,
+          }).returning();
+        }
+        createdPersons.push(person);
+
+        const [role] = await tx.insert(unitPersonRoles).values({
+          unitId: unitId,
+          personId: person.id,
+          role: personData.role,
+          receiveEmailNotifications: personData.receiveEmailNotifications,
+        }).returning();
+        createdRoles.push(role);
+      }
+
+      // 4. Clear and re-create facilities
+      await tx.delete(parkingSpots).where(eq(parkingSpots.unitId, unitId));
+      await tx.delete(storageLockers).where(eq(storageLockers.unitId, unitId));
+      await tx.delete(bikeLockers).where(eq(bikeLockers.unitId, unitId));
+
+      const createdFacilities = {
+        parkingSpots: facilitiesData.parkingSpots && facilitiesData.parkingSpots.length > 0 ? await tx.insert(parkingSpots).values(facilitiesData.parkingSpots.map(identifier => ({ unitId, identifier }))).returning() : [],
+        storageLockers: facilitiesData.storageLockers && facilitiesData.storageLockers.length > 0 ? await tx.insert(storageLockers).values(facilitiesData.storageLockers.map(identifier => ({ unitId, identifier }))).returning() : [],
+        bikeLockers: facilitiesData.bikeLockers && facilitiesData.bikeLockers.length > 0 ? await tx.insert(bikeLockers).values(facilitiesData.bikeLockers.map(identifier => ({ unitId, identifier }))).returning() : [],
+      };
+
+      return {
+        unit: updatedUnit,
+        persons: createdPersons,
+        roles: createdRoles,
+        facilities: createdFacilities,
+      };
+    });
   }
 }
 

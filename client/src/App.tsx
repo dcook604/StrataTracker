@@ -23,7 +23,7 @@ import ForgotPasswordPage from "@/pages/forgot-password-page";
 import SetPasswordPage from "@/pages/set-password-page";
 import UserProfilePage from "@/pages/user-profile-page";
 import PublicViolationCommentPage from "@/pages/public-violation-comment-page";
-import { Route } from "wouter";
+import { Route, Redirect } from "wouter";
 import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BylawsPage from "@/pages/bylaws-page";
@@ -51,7 +51,13 @@ export default function App() {
                   <ProtectedRoute path="/reports" component={ReportsPage} />
                   <ProtectedRoute path="/units" component={UnitsPage} />
                   <ProtectedRoute path="/categories" component={CategoriesPage} />
-                  <ProtectedRoute path="/settings" component={SettingsPage} />
+                  <Route path="/settings">
+                    <Redirect to="/settings/email" />
+                  </Route>
+                  <ProtectedRoute path="/settings/email" component={SettingsPage} />
+                  <ProtectedRoute path="/settings/system" component={SettingsPage} />
+                  <ProtectedRoute path="/settings/smtp" component={SettingsPage} />
+                  <ProtectedRoute path="/settings/users" component={SettingsPage} />
                   <ProtectedRoute path="/profile" component={UserProfilePage} />
                   <ProtectedRoute path="/bylaws" component={BylawsPage} />
                   <ProtectedRoute path="/disputes" component={DisputeManagementPage} />
