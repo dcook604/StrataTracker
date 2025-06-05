@@ -370,87 +370,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const violation = await dbStorage.createViolation(validatedData);
         logger.info(`[Violation Upload] Created violation with UUID: ${violation.uuid}`);
         
-        const unit = await dbStorage.getPropertyUnit(violation.unitId);
-        const reporterUser = req.user as User;
-
-        // NEW LOGIC: Send notification to occupants
-        if (unit && reporterUser) {
-          try {
-            const personsForUnit = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
-            const personsToNotifyForEmail = [];
-
-            for (const person of personsForUnit) {
-              let accessLinkForPerson: string | undefined = undefined;
-              // Generate access link if person is set to receive notifications OR always generate and let email function decide?
-              // For now, generate if notifications are enabled, as the link is for them to use.
-              if (person.receiveEmailNotifications && person.email) {
-                const token = await dbStorage.createViolationAccessLink({
-                  violationId: violation.id,
-                  violationUuid: violation.uuid,
-                  recipientEmail: person.email,
-                  // role and personId are not stored in violationAccessLinks table per schema
-                });
-                if (token) {
-                  // Ensure APP_URL is available in your environment variables
-                  const appUrl = process.env.APP_URL || 'http://localhost:5173'; 
-                  accessLinkForPerson = `${appUrl}/public/violation-dispute/${token}`;
-                }
-              }
-              personsToNotifyForEmail.push({
-                ...person, // includes personId, fullName, email, role, receiveEmailNotifications
-                accessLink: accessLinkForPerson,
-              });
-            }
-
-            if (personsToNotifyForEmail.length > 0) {
-              await sendNewViolationToOccupantsNotification({
-                violationId: violation.id,
-                unitId: unit.id, // or violation.unitId
-                unitNumber: unit.unitNumber,
-                violationType: violation.violationType,
-                reporterName: reporterUser.fullName,
-                personsToNotify: personsToNotifyForEmail,
-              });
-              logger.info(`[Violation Upload] Attempted to send new violation notifications for violation ${violation.uuid}`);
-            }
-          } catch (emailError) {
-            logger.error(`[Violation Upload] Failed to prepare or send new violation notifications for violation ${violation.uuid}:`, emailError);
-            // Continue with success response even if email preparation/sending fails
-          }
-        }
-        // END OF NEW LOGIC for occupant notifications
-
-        // NEW: Admin/Council Notification for Pending Approval
-        if (reporterUser) { // reporterUser implies successful user auth and detail fetch
-          try {
-            const adminCouncilUsers = await dbStorage.getAdminAndCouncilUsers();
-            const appUrl = process.env.APP_URL || 'http://localhost:5173';
-
-            for (const adminUser of adminCouncilUsers) {
-              await sendViolationPendingApprovalToAdminsNotification({
-                violation: {
-                  id: violation.id,
-                  uuid: violation.uuid,
-                  referenceNumber: violation.referenceNumber,
-                  violationType: violation.violationType,
-                  unitNumber: unit?.unitNumber, // unit might be null if not found, handle gracefully
-                },
-                adminUser: {
-                  id: adminUser.id, // Assumes getAdminAndCouncilUsers returns id
-                  fullName: adminUser.fullName,
-                  email: adminUser.email,
-                },
-                reporterName: reporterUser.fullName,
-                appUrl: appUrl,
-              });
-            }
-            logger.info(`[Violation Upload] Attempted to send pending approval notifications to admins/council for violation ${violation.uuid}`);
-          } catch (adminEmailError) {
-            logger.error(`[Violation Upload] Failed to send pending approval notifications to admins/council for ${violation.uuid}:`, adminEmailError);
-          }
-        }
-
+        // Return response immediately to user for fast UX
         res.status(201).json(violation);
+        
+        // Send email notifications asynchronously (fire-and-forget)
+        // This prevents email delays from blocking the user interface
+        setImmediate(async () => {
+          try {
+            const unit = await dbStorage.getPropertyUnit(violation.unitId);
+            const reporterUser = req.user as User;
+
+            // Send notification to occupants
+            if (unit && reporterUser) {
+              try {
+                const personsForUnit = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
+                const personsToNotifyForEmail = [];
+
+                for (const person of personsForUnit) {
+                  let accessLinkForPerson: string | undefined = undefined;
+                  if (person.receiveEmailNotifications && person.email) {
+                    const token = await dbStorage.createViolationAccessLink({
+                      violationId: violation.id,
+                      violationUuid: violation.uuid,
+                      recipientEmail: person.email,
+                    });
+                    if (token) {
+                      const appUrl = process.env.APP_URL || 'http://localhost:5173'; 
+                      accessLinkForPerson = `${appUrl}/public/violation-dispute/${token}`;
+                    }
+                  }
+                  personsToNotifyForEmail.push({
+                    ...person,
+                    accessLink: accessLinkForPerson,
+                  });
+                }
+
+                if (personsToNotifyForEmail.length > 0) {
+                  await sendNewViolationToOccupantsNotification({
+                    violationId: violation.id,
+                    unitId: unit.id,
+                    unitNumber: unit.unitNumber,
+                    violationType: violation.violationType,
+                    reporterName: reporterUser.fullName,
+                    personsToNotify: personsToNotifyForEmail,
+                  });
+                  logger.info(`[Violation Upload] Sent new violation notifications for violation ${violation.uuid}`);
+                }
+              } catch (emailError) {
+                logger.error(`[Violation Upload] Failed to send occupant notifications for violation ${violation.uuid}:`, emailError);
+              }
+            }
+
+            // Send admin/council notifications
+            if (reporterUser) {
+              try {
+                const adminCouncilUsers = await dbStorage.getAdminAndCouncilUsers();
+                const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+                // Send admin emails in parallel instead of sequentially
+                const adminEmailPromises = adminCouncilUsers.map(adminUser => 
+                  sendViolationPendingApprovalToAdminsNotification({
+                    violation: {
+                      id: violation.id,
+                      uuid: violation.uuid,
+                      referenceNumber: violation.referenceNumber,
+                      violationType: violation.violationType,
+                      unitNumber: unit?.unitNumber,
+                    },
+                    adminUser: {
+                      id: adminUser.id,
+                      fullName: adminUser.fullName,
+                      email: adminUser.email,
+                    },
+                    reporterName: reporterUser.fullName,
+                    appUrl: appUrl,
+                  })
+                );
+
+                await Promise.allSettled(adminEmailPromises);
+                logger.info(`[Violation Upload] Sent pending approval notifications to admins/council for violation ${violation.uuid}`);
+              } catch (adminEmailError) {
+                logger.error(`[Violation Upload] Failed to send admin notifications for violation ${violation.uuid}:`, adminEmailError);
+              }
+            }
+          } catch (backgroundError) {
+            logger.error(`[Violation Upload] Background email processing failed for violation ${violation.uuid}:`, backgroundError);
+          }
+        });
       } catch (error: any) {
         // Clean up uploaded files on error
         if (files && files.length > 0) {

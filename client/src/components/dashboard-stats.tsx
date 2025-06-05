@@ -34,6 +34,7 @@ export function DashboardStats() {
       const jsonData = await res.json();
       return jsonData.stats;
     },
+    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
   });
 
   if (isLoading) {

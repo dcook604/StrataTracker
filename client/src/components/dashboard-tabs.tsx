@@ -37,6 +37,7 @@ export function DashboardTabs() {
   
   const { data: recentViolations, isLoading: recentLoading } = useQuery<Violation[]>({
     queryKey: ['/api/violations/recent'],
+    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
   });
   
   const { data: pendingViolations, isLoading: pendingLoading } = useQuery<Violation[]>({
@@ -44,7 +45,8 @@ export function DashboardTabs() {
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/violations?status=pending_approval");
       return res.json();
-    }
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
   });
   
   const { data: disputedViolations, isLoading: disputedLoading } = useQuery<Violation[]>({
@@ -54,6 +56,7 @@ export function DashboardTabs() {
       return res.json();
     },
     enabled: activeTab === 'disputed',
+    refetchInterval: activeTab === 'disputed' ? 30000 : false, // Refresh only when tab is active
   });
 
   const getViolationTypeName = (type: string) => {

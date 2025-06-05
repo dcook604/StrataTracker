@@ -193,7 +193,10 @@ export function ViolationForm() {
         title: "Violation submitted",
         description: "The violation has been submitted successfully",
       });
+      // Invalidate all violation-related queries to update dashboard and lists
       queryClient.invalidateQueries({ queryKey: ["/api/violations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/violations/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/stats"] });
       navigate("/violations");
     },
     onError: (error: Error) => {
@@ -565,11 +568,24 @@ export function ViolationForm() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting} className="min-w-[140px]">
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSubmitting ? "Submitting..." : "Submit Violation"}
                 </Button>
               </div>
+              
+              {/* Enhanced submission feedback */}
+              {isSubmitting && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-800">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm font-medium">Creating violation...</span>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This may take a few moments while we process attachments and send notifications.
+                  </p>
+                </div>
+              )}
             </div>
           </form>
         </Form>

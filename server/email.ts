@@ -18,6 +18,7 @@ let transporter = nodemailer.createTransport({
 // NEW Interface for notifying occupants about a new violation
 export interface NewViolationToOccupantsNotificationParams {
   violationId: number;
+  referenceNumber: string; // Add reference number field
   unitId: number; // Still needed for metadata or context
   unitNumber: string;
   violationType: string;
@@ -147,7 +148,7 @@ Dear ${person.fullName},
 A new violation has been reported for Unit ${unitNumber} associated with your ${person.role === 'owner' ? 'ownership' : 'tenancy'}.
 
 Violation Details:
-- Violation ID: ${violationId} (Ref: ${params.violationId})
+- Violation ID: ${violationId} (Ref: ${params.referenceNumber})
 - Unit Number: ${unitNumber}
 - Type: ${violationType}
 - Reported by: ${reporterName}
