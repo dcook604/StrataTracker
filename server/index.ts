@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "./storage";
+import { db } from "./db";
 import { startEmailCleanupScheduler } from "./email-cleanup-scheduler";
 import { ensureLogDirectoryExists, createAppBootstrap } from "./app-bootstrap";
 

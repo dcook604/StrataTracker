@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 import { EmailDeduplicationService } from './email-deduplication';
 
 export class EmailCleanupScheduler {
@@ -30,7 +30,6 @@ export class EmailCleanupScheduler {
         console.error('[EMAIL_CLEANUP_SCHEDULER] Cleanup failed:', error);
       }
     }, {
-      scheduled: true,
       timezone: 'America/Vancouver' // Adjust to your timezone
     });
 
@@ -69,10 +68,9 @@ export class EmailCleanupScheduler {
    */
   static getStatus(): { isRunning: boolean; nextRun?: string } {
     if (this.cleanupJob) {
-      const nextRun = this.cleanupJob.getStatus();
       return {
         isRunning: true,
-        nextRun: nextRun || 'Daily at 2:00 AM'
+        nextRun: 'Daily at 2:00 AM'
       };
     }
     

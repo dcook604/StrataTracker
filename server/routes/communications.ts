@@ -13,7 +13,8 @@ import {
   insertCommunicationCampaignSchema,
   insertCommunicationTemplateSchema,
   CommunicationType,
-  RecipientType
+  RecipientType,
+  emailDeduplicationLog
 } from '@shared/schema';
 import { eq, desc, and, inArray, or, sql, count, avg } from 'drizzle-orm';
 import { sendEmail } from '../email-service';

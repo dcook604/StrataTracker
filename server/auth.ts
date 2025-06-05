@@ -254,15 +254,20 @@ export function setupAuth(app: Express) {
   });
 
   // Schema for registration with additional validation
-  const registerSchema = insertUserSchema.extend({
+  const registerSchema = z.object({
+    email: z.string().email("Invalid email format"),
+    username: z.string().min(1, "Username is required"),
     password: z.string()
       .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
       .regex(/[a-z]/, "Password must contain at least one lowercase letter")
       .regex(/[0-9]/, "Password must contain at least one number")
       .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
-    email: z.string().email("Invalid email format"),
-    fullName: z.string().min(2, "Full name is required")
+    fullName: z.string().min(2, "Full name is required"),
+    isCouncilMember: z.boolean().optional(),
+    isAdmin: z.boolean().optional(),
+    isUser: z.boolean().optional(),
+    forcePasswordChange: z.boolean().optional()
   });
 
   // Apply rate limiting to login route
@@ -374,7 +379,7 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Email already exists" });
       }
 
-      const user = await dbStorage.createUser(validatedData);
+      const user = await dbStorage.createUser(validatedData as any);
 
       // Remove sensitive fields before sending the user object
       const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
@@ -495,6 +500,13 @@ export function setupAuth(app: Express) {
       });
     });
   });
+}
+
+// Helper function to remove sensitive fields from user data
+function getSafeUserData(user: any) {
+  if (!user) return null;
+  const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+  return safeUser;
 }
 
 export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {

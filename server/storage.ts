@@ -1835,7 +1835,7 @@ export class DatabaseStorage implements IStorage {
         eq(emailVerificationCodes.personId, personId),
         eq(emailVerificationCodes.violationId, violationId),
         eq(emailVerificationCodes.codeHash, codeHash),
-        eq(emailVerificationCodes.usedAt, null),
+        isNull(emailVerificationCodes.usedAt),
         gte(emailVerificationCodes.expiresAt, new Date())
       ));
   }

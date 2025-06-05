@@ -197,8 +197,7 @@ export class EmailDeduplicationService {
           to: emailRequest.to,
           subject: emailRequest.subject,
           html: emailRequest.html,
-          text: emailRequest.text,
-          from: emailRequest.from
+          text: emailRequest.text
         });
 
         if (emailSent) {

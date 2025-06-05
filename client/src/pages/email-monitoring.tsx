@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, CheckCircle, Clock, Mail, Shield, Trash2 } from 'lucide-react';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout';
 import { useToast } from '@/hooks/use-toast';
 
 interface EmailStats {
