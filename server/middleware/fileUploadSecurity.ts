@@ -97,28 +97,47 @@ const performTypeSpecificValidation = async (buffer: Buffer, mimeType: string, f
 // Image-specific validation
 const validateImageFile = async (buffer: Buffer, filename: string): Promise<void> => {
   try {
-    // Check for suspicious patterns in image files
-    const bufferString = buffer.toString('binary');
+    // Check file size consistency
+    if (buffer.length < 100) {
+      throw new Error('Image file too small to be valid');
+    }
+
+    // For images, we'll only scan the first 4KB for suspicious patterns
+    // This is where metadata and EXIF data would be stored, but avoids
+    // false positives from binary image data that might contain patterns
+    // that look like script tags when interpreted as text
+    const scanSize = Math.min(buffer.length, 4096); // 4KB
+    const metadataString = buffer.slice(0, scanSize).toString('binary');
     
-    // Detect potential embedded scripts or suspicious content
+    // Only look for obvious script injection attempts in metadata areas
     const suspiciousPatterns = [
-      /<script/i,
-      /<\?php/i,
-      /<%/,
-      /javascript:/i,
-      /vbscript:/i,
-      /data:text\/html/i,
+      /<script[^>]*>/i,          // Full script tag opening
+      /<\?php\s/i,               // PHP opening with space
+      /<%\s*[a-z]/i,             // ASP/JSP with actual code
+      /javascript:\s*[a-z]/i,    // JavaScript protocol with code
+      /vbscript:\s*[a-z]/i,      // VBScript protocol with code
+      /data:text\/html,/i,       // HTML data URI
     ];
 
     for (const pattern of suspiciousPatterns) {
-      if (pattern.test(bufferString)) {
+      if (pattern.test(metadataString)) {
+        logger.warn(`[FileUpload] Potential script injection detected in image metadata: ${filename}`);
         throw new Error(`Suspicious content detected in image file: ${filename}`);
       }
     }
 
-    // Check file size consistency
-    if (buffer.length < 100) {
-      throw new Error('Image file too small to be valid');
+    // Additional validation: check for common image file signatures
+    const fileSignature = buffer.slice(0, 10);
+    const isValidImageSignature = 
+      // JPEG signatures
+      (fileSignature[0] === 0xFF && fileSignature[1] === 0xD8) ||
+      // PNG signature
+      (fileSignature[0] === 0x89 && fileSignature[1] === 0x50 && fileSignature[2] === 0x4E && fileSignature[3] === 0x47) ||
+      // GIF signatures
+      (fileSignature.slice(0, 3).toString() === 'GIF');
+
+    if (!isValidImageSignature) {
+      throw new Error('File does not appear to be a valid image file');
     }
 
     logger.debug(`[FileUpload] Image validation passed for ${filename}`);
