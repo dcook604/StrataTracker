@@ -204,6 +204,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check for duplicate unit number
+  app.get("/api/units/check-duplicate", ensureAuthenticated, async (req, res) => {
+    try {
+      const { unitNumber } = req.query;
+      if (!unitNumber || typeof unitNumber !== 'string') {
+        return res.status(400).json({ message: "Unit number is required" });
+      }
+      
+      const existingUnit = await dbStorage.getPropertyUnitByUnitNumber(unitNumber);
+      res.json({ isDuplicate: !!existingUnit });
+    } catch (error: any) {
+      console.error("Failed to check duplicate unit number:", error);
+      res.status(500).json({ message: "Failed to check duplicate unit number", details: error.message });
+    }
+  });
+
   // Create secure upload configuration
   const { upload, virusScanMiddleware, contentValidationMiddleware } = createSecureUpload({
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
@@ -1633,7 +1649,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await sendEmailWithDeduplication({
         to: person.email,
         subject: 'Your Verification Code',
-        text: `Your verification code for disputing violation #${violation.id} is: ${code}\nThis code will expire in 10 minutes.`
+        text: `Your verification code for disputing violation #${violation.id} is: ${code}\nThis code will expire in 10 minutes.`,
+        emailType: 'system'
       });
       res.json({ message: 'Verification code sent' });
     } catch (error) {

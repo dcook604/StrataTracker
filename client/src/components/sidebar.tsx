@@ -20,11 +20,29 @@ import {
   BookOpen,
   Loader2,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+// Define types for nav items and sub items
+interface SubNavItem {
+  title: string;
+  href: string;
+  adminOnly?: boolean;
+  adminOrCouncil?: boolean;
+}
+interface NavItem {
+  title: string;
+  icon: React.ReactNode;
+  href?: string;
+  adminOnly?: boolean;
+  adminOrCouncil?: boolean;
+  subItems?: SubNavItem[];
+}
 
 export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
@@ -32,6 +50,7 @@ export function Sidebar({ className }: SidebarProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [violationsOpen, setViolationsOpen] = useState(true);
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -45,27 +64,16 @@ export function Sidebar({ className }: SidebarProps) {
     setIsCollapsed(!isCollapsed);
   };
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       title: "Dashboard",
       icon: <Home className="h-5 w-5" />,
       href: "/",
     },
     {
-      title: "All Violations",
-      icon: <FileText className="h-5 w-5" />,
-      href: "/violations",
-    },
-    {
       title: "Bylaws",
       icon: <BookOpen className="h-5 w-5" />,
       href: "/bylaws",
-    },
-    {
-      title: "Categories",
-      icon: <Tags className="h-5 w-5" />,
-      href: "/categories",
-      adminOnly: true,
     },
     {
       title: "Communications",
@@ -80,25 +88,29 @@ export function Sidebar({ className }: SidebarProps) {
       adminOrCouncil: true,
     },
     {
-      title: "New Violation",
-      icon: <PlusCircle className="h-5 w-5" />,
-      href: "/violations/new",
-    },
-    {
       title: "Reports",
       icon: <BarChart className="h-5 w-5" />,
       href: "/reports",
     },
     {
-      title: "Settings",
-      icon: <Settings className="h-5 w-5" />,
-      href: "/settings",
+      title: "Units",
+      icon: <Users className="h-5 w-5" />,
+      href: "/units",
       adminOnly: true,
     },
     {
-      title: "Units",
-      icon: <Users className="h-5 w-5" />,
-      href: "/units", 
+      title: "Violations",
+      icon: <FileText className="h-5 w-5" />,
+      subItems: [
+        { title: "All Violations", href: "/violations" },
+        { title: "Categories", href: "/categories", adminOnly: true },
+        { title: "New Violation", href: "/violations/new" },
+      ],
+    },
+    {
+      title: "Settings",
+      icon: <Settings className="h-5 w-5" />,
+      href: "/settings",
       adminOnly: true,
     },
   ];
@@ -133,25 +145,77 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Navigation */}
       <ScrollArea className={cn("flex-1 py-3", collapsed ? "px-2" : "px-3")}>
         <nav className="flex flex-col gap-1">
-          {navItems
-            .filter(item => {
-              if (item.adminOnly) return user && user.isAdmin;
-              if (item.adminOrCouncil) return user && (user.isAdmin || user.isCouncilMember);
-              return true;
-            })
-            .map((item) => (
-              <Link key={item.href} href={item.href}>
+          {navItems.map((item) => {
+            if (item.subItems) {
+              // Violations section with sub-items
+              const visibleSubItems = item.subItems.filter(sub => {
+                if (sub.adminOnly) return user && user.isAdmin;
+                if (sub.adminOrCouncil) return user && (user.isAdmin || user.isCouncilMember);
+                return true;
+              });
+              if (visibleSubItems.length === 0) return null;
+              return (
+                <div key={item.title} className="mb-1">
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full gap-3 font-medium flex items-center justify-between",
+                      collapsed ? "h-10 px-2 justify-center" : "h-10 px-3 justify-start",
+                      "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
+                    )}
+                    onClick={() => setViolationsOpen((open) => !open)}
+                    aria-expanded={violationsOpen}
+                    aria-controls="violations-subnav"
+                    tabIndex={0}
+                    title={collapsed ? item.title : undefined}
+                  >
+                    <span className="flex items-center gap-3">
+                      {item.icon}
+                      {!collapsed && <span className="truncate">{item.title}</span>}
+                    </span>
+                    {!collapsed && (violationsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                  </Button>
+                  {violationsOpen && !collapsed && (
+                    <div id="violations-subnav" className="ml-4 flex flex-col gap-1 mt-1 border-l border-neutral-300 pl-2">
+                      {visibleSubItems.map(sub => (
+                        <Link key={sub.href} href={sub.href}>
+                          <Button
+                            variant="ghost"
+                            tabIndex={0}
+                            className={cn(
+                              "w-full text-left font-normal px-3 py-2 text-sm justify-start h-9",
+                              isActive(sub.href)
+                                ? "bg-blue-700 text-white font-bold border-l-4 border-blue-500 shadow"
+                                : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
+                            )}
+                            aria-current={isActive(sub.href) ? "page" : undefined}
+                            onClick={() => setOpen(false)}
+                          >
+                            {sub.title}
+                          </Button>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            // Regular nav item
+            if (item.adminOnly && !(user && user.isAdmin)) return null;
+            if (item.adminOrCouncil && !(user && (user.isAdmin || user.isCouncilMember))) return null;
+            return (
+              <Link key={item.href} href={item.href as string}>
                 <Button
                   variant="ghost"
                   tabIndex={0}
                   className={cn(
                     "w-full gap-3 transition-colors font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                     collapsed ? "h-10 px-2 justify-center" : "h-10 px-3 justify-start",
-                    isActive(item.href)
+                    isActive(item.href as string)
                       ? "bg-blue-700 text-white font-bold border-l-4 border-blue-500 shadow"
                       : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
                   )}
-                  aria-current={isActive(item.href) ? "page" : undefined}
+                  aria-current={isActive(item.href as string) ? "page" : undefined}
                   onClick={() => setOpen(false)}
                   title={collapsed ? item.title : undefined}
                 >
@@ -159,7 +223,8 @@ export function Sidebar({ className }: SidebarProps) {
                   {!collapsed && <span className="truncate">{item.title}</span>}
                 </Button>
               </Link>
-            ))}
+            );
+          })}
         </nav>
       </ScrollArea>
 
