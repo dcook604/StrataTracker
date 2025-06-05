@@ -6,8 +6,6 @@ const router = express.Router();
 
 // Check if user is authenticated and has admin privileges
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.log('User in email-config isAdmin middleware:', req.user);
-  
   // Check if user is authenticated - simplified check that doesn't rely on isAuthenticated()
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required." });
@@ -28,9 +26,7 @@ const isAdmin = (req: express.Request, res: express.Response, next: express.Next
 // Get email configuration
 router.get('/', isAdmin, async (req, res) => {
   try {
-    console.log('GET /api/email-config - Request received');
     const setting = await dbStorage.getSystemSetting('email_config');
-    console.log('Email config setting retrieved:', setting ? 'Found' : 'Not found');
     
     if (!setting) {
       const defaultConfig = {
@@ -44,12 +40,10 @@ router.get('/', isAdmin, async (req, res) => {
         from: 'noreply@strataviolations.com',
         fromName: 'Strata Management'
       };
-      console.log('Returning default email config');
       return res.json(defaultConfig);
     }
     
     // Parse the JSON value from settings
-    console.log('Parsing stored email config');
     const config = JSON.parse(setting.settingValue || '{}');
     
     // Don't return the actual password in the response
@@ -57,7 +51,6 @@ router.get('/', isAdmin, async (req, res) => {
       config.auth.pass = '********';
     }
     
-    console.log('Returning email config:', JSON.stringify(config).substring(0, 100));
     res.json(config);
   } catch (error) {
     console.error('Error getting email config:', error);
