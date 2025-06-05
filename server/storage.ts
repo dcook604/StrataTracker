@@ -533,7 +533,7 @@ export class DatabaseStorage implements IStorage {
     logger.info(`Attempting to delete user with ID: ${id}`);
     try {
       const result = await db.delete(users).where(eq(users.id, id));
-      const success = result.rowCount > 0;
+      const success = (result.rowCount ?? 0) > 0;
       if (success) {
         logger.info(`Successfully deleted user with ID: ${id}`);
       } else {
@@ -548,23 +548,7 @@ export class DatabaseStorage implements IStorage {
   
   async getAllUsers(): Promise<User[]> {
     return db
-      .select({
-        id: users.id,
-        uuid: users.uuid,
-        email: users.email,
-        username: users.username,
-        fullName: users.fullName,
-        isCouncilMember: users.isCouncilMember,
-        isAdmin: users.isAdmin,
-        isUser: users.isUser,
-        lastLogin: users.lastLogin,
-        failedLoginAttempts: users.failedLoginAttempts,
-        accountLocked: users.accountLocked,
-        lockReason: users.lockReason,
-        forcePasswordChange: users.forcePasswordChange,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      })
+      .select()
       .from(users)
       .orderBy(desc(users.createdAt));
   }

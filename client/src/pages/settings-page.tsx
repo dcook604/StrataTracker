@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle, Users as UsersIconLucide, Trash2 } from "lucide-react";
@@ -202,6 +202,21 @@ export default function SettingsPage() {
       defaultLanguage: "en",
       strataLogo: "",
     }
+  });
+
+  const propertyManagersArray = useFieldArray({
+    control: systemForm.control,
+    name: "propertyManagers"
+  });
+
+  const caretakersArray = useFieldArray({
+    control: systemForm.control,
+    name: "caretakers"
+  });
+
+  const councilMembersArray = useFieldArray({
+    control: systemForm.control,
+    name: "councilMembers"
   });
 
   const strataLogoValue = systemForm.watch('strataLogo');
@@ -519,10 +534,12 @@ export default function SettingsPage() {
     const file = files[0];
     if (file) {
       setLogoFile(file);
-      const res = await apiRequest('/api/settings/upload-logo', {
+      const formData = new FormData();
+      formData.append('logo', file);
+      
+      const res = await fetch('/api/settings/upload-logo', {
         method: 'POST',
-        body: file,
-        headers: {},
+        body: formData,
       });
       const data = await res.json();
       if (res.ok && data.filename) {
@@ -726,7 +743,7 @@ export default function SettingsPage() {
                 <form onSubmit={systemForm.handleSubmit(onSystemFormSubmit)} className="space-y-8">
                   <CardContent className="space-y-6">
                     <label className="font-medium">Strata Name</label>
-                    <Input value={systemForm.strataName} onChange={e => systemForm.reset((prev: any) => ({ ...prev, strataName: e.target.value }))} />
+                    <Input {...systemForm.register('strataName')} />
                     
                     {/* Property Address Section */}
                     <div>
@@ -734,20 +751,20 @@ export default function SettingsPage() {
                       <div className="space-y-2">
                         <div>
                           <label htmlFor="streetLine1" className="text-sm font-medium">Street Address Line 1</label>
-                          <Input id="streetLine1" placeholder="e.g., 123 Main St" value={systemForm.propertyAddress.streetLine1} onChange={e => systemForm.reset((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine1: e.target.value } }))} />
+                          <Input id="streetLine1" placeholder="e.g., 123 Main St" {...systemForm.register('propertyAddress.streetLine1')} />
                         </div>
                         <div>
                           <label htmlFor="streetLine2" className="text-sm font-medium">Street Address Line 2 (Optional)</label>
-                          <Input id="streetLine2" placeholder="e.g., Apt/Suite 100" value={systemForm.propertyAddress.streetLine2} onChange={e => systemForm.reset((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, streetLine2: e.target.value } }))} />
+                          <Input id="streetLine2" placeholder="e.g., Apt/Suite 100" {...systemForm.register('propertyAddress.streetLine2')} />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label htmlFor="city" className="text-sm font-medium">City</label>
-                            <Input id="city" placeholder="e.g., Vancouver" value={systemForm.propertyAddress.city} onChange={e => systemForm.reset((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, city: e.target.value } }))} />
+                            <Input id="city" placeholder="e.g., Vancouver" {...systemForm.register('propertyAddress.city')} />
                           </div>
                           <div>
                             <label htmlFor="province" className="text-sm font-medium">Province</label>
-                            <select id="province" value={systemForm.propertyAddress.province} onChange={e => systemForm.reset((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, province: e.target.value } }))} className="w-full border rounded-md px-2 py-2 h-[38px] bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            <select id="province" {...systemForm.register('propertyAddress.province')} className="w-full border rounded-md px-2 py-2 h-[38px] bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                               <option value="">Select Province</option>
                               <option value="AB">Alberta</option>
                               <option value="BC">British Columbia</option>
@@ -768,11 +785,11 @@ export default function SettingsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label htmlFor="postalCode" className="text-sm font-medium">Postal Code</label>
-                            <Input id="postalCode" placeholder="e.g., A1B 2C3" value={systemForm.propertyAddress.postalCode} onChange={e => systemForm.reset((prev: any) => ({ ...prev, propertyAddress: { ...prev.propertyAddress, postalCode: e.target.value } }))} />
+                            <Input id="postalCode" placeholder="e.g., A1B 2C3" {...systemForm.register('propertyAddress.postalCode')} />
                           </div>
                           <div>
                             <label htmlFor="country" className="text-sm font-medium">Country</label>
-                            <Input id="country" value={systemForm.propertyAddress.country} readOnly disabled className="bg-neutral-100" />
+                            <Input id="country" {...systemForm.register('propertyAddress.country')} readOnly disabled className="bg-neutral-100" />
                           </div>
                         </div>
                       </div>
@@ -781,21 +798,21 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="font-medium">Admin First Name</label>
-                        <Input value={systemForm.adminFirstName} onChange={e => systemForm.reset((prev: any) => ({ ...prev, adminFirstName: e.target.value }))} />
+                        <Input {...systemForm.register('adminFirstName')} />
                       </div>
                       <div>
                         <label className="font-medium">Admin Last Name</label>
-                        <Input value={systemForm.adminLastName} onChange={e => systemForm.reset((prev: any) => ({ ...prev, adminLastName: e.target.value }))} />
+                        <Input {...systemForm.register('adminLastName')} />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="font-medium">Admin Email</label>
-                        <Input value={systemForm.adminEmail} onChange={e => systemForm.reset((prev: any) => ({ ...prev, adminEmail: e.target.value }))} />
+                        <Input {...systemForm.register('adminEmail')} />
                       </div>
                       <div>
                         <label className="font-medium">Admin Phone</label>
-                        <Input value={systemForm.adminPhone} onChange={e => systemForm.reset((prev: any) => ({ ...prev, adminPhone: e.target.value }))} />
+                        <Input {...systemForm.register('adminPhone')} />
                       </div>
                     </div>
 
@@ -803,51 +820,32 @@ export default function SettingsPage() {
                     <div className="space-y-3 pt-4 border-t mt-4">
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="text-base font-semibold">Property Managers</h4>
-                        <Button type="button" variant="outline" size="sm" onClick={() => systemForm.reset((prev: any) => ({ ...prev, propertyManagers: [...(prev.propertyManagers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => propertyManagersArray.append({ name: "", email: "", phone: "", receiveAllViolationEmails: false })}>
                           Add Manager
                         </Button>
                       </div>
-                      {(systemForm.propertyManagers && systemForm.propertyManagers.length > 0) ? systemForm.propertyManagers.map((pm: any, index: number) => (
-                        <div key={`pm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                      {propertyManagersArray.fields.length > 0 ? propertyManagersArray.fields.map((field, index) => (
+                        <div key={field.id} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
                               <label htmlFor={`pm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
-                              <Input id={`pm-name-${index}`} placeholder="Full Name" value={pm.name} onChange={e => {
-                                const updated = [...systemForm.propertyManagers];
-                                updated[index].name = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, propertyManagers: updated }));
-                              }} />
+                              <Input id={`pm-name-${index}`} placeholder="Full Name" {...systemForm.register(`propertyManagers.${index}.name` as const)} />
                             </div>
                             <div>
                               <label htmlFor={`pm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
-                              <Input id={`pm-email-${index}`} type="email" placeholder="Email Address" value={pm.email} onChange={e => {
-                                const updated = [...systemForm.propertyManagers];
-                                updated[index].email = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, propertyManagers: updated }));
-                              }} />
+                              <Input id={`pm-email-${index}`} type="email" placeholder="Email Address" {...systemForm.register(`propertyManagers.${index}.email` as const)} />
                             </div>
                             <div>
                               <label htmlFor={`pm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
-                              <Input id={`pm-phone-${index}`} placeholder="Phone Number" value={pm.phone} onChange={e => {
-                                const updated = [...systemForm.propertyManagers];
-                                updated[index].phone = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, propertyManagers: updated }));
-                              }} />
+                              <Input id={`pm-phone-${index}`} placeholder="Phone Number" {...systemForm.register(`propertyManagers.${index}.phone` as const)} />
                             </div>
                           </div>
                           <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center space-x-2">
-                              <Switch id={`pm-notify-${index}`} checked={pm.receiveAllViolationEmails} onCheckedChange={checked => {
-                                const updated = [...systemForm.propertyManagers];
-                                updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
-                                systemForm.reset((prev: any) => ({ ...prev, propertyManagers: updated }));
-                              }} />
+                              <Switch id={`pm-notify-${index}`} {...systemForm.register(`propertyManagers.${index}.receiveAllViolationEmails` as const)} />
                               <label htmlFor={`pm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
                             </div>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                              const updated = systemForm.propertyManagers.filter((_: any, i: number) => i !== index);
-                              systemForm.reset((prev: any) => ({ ...prev, propertyManagers: updated }));
-                            }}>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => propertyManagersArray.remove(index)}>
                               <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
                             </Button>
                           </div>
@@ -859,51 +857,32 @@ export default function SettingsPage() {
                     <div className="space-y-3 pt-4 border-t mt-4">
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="text-base font-semibold">Caretakers</h4>
-                        <Button type="button" variant="outline" size="sm" onClick={() => systemForm.reset((prev: any) => ({ ...prev, caretakers: [...(prev.caretakers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => caretakersArray.append({ name: "", email: "", phone: "", receiveAllViolationEmails: false })}>
                           Add Caretaker
                         </Button>
                       </div>
-                      {(systemForm.caretakers && systemForm.caretakers.length > 0) ? systemForm.caretakers.map((ct: any, index: number) => (
-                        <div key={`ct-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                      {caretakersArray.fields.length > 0 ? caretakersArray.fields.map((field, index) => (
+                        <div key={field.id} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                              <div>
                               <label htmlFor={`ct-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
-                              <Input id={`ct-name-${index}`} placeholder="Full Name" value={ct.name} onChange={e => {
-                                const updated = [...systemForm.caretakers];
-                                updated[index].name = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, caretakers: updated }));
-                              }} />
+                              <Input id={`ct-name-${index}`} placeholder="Full Name" {...systemForm.register(`caretakers.${index}.name` as const)} />
                             </div>
                             <div>
                               <label htmlFor={`ct-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
-                              <Input id={`ct-email-${index}`} type="email" placeholder="Email Address" value={ct.email} onChange={e => {
-                                const updated = [...systemForm.caretakers];
-                                updated[index].email = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, caretakers: updated }));
-                              }} />
+                              <Input id={`ct-email-${index}`} type="email" placeholder="Email Address" {...systemForm.register(`caretakers.${index}.email` as const)} />
                             </div>
                             <div>
                               <label htmlFor={`ct-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
-                              <Input id={`ct-phone-${index}`} placeholder="Phone Number" value={ct.phone} onChange={e => {
-                                const updated = [...systemForm.caretakers];
-                                updated[index].phone = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, caretakers: updated }));
-                              }} />
+                              <Input id={`ct-phone-${index}`} placeholder="Phone Number" {...systemForm.register(`caretakers.${index}.phone` as const)} />
                             </div>
                           </div>
                           <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center space-x-2">
-                              <Switch id={`ct-notify-${index}`} checked={ct.receiveAllViolationEmails} onCheckedChange={checked => {
-                                const updated = [...systemForm.caretakers];
-                                updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
-                                systemForm.reset((prev: any) => ({ ...prev, caretakers: updated }));
-                              }} />
+                              <Switch id={`ct-notify-${index}`} {...systemForm.register(`caretakers.${index}.receiveAllViolationEmails` as const)} />
                               <label htmlFor={`ct-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
                             </div>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                              const updated = systemForm.caretakers.filter((_: any, i: number) => i !== index);
-                              systemForm.reset((prev: any) => ({ ...prev, caretakers: updated }));
-                            }}>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => caretakersArray.remove(index)}>
                               <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
                             </Button>
                           </div>
@@ -915,51 +894,32 @@ export default function SettingsPage() {
                     <div className="space-y-3 pt-4 border-t mt-4">
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="text-base font-semibold">Council Members</h4>
-                        <Button type="button" variant="outline" size="sm" onClick={() => systemForm.reset((prev: any) => ({ ...prev, councilMembers: [...(prev.councilMembers || []), { name: "", email: "", phone: "", receiveAllViolationEmails: false }] }))}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => councilMembersArray.append({ name: "", email: "", phone: "", receiveAllViolationEmails: false })}>
                           Add Council Member
                         </Button>
                       </div>
-                      {(systemForm.councilMembers && systemForm.councilMembers.length > 0) ? systemForm.councilMembers.map((cm: any, index: number) => (
-                        <div key={`cm-${index}`} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
+                      {councilMembersArray.fields.length > 0 ? councilMembersArray.fields.map((field, index) => (
+                        <div key={field.id} className="p-3 border rounded-md space-y-3 bg-neutral-50/50">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
                               <label htmlFor={`cm-name-${index}`} className="text-xs font-medium text-neutral-700">Name *</label>
-                              <Input id={`cm-name-${index}`} placeholder="Full Name" value={cm.name} onChange={e => {
-                                const updated = [...systemForm.councilMembers];
-                                updated[index].name = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, councilMembers: updated }));
-                              }} />
+                              <Input id={`cm-name-${index}`} placeholder="Full Name" {...systemForm.register(`councilMembers.${index}.name` as const)} />
                             </div>
                             <div>
                               <label htmlFor={`cm-email-${index}`} className="text-xs font-medium text-neutral-700">Email *</label>
-                              <Input id={`cm-email-${index}`} type="email" placeholder="Email Address" value={cm.email} onChange={e => {
-                                const updated = [...systemForm.councilMembers];
-                                updated[index].email = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, councilMembers: updated }));
-                              }} />
+                              <Input id={`cm-email-${index}`} type="email" placeholder="Email Address" {...systemForm.register(`councilMembers.${index}.email` as const)} />
                             </div>
                             <div>
                               <label htmlFor={`cm-phone-${index}`} className="text-xs font-medium text-neutral-700">Phone</label>
-                              <Input id={`cm-phone-${index}`} placeholder="Phone Number" value={cm.phone} onChange={e => {
-                                const updated = [...systemForm.councilMembers];
-                                updated[index].phone = e.target.value;
-                                systemForm.reset((prev: any) => ({ ...prev, councilMembers: updated }));
-                              }} />
+                              <Input id={`cm-phone-${index}`} placeholder="Phone Number" {...systemForm.register(`councilMembers.${index}.phone` as const)} />
                             </div>
                           </div>
                           <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center space-x-2">
-                              <Switch id={`cm-notify-${index}`} checked={cm.receiveAllViolationEmails} onCheckedChange={checked => {
-                                const updated = [...systemForm.councilMembers];
-                                updated[index].receiveAllViolationEmails = Boolean(checked); // Ensure boolean
-                                systemForm.reset((prev: any) => ({ ...prev, councilMembers: updated }));
-                              }} />
+                              <Switch id={`cm-notify-${index}`} {...systemForm.register(`councilMembers.${index}.receiveAllViolationEmails` as const)} />
                               <label htmlFor={`cm-notify-${index}`} className="text-xs font-medium text-neutral-700 cursor-pointer">Receive All Violation Emails</label>
                             </div>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                              const updated = systemForm.councilMembers.filter((_: any, i: number) => i !== index);
-                              systemForm.reset((prev: any) => ({ ...prev, councilMembers: updated }));
-                            }}>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => councilMembersArray.remove(index)}>
                               <Trash2 className="h-4 w-4 text-red-600 hover:text-red-700" />
                             </Button>
                           </div>
@@ -975,7 +935,7 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="font-medium">Default Timezone</label>
-                        <select value={systemForm.defaultTimezone} onChange={e => systemForm.reset((prev: any) => ({ ...prev, defaultTimezone: e.target.value }))} className="w-full border rounded-md px-2 py-2">
+                        <select {...systemForm.register('defaultTimezone')} className="w-full border rounded-md px-2 py-2">
                           <option value="America/Vancouver">America/Vancouver</option>
                           <option value="America/Toronto">America/Toronto</option>
                           {/* ...more... */}
@@ -983,7 +943,7 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <label className="font-medium">Default Language</label>
-                        <select value={systemForm.defaultLanguage} onChange={e => systemForm.reset((prev: any) => ({ ...prev, defaultLanguage: e.target.value }))} className="w-full border rounded-md px-2 py-2">
+                        <select {...systemForm.register('defaultLanguage')} className="w-full border rounded-md px-2 py-2">
                           <option value="en">English</option>
                           <option value="fr">French</option>
                           {/* ...more... */}
@@ -992,13 +952,9 @@ export default function SettingsPage() {
                     </div>
                   </CardContent>
                   <CardFooter className="flex justify-end">
-                    <ButtonLoading
-                      type="submit"
-                      isLoading={systemSaveLoading}
-                      loadingText="Saving..."
-                    >
-                      Save System Settings
-                    </ButtonLoading>
+                    <Button type="submit" disabled={systemSaveLoading.isLoading}>
+                      {systemSaveLoading.isLoading ? "Saving..." : "Save System Settings"}
+                    </Button>
                   </CardFooter>
                 </form>
               </Form>
