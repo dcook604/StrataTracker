@@ -131,6 +131,7 @@ const sendEmail = async (mailOptions: nodemailer.SendMailOptions) => {
 export const sendNewViolationToOccupantsNotification = async (params: NewViolationToOccupantsNotificationParams) => {
   const {
     violationId,
+    referenceNumber,
     unitId,
     unitNumber,
     violationType,
@@ -148,7 +149,7 @@ Dear ${person.fullName},
 A new violation has been reported for Unit ${unitNumber} associated with your ${person.role === 'owner' ? 'ownership' : 'tenancy'}.
 
 Violation Details:
-- Violation ID: ${violationId} (Ref: ${params.referenceNumber})
+- Violation ID: ${violationId} (Ref: ${referenceNumber})
 - Unit Number: ${unitNumber}
 - Type: ${violationType}
 - Reported by: ${reporterName}

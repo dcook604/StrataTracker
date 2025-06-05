@@ -395,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       recipientEmail: person.email,
                     });
                     if (token) {
-                      const appUrl = process.env.APP_URL || 'http://localhost:5173'; 
+                      const appUrl = process.env.APP_URL || 'http://localhost:5175'; 
                       accessLinkForPerson = `${appUrl}/public/violation-dispute/${token}`;
                     }
                   }
@@ -408,6 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (personsToNotifyForEmail.length > 0) {
                   await sendNewViolationToOccupantsNotification({
                     violationId: violation.id,
+                    referenceNumber: violation.referenceNumber,
                     unitId: unit.id,
                     unitNumber: unit.unitNumber,
                     violationType: violation.violationType,
@@ -425,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (reporterUser) {
               try {
                 const adminCouncilUsers = await dbStorage.getAdminAndCouncilUsers();
-                const appUrl = process.env.APP_URL || 'http://localhost:5173';
+                const appUrl = process.env.APP_URL || 'http://localhost:5175';
 
                 // Send admin emails in parallel instead of sequentially
                 const adminEmailPromises = adminCouncilUsers.map(adminUser => 
@@ -1344,7 +1345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Send notifications to all admins/council members
             try {
               const adminCouncilUsers = await dbStorage.getAdminAndCouncilUsers();
-              const appUrl = process.env.APP_URL || 'http://localhost:5173';
+              const appUrl = process.env.APP_URL || 'http://localhost:5175';
 
               for (const adminUser of adminCouncilUsers) {
                 await sendViolationDisputedToAdminsNotification({
