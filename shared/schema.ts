@@ -709,12 +709,12 @@ export const bylawRevisionsRelations = relations(bylawRevisions, ({ one }) => ({
 
 // Types
 export type BylawCategory = typeof bylawCategories.$inferSelect;
-export type InsertBylawCategory = z.input<typeof insertBylawCategorySchema>;
+export type InsertBylawCategory = typeof bylawCategories.$inferInsert;
 export type Bylaw = typeof bylaws.$inferSelect;
-export type InsertBylaw = z.input<typeof insertBylawSchema>;
+export type InsertBylaw = typeof bylaws.$inferInsert;
 export type BylawCategoryLink = typeof bylawCategoryLinks.$inferSelect;
 export type BylawRevision = typeof bylawRevisions.$inferSelect;
-export type InsertBylawRevision = z.input<typeof insertBylawRevisionSchema>;
+export type InsertBylawRevision = typeof bylawRevisions.$inferInsert;
 
 // New table for email tracking events
 export const emailTrackingEvents = pgTable("email_tracking_events", {
