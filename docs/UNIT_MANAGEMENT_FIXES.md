@@ -356,6 +356,19 @@ setTimeout(() => setIsFormReady(true), 100);
 ## 🏷️ Tags
 `unit-management` `react-hook-form` `typescript` `form-state` `debugging` `user-experience` `frontend` `fixes`
 
+## 2025-06-05: Centered Loading Spinner for Violation Submission
+
+- The ViolationForm now displays a centered loading overlay when submitting a new violation.
+- Previously, the loading spinner and message appeared at the bottom of the form, which could be missed by users.
+- The new overlay covers the entire screen with a semi-transparent background and a clear progress indicator in the center.
+- This change improves user experience, especially for long uploads or when email notifications take time.
+- No changes to the form logic or backend API were made—this is a UI/UX improvement only.
+
+**How it works:**
+- When the form is submitting (`isSubmitting` is true), a fixed overlay is rendered above all content.
+- The overlay includes a spinner, a message, and a short description of what is happening.
+- The form is still present in the background but is visually blocked and cannot be interacted with until submission completes.
+
 ---
 
 **Last Updated**: January 9, 2025  

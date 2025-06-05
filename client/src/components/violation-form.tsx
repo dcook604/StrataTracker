@@ -193,7 +193,10 @@ export function ViolationForm() {
         title: "Violation submitted",
         description: "The violation has been submitted successfully",
       });
+      // Invalidate all violation-related queries to update dashboard and lists
       queryClient.invalidateQueries({ queryKey: ["/api/violations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/violations/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/stats"] });
       navigate("/violations");
     },
     onError: (error: Error) => {
@@ -217,11 +220,29 @@ export function ViolationForm() {
   const isSubmitting = submitViolationMutation.isPending;
 
   return (
-    <Card className="max-w-4xl mx-auto bg-white shadow">
-      <CardHeader>
-        <CardTitle className="text-2xl">Report a Violation</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="relative">
+      {/* Loading Overlay */}
+      {isSubmitting && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+            <div className="flex items-center gap-3 text-gray-800">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <div>
+                <div className="font-medium">Creating violation...</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Processing attachments and sending notifications.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Card className="max-w-4xl mx-auto bg-white shadow">
+        <CardHeader>
+          <CardTitle className="text-2xl">Report a Violation</CardTitle>
+        </CardHeader>
+        <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
             toast({
@@ -565,7 +586,7 @@ export function ViolationForm() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting} className="min-w-[140px]">
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSubmitting ? "Submitting..." : "Submit Violation"}
                 </Button>
@@ -629,5 +650,6 @@ export function ViolationForm() {
         </Dialog>
       </CardContent>
     </Card>
+    </div>
   );
 }

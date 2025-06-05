@@ -1588,20 +1588,20 @@ export default function UnitsPage() {
                 </div>
               )}
               
-              {(unitToDelete.facilities?.parkingSpots?.length > 0 || 
-                unitToDelete.facilities?.storageLockers?.length > 0 || 
-                unitToDelete.facilities?.bikeLockers?.length > 0) && (
+              {((unitToDelete.facilities?.parkingSpots?.length ?? 0) > 0 || 
+                (unitToDelete.facilities?.storageLockers?.length ?? 0) > 0 || 
+                (unitToDelete.facilities?.bikeLockers?.length ?? 0) > 0) && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-800 mb-2">Facilities</h4>
                   <div className="text-sm">
-                    {unitToDelete.facilities?.parkingSpots?.length > 0 && (
-                      <div>Parking Spots: {unitToDelete.facilities.parkingSpots?.map((p: any) => p.identifier).join(", ")}</div>
+                    {(unitToDelete.facilities?.parkingSpots?.length ?? 0) > 0 && (
+                      <div>Parking Spots: {unitToDelete.facilities?.parkingSpots?.map((p: any) => p.identifier).join(", ")}</div>
                     )}
-                    {unitToDelete.facilities?.storageLockers?.length > 0 && (
-                      <div>Storage Lockers: {unitToDelete.facilities.storageLockers?.map((s: any) => s.identifier).join(", ")}</div>
+                    {(unitToDelete.facilities?.storageLockers?.length ?? 0) > 0 && (
+                      <div>Storage Lockers: {unitToDelete.facilities?.storageLockers?.map((s: any) => s.identifier).join(", ")}</div>
                     )}
-                    {unitToDelete.facilities?.bikeLockers?.length > 0 && (
-                      <div>Bike Lockers: {unitToDelete.facilities.bikeLockers?.map((b: any) => b.identifier).join(", ")}</div>
+                    {(unitToDelete.facilities?.bikeLockers?.length ?? 0) > 0 && (
+                      <div>Bike Lockers: {unitToDelete.facilities?.bikeLockers?.map((b: any) => b.identifier).join(", ")}</div>
                     )}
                   </div>
                 </div>

@@ -49,7 +49,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   uuid: uuid("uuid").defaultRandom().notNull().unique(),
-  unitNumber: text("unit_number").notNull().unique(),
+  unitNumber: text("unit_number").notNull(),
   floor: text("floor"),
   ownerName: text("owner_name").notNull(),
   ownerEmail: text("owner_email").notNull(),
@@ -223,7 +223,7 @@ export type ViolationStatus = "new" | "pending_approval" | "approved" | "dispute
 
 export const violations = pgTable("violations", {
   id: serial("id").primaryKey(),
-  uuid: uuid("uuid").notNull().unique().$defaultFn(() => crypto.randomUUID()),
+  uuid: uuid("uuid").$defaultFn(() => crypto.randomUUID()).notNull().unique(),
   referenceNumber: uuid("reference_number").defaultRandom().notNull().unique(),
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
   reportedById: integer("reported_by_id").notNull().references(() => users.id),
@@ -290,14 +290,16 @@ export const insertViolationSchema = createInsertSchema(violations).pick({
 // Violation history/comments schema
 export const violationHistories = pgTable("violation_histories", {
   id: serial("id").primaryKey(),
-  violationId: integer("violation_id").notNull().references(() => violations.id),
+  violationId: integer("violation_id").notNull().references(() => violations.id, { onDelete: 'cascade' }),
   violationUuid: uuid("violation_uuid").references(() => violations.uuid),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").references(() => users.id), // Can be null if action is by system/occupant
   action: text("action").notNull(),
   comment: text("comment"),
-  commenterName: text("commenter_name"),
+  rejectionReason: text("rejection_reason"), // New field for rejection reason
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const insertViolationHistorySchema = createInsertSchema(violationHistories);
 
 export const violationHistoriesRelations = relations(violationHistories, ({ one }) => ({
   violation: one(violations, {
@@ -309,14 +311,6 @@ export const violationHistoriesRelations = relations(violationHistories, ({ one 
     references: [users.id],
   }),
 }));
-
-export const insertViolationHistorySchema = createInsertSchema(violationHistories).pick({
-  violationId: true,
-  userId: true,
-  action: true,
-  comment: true,
-  commenterName: true,
-});
 
 // Types
 // Define relationships for property units
@@ -411,21 +405,21 @@ export const insertUnitPersonRoleSchema = createInsertSchema(unitPersonRoles).pi
   role: true,
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUser = typeof users.$inferInsert;
 export type Customer = typeof customers.$inferSelect;
-export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type InsertCustomer = typeof customers.$inferInsert;
 export type ViolationCategory = typeof violationCategories.$inferSelect;
-export type InsertViolationCategory = z.infer<typeof insertViolationCategorySchema>;
+export type InsertViolationCategory = typeof violationCategories.$inferInsert;
 export type SystemSetting = typeof systemSettings.$inferSelect;
-export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+export type InsertSystemSetting = typeof systemSettings.$inferInsert;
 export type Violation = typeof violations.$inferSelect;
-export type InsertViolation = z.infer<typeof insertViolationSchema>;
+export type InsertViolation = typeof violations.$inferInsert;
 export type ViolationHistory = typeof violationHistories.$inferSelect;
-export type InsertViolationHistory = z.infer<typeof insertViolationHistorySchema>;
+export type InsertViolationHistory = typeof violationHistories.$inferInsert;
 export type Person = typeof persons.$inferSelect;
-export type InsertPerson = z.infer<typeof insertPersonSchema>;
+export type InsertPerson = typeof persons.$inferInsert;
 export type UnitPersonRole = typeof unitPersonRoles.$inferSelect;
-export type InsertUnitPersonRole = z.infer<typeof insertUnitPersonRoleSchema>;
+export type InsertUnitPersonRole = typeof unitPersonRoles.$inferInsert;
 
 // Violation access links schema (for secure public comment/evidence links)
 export const violationAccessLinks = pgTable("violation_access_links", {
@@ -448,7 +442,7 @@ export const insertViolationAccessLinkSchema = createInsertSchema(violationAcces
 });
 
 export type ViolationAccessLink = typeof violationAccessLinks.$inferSelect;
-export type InsertViolationAccessLink = z.infer<typeof insertViolationAccessLinkSchema>;
+export type InsertViolationAccessLink = typeof violationAccessLinks.$inferInsert;
 
 // Define relationships for persons
 export const personsRelations = relations(persons, ({ many }) => ({
@@ -603,7 +597,7 @@ export const bylaws = pgTable("bylaws", {
   sectionNumber: text("section_number").notNull().unique(), // e.g., "3.4.2", "Section 10"
   title: text("title").notNull(),
   content: text("content").notNull(),
-  parentSectionId: integer("parent_section_id").references(() => bylaws.id),
+  parentSectionId: integer("parent_section_id").references((): any => bylaws.id),
   sectionOrder: integer("section_order").notNull(),
   partNumber: text("part_number"), // e.g., "PART 2", "PART 10"
   partTitle: text("part_title"), // e.g., "DUTIES OF OWNERS, TENANTS, OCCUPANTS AND VISITORS"
@@ -709,12 +703,12 @@ export const bylawRevisionsRelations = relations(bylawRevisions, ({ one }) => ({
 
 // Types
 export type BylawCategory = typeof bylawCategories.$inferSelect;
-export type InsertBylawCategory = z.infer<typeof insertBylawCategorySchema>;
+export type InsertBylawCategory = typeof bylawCategories.$inferInsert;
 export type Bylaw = typeof bylaws.$inferSelect;
-export type InsertBylaw = z.infer<typeof insertBylawSchema>;
+export type InsertBylaw = typeof bylaws.$inferInsert;
 export type BylawCategoryLink = typeof bylawCategoryLinks.$inferSelect;
 export type BylawRevision = typeof bylawRevisions.$inferSelect;
-export type InsertBylawRevision = z.infer<typeof insertBylawRevisionSchema>;
+export type InsertBylawRevision = typeof bylawRevisions.$inferInsert;
 
 // New table for email tracking events
 export const emailTrackingEvents = pgTable("email_tracking_events", {
@@ -764,7 +758,7 @@ export type InsertManualEmailRecipient = typeof manualEmailRecipients.$inferInse
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
   userFullName?: string | null;
-  violationUuid?: string | null;
+  // violationUuid?: string | null; // Removed as it's inherited and caused type conflict
 }
 
 // Email deduplication and idempotency tracking

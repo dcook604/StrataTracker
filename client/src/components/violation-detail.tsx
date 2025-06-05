@@ -177,6 +177,8 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
         title: "Success",
         description: "Violation deleted successfully",
       });
+      queryClient.invalidateQueries({ queryKey: ['/api/violations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/violations/recent'] });
       navigate("/violations");
     },
     onError: (error: Error) => {
@@ -536,7 +538,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
         <Card className="p-6 mb-4">
           <h3 className="text-lg font-medium text-neutral-800 mb-3">Status</h3>
           <div className="flex items-center gap-2">
-            <StatusBadge status={violation.status} />
+            <StatusBadge status={violation.status as ViolationStatus} />
             <span className="text-base font-semibold">
               {(() => {
                 switch (violation.status) {

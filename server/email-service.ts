@@ -1,8 +1,9 @@
 import nodemailer from 'nodemailer';
 import { db } from './db';
 import { systemSettings } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import logger from './utils/logger';
+import { z } from 'zod';
 
 // Email configuration types
 export interface EmailConfig {
@@ -14,6 +15,7 @@ export interface EmailConfig {
     pass: string;
   };
   from: string;
+  fromName: string;
 }
 
 // Default configuration - will be overridden by settings from database
@@ -25,7 +27,8 @@ let emailConfig: EmailConfig = {
     user: '',
     pass: ''
   },
-  from: 'noreply@strataviolations.com'
+  from: 'noreply@strataviolations.com',
+  fromName: 'Strata Management Team'
 };
 
 // Initialize email transporter
@@ -59,7 +62,8 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
               user: config.auth?.user || '',
               pass: config.auth?.pass || ''
             },
-            from: config.from
+            from: config.from,
+            fromName: config.fromName || 'Strata Management Team'
           };
           
           // Update the transporter
@@ -89,7 +93,8 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
         user: '',
         pass: ''
       },
-      from: 'noreply@strataviolations.com'
+      from: 'noreply@strataviolations.com',
+      fromName: 'Strata Management Team'
     };
   } catch (error) {
     logger.error('Error loading email settings:', error);
@@ -103,7 +108,8 @@ export async function loadEmailSettings(): Promise<EmailConfig | null> {
         user: '',
         pass: ''
       },
-      from: 'noreply@strataviolations.com'
+      from: 'noreply@strataviolations.com',
+      fromName: 'Strata Management Team'
     };
   }
 }
@@ -255,6 +261,44 @@ export async function sendInvitationEmail(email: string, inviteToken: string, fu
     subject,
     html
   });
+}
+
+// Fetch all email notification subject settings
+export async function getEmailNotificationSubjects(): Promise<{
+  newViolation: string;
+  violationApproval: string;
+  violationDisputed: string;
+  violationRejected: string;
+}> {
+  const defaultSubjects = {
+    newViolation: 'New Violation Report',
+    violationApproval: 'Violation Approved - Action Required',
+    violationDisputed: 'Violation Disputed',
+    violationRejected: 'Violation Rejected',
+  };
+  try {
+    const settings = await db.select().from(systemSettings)
+      .where(
+        inArray(systemSettings.settingKey, [
+          'violation_submitted_subject',
+          'violation_approved_subject',
+          'violation_disputed_subject',
+          'violation_rejected_subject',
+        ])
+      );
+    const map: Record<string, string> = {};
+    for (const s of settings) {
+      map[s.settingKey] = s.settingValue || '';
+    }
+    return {
+      newViolation: map['violation_submitted_subject'] || defaultSubjects.newViolation,
+      violationApproval: map['violation_approved_subject'] || defaultSubjects.violationApproval,
+      violationDisputed: map['violation_disputed_subject'] || defaultSubjects.violationDisputed,
+      violationRejected: map['violation_rejected_subject'] || defaultSubjects.violationRejected,
+    };
+  } catch (e) {
+    return defaultSubjects;
+  }
 }
 
 // Initialize email settings

@@ -26,6 +26,7 @@ StrataTracker is a full-stack property violation management system built with mo
 - **Session Management**: Express Session with PostgreSQL store
 - **Security**: Helmet, CORS, Rate limiting
 - **File Upload**: Multer for evidence attachments
+- **TypeScript Interface Correction (June 2025)**: Fixed a type error in `ViolationHistoryWithUser` by removing a redundant and incompatible `rejectionReason` property, ensuring strict type compatibility with the base `ViolationHistory` type.
 
 #### Infrastructure
 - **Containerization**: Docker with Docker Compose V2

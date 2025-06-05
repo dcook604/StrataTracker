@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { loadEmailSettings } from './email-service';
+import { loadEmailSettings, getEmailNotificationSubjects } from './email-service';
 import { sendEmailWithDeduplication, EmailDeduplicationService, type EmailRequest } from './email-deduplication';
 import { db } from './db';
 import { unitPersonRoles, persons as PersonsSchema, type User as AdminUserType, type Violation } from '../shared/schema';
@@ -18,6 +18,7 @@ let transporter = nodemailer.createTransport({
 // NEW Interface for notifying occupants about a new violation
 export interface NewViolationToOccupantsNotificationParams {
   violationId: number;
+  referenceNumber: string; // Add reference number field
   unitId: number; // Still needed for metadata or context
   unitNumber: string;
   violationType: string;
@@ -130,6 +131,7 @@ const sendEmail = async (mailOptions: nodemailer.SendMailOptions) => {
 export const sendNewViolationToOccupantsNotification = async (params: NewViolationToOccupantsNotificationParams) => {
   const {
     violationId,
+    referenceNumber,
     unitId,
     unitNumber,
     violationType,
@@ -139,15 +141,22 @@ export const sendNewViolationToOccupantsNotification = async (params: NewViolati
 
   for (const person of personsToNotify) {
     if (person.receiveEmailNotifications && person.accessLink && person.email) {
-      const subject = `[StrataGuard] New Violation Reported for Unit ${unitNumber}`;
-      // TODO: Create a proper HTML template
+      const subjects = await getEmailNotificationSubjects();
+      let subject = subjects.newViolation;
+      
+      subject = subject.replace(/\[.*?\]\s*/, '');
+
+      const emailSettings = await loadEmailSettings();
+      const senderName = emailSettings?.fromName || 'Strata Management';
+      const senderEmail = emailSettings?.from || 'no-reply@spectrum4.ca';
+      
       const textContent = `
 Dear ${person.fullName},
 
 A new violation has been reported for Unit ${unitNumber} associated with your ${person.role === 'owner' ? 'ownership' : 'tenancy'}.
 
 Violation Details:
-- Violation ID: ${violationId} (Ref: ${params.violationId})
+- Reference Number: ${referenceNumber}
 - Unit Number: ${unitNumber}
 - Type: ${violationType}
 - Reported by: ${reporterName}
@@ -158,15 +167,14 @@ ${person.accessLink}
 If no response is received within 30 days, this violation may proceed according to the strata bylaws.
 
 Thank you,
-StrataGuard System
+${senderName}
       `;
 
       const emailRequest: EmailRequest = {
         to: person.email,
         subject,
         text: textContent,
-        // html: "...", // TODO: Add HTML content using a template
-        from: '"StrataGuard System" <notifications@strataguard.com>', // Consider making this configurable
+        from: `"${senderName}" <${senderEmail}>`,
         emailType: 'violation_notification',
         metadata: {
           violationId,
@@ -212,7 +220,8 @@ export const sendViolationApprovedNotification = async (params: ViolationApprove
     tenantName,
   } = params;
 
-  const subject = `[StrataGuard] Violation Approved for Unit ${unitNumber}`;
+  const subjects = await getEmailNotificationSubjects();
+  const subject = subjects.violationApproval;
   const text = `
     Dear ${ownerName},
 
@@ -297,7 +306,8 @@ export const sendViolationPendingApprovalToAdminsNotification = async (params: V
     return;
   }
 
-  const subject = `[StrataGuard] New Violation Awaiting Approval: Ref ${violation.referenceNumber}`;
+  const subjects = await getEmailNotificationSubjects();
+  const subject = subjects.violationApproval;
   // TODO: Create a proper HTML template for this email
   const violationDetailsLink = `${appUrl}/violations/${violation.uuid || violation.id}`;
 
@@ -357,7 +367,8 @@ export const sendViolationDisputedToAdminsNotification = async (params: Violatio
     return;
   }
 
-  const subject = `[StrataGuard] Violation Disputed: Ref ${violation.referenceNumber}`;
+  const subjects = await getEmailNotificationSubjects();
+  const subject = subjects.violationDisputed;
   const violationDetailsLink = `${appUrl}/violations/${violation.uuid || violation.id}`;
 
   const textContent = `
@@ -412,10 +423,11 @@ StrataGuard System
 export const sendViolationRejectedToOccupantsNotification = async (params: ViolationRejectedOccupantNotificationParams) => {
   const { violation, rejectionReason, rejectedBy, personsToNotify } = params;
 
+  const subjects = await getEmailNotificationSubjects();
+  const subject = subjects.violationRejected;
+
   for (const person of personsToNotify) {
     if (person.receiveEmailNotifications && person.email) {
-      const subject = `[StrataGuard] Violation Rejected: Ref ${violation.referenceNumber}`;
-      
       const textContent = `
 Dear ${person.fullName},
 
@@ -473,10 +485,11 @@ StrataGuard System
 export const sendViolationApprovedToOccupantsNotification = async (params: ViolationApprovedOccupantNotificationParams) => {
   const { violation, fineAmount, approvedBy, personsToNotify } = params;
 
+  const subjects = await getEmailNotificationSubjects();
+  const subject = subjects.violationApproval;
+
   for (const person of personsToNotify) {
     if (person.receiveEmailNotifications && person.email) {
-      const subject = `[StrataGuard] Violation Approved: Ref ${violation.referenceNumber}`;
-      
       const textContent = `
 Dear ${person.fullName},
 
@@ -533,3 +546,10 @@ StrataGuard System
 };
 
 export { sendEmailWithDeduplication } from "./email-deduplication";
+
+// Utility to format violation reference number as VIO-YYYYMMDD-XXX
+export function formatViolationReferenceNumber(id: number, createdAt: Date): string {
+  const datePart = new Date(createdAt).toISOString().slice(0, 10).replace(/-/g, '');
+  const idPart = String(id).padStart(3, '0');
+  return `VIO-${datePart}-${idPart}`;
+}

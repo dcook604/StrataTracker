@@ -247,6 +247,7 @@ export function ViolationsList() {
       });
       // Invalidate and refetch violations
       queryClient.invalidateQueries({ queryKey: ['/api/violations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/violations/recent'] });
     },
     onError: (error: Error) => {
       toast({

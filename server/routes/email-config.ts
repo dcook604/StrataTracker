@@ -41,7 +41,8 @@ router.get('/', isAdmin, async (req, res) => {
           user: '',
           pass: ''
         },
-        from: 'noreply@strataviolations.com'
+        from: 'noreply@strataviolations.com',
+        fromName: 'Strata Management'
       };
       console.log('Returning default email config');
       return res.json(defaultConfig);
@@ -67,7 +68,7 @@ router.get('/', isAdmin, async (req, res) => {
 // Update email configuration
 router.post('/', isAdmin, async (req, res) => {
   try {
-    const { host, port, secure, auth, from } = req.body;
+    const { host, port, secure, auth, from, fromName } = req.body;
     
     if (!req.user || !req.user.id) {
       return res.status(401).json({ message: "User not authenticated or user ID missing." });
@@ -85,7 +86,8 @@ router.post('/', isAdmin, async (req, res) => {
         user: auth?.user || '',
         pass: auth?.pass || ''
       },
-      from
+      from,
+      fromName: fromName || 'Strata Management'
     };
     
     // If password is masked, get the current password from database
@@ -116,7 +118,7 @@ router.post('/', isAdmin, async (req, res) => {
 // Test email configuration
 router.post('/test', isAdmin, async (req, res) => {
   try {
-    const { host, port, secure, auth, from, testEmail } = req.body;
+    const { host, port, secure, auth, from, fromName, testEmail } = req.body;
     
     if (!host || !port || !from || !testEmail) {
       return res.status(400).json({ 
@@ -132,7 +134,8 @@ router.post('/test', isAdmin, async (req, res) => {
         user: auth?.user || '',
         pass: auth?.pass || ''
       },
-      from
+      from,
+      fromName: fromName || 'Strata Management'
     };
     
     // If password is masked, get the current password from database
