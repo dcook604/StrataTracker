@@ -30,6 +30,7 @@ services:
       - quarantine_data:/app/quarantine
       - supervisor_logs:/var/log/supervisor
       - clamav_logs:/var/log/clamav
+      - ./uploads:/app/uploads
     depends_on:
       - db
 

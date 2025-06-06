@@ -33,9 +33,8 @@ RUN apk update && apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Create ClamAV directories and set permissions
+# Note: clamav group/user may already exist from package installation
 RUN mkdir -p /var/lib/clamav /var/log/clamav /run/clamav \
-    && addgroup -g 100 clamav \
-    && adduser -D -u 100 -G clamav clamav \
     && chown -R clamav:clamav /var/lib/clamav /var/log/clamav /run/clamav
 
 # Create target directories

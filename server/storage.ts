@@ -530,38 +530,27 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteUser(id: number): Promise<boolean> {
+    logger.info(`Attempting to delete user with ID: ${id}`);
     try {
-      // Use a transaction to ensure all operations succeed or fail together
-      return await db.transaction(async (tx) => {
-        // 1. Update system settings to remove references to this user
-        await tx.update(systemSettings)
-          .set({ updatedById: null })
-          .where(eq(systemSettings.updatedById, id));
-        
-        // 2. Update violation histories to use a system account
-        await tx.update(violationHistories)
-          .set({ userId: 1 }) // Use system account instead of null
-          .where(eq(violationHistories.userId, id));
-        
-        // 3. Update violations to use a system account for reported_by
-        await tx.update(violations)
-          .set({ reportedById: 1 }) // Use system account
-          .where(eq(violations.reportedById, id));
-        
-        // 4. Finally delete the user
-        const result = await tx.delete(users)
-          .where(eq(users.id, id));
-        
-        return result.rowCount ? result.rowCount > 0 : false;
-      });
+      const result = await db.delete(users).where(eq(users.id, id));
+      const success = (result.rowCount ?? 0) > 0;
+      if (success) {
+        logger.info(`Successfully deleted user with ID: ${id}`);
+      } else {
+        logger.warn(`User with ID ${id} not found for deletion.`);
+      }
+      return success;
     } catch (error) {
-      console.error('Error deleting user:', error);
-      throw error;
+      logger.error(`Error deleting user with ID ${id}:`, error);
+      throw new Error('Failed to delete user due to a database error.');
     }
   }
   
   async getAllUsers(): Promise<User[]> {
-    return db.select().from(users).orderBy(users.fullName);
+    return db
+      .select()
+      .from(users)
+      .orderBy(desc(users.createdAt));
   }
   
   async incrementFailedLoginAttempts(id: number): Promise<void> {

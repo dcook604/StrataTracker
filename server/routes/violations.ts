@@ -16,6 +16,7 @@ import {
 } from '../email';
 import { insertViolationSchema, type User } from '@shared/schema';
 import logger from '../utils/logger';
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
 
 const router = express.Router();
 
@@ -31,6 +32,7 @@ const { upload, virusScanMiddleware, contentValidationMiddleware } = createSecur
   enableVirusScanning: process.env.VIRUS_SCANNING_ENABLED === 'true',
   enableDeepValidation: true
 });
+
 
 
 // --- VIOLATIONS API ---
@@ -112,6 +114,18 @@ router.post("/",
 
         const violation = await dbStorage.createViolation(validatedData);
         logger.info(`[Violation Upload] Created violation with UUID: ${violation.uuid}`);
+        
+        // Log audit event
+        await AuditLogger.logFromRequest(req, AuditAction.VIOLATION_CREATED, {
+          targetType: TargetType.VIOLATION,
+          targetId: violation.uuid,
+          details: {
+            violationType: violation.violationType,
+            unitId: violation.unitId,
+            status: violation.status,
+            attachmentCount: attachments.length,
+          },
+        });
         
         res.status(201).json(violation);
         
@@ -250,6 +264,23 @@ router.patch("/:id/status", ensureAuthenticated, async (req, res) => {
         });
       }
 
+      // Log audit event for status change
+      const auditAction = status === 'approved' ? AuditAction.VIOLATION_APPROVED :
+                         status === 'rejected' ? AuditAction.VIOLATION_REJECTED :
+                         status === 'disputed' ? AuditAction.VIOLATION_DISPUTED :
+                         AuditAction.VIOLATION_STATUS_CHANGED;
+      
+      await AuditLogger.logFromRequest(req, auditAction, {
+        targetType: TargetType.VIOLATION,
+        targetId: violationId.toString(),
+        details: {
+          oldStatus: violation.status, // Note: this might be the new status, consider fetching old status if needed
+          newStatus: status,
+          comment: comment,
+          rejectionReason: rejectionReason,
+        },
+      });
+
       res.json(violation);
     } catch (error) {
       logger.error(`Failed to update violation status for ID ${req.params.id}:`, error);
@@ -270,7 +301,24 @@ router.get("/:id/history", ensureAuthenticated, async (req, res) => {
 // DELETE /api/violations/:id
 router.delete("/:id", ensureAuthenticated, async (req, res) => {
     try {
-        await dbStorage.deleteViolation(parseInt(req.params.id));
+        const violationId = parseInt(req.params.id);
+        
+        // Get violation details before deletion for audit log
+        const violation = await getViolationByIdOrUuid(req.params.id);
+        
+        await dbStorage.deleteViolation(violationId);
+        
+        // Log audit event
+        await AuditLogger.logFromRequest(req, AuditAction.VIOLATION_DELETED, {
+          targetType: TargetType.VIOLATION,
+          targetId: violation?.uuid || violationId.toString(),
+          details: {
+            violationType: violation?.violationType,
+            unitId: violation?.unitId,
+            status: violation?.status,
+          },
+        });
+        
         res.status(204).send();
     } catch (error) {
         res.status(500).json({ message: "Failed to delete violation" });
@@ -278,7 +326,10 @@ router.delete("/:id", ensureAuthenticated, async (req, res) => {
 });
 
 // --- VIOLATION CATEGORIES API ---
-// GET /api/violation-categories
+// Note: These routes will be mounted at both /api/violations/categories and /api/violation-categories
+// The latter is handled by a separate route registration in routes.ts
+
+// GET /api/violations/categories (also available as /api/violation-categories via separate mount)
 router.get("/categories", ensureAuthenticated, async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
@@ -288,7 +339,17 @@ router.get("/categories", ensureAuthenticated, async (req, res) => {
     }
 });
 
-// POST /api/violation-categories
+// GET /api/violations/categories 
+router.get("/categories", ensureAuthenticated, async (req, res) => {
+    try {
+      const categories = await dbStorage.getAllViolationCategories();
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+});
+
+// POST /api/violations/categories
 router.post("/categories", ensureAuthenticated, async (req, res) => {
     try {
       const category = await dbStorage.createViolationCategory({ name: req.body.name });
@@ -298,7 +359,7 @@ router.post("/categories", ensureAuthenticated, async (req, res) => {
     }
 });
 
-// PUT /api/violation-categories/:id
+// PUT /api/violations/categories/:id
 router.put("/categories/:id", ensureAuthenticated, async (req, res) => {
     try {
       const category = await dbStorage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
@@ -308,7 +369,7 @@ router.put("/categories/:id", ensureAuthenticated, async (req, res) => {
     }
 });
 
-// DELETE /api/violation-categories/:id
+// DELETE /api/violations/categories/:id
 router.delete("/categories/:id", ensureAuthenticated, async (req, res) => {
     try {
       await dbStorage.deleteViolationCategory(parseInt(req.params.id));
@@ -317,6 +378,5 @@ router.delete("/categories/:id", ensureAuthenticated, async (req, res) => {
       res.status(500).json({ message: "Failed to delete category" });
     }
 });
-
 
 export default router; 

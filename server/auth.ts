@@ -11,6 +11,12 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import logger from "./utils/logger";
 import MemoryStore from 'memorystore';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import bcrypt from 'bcryptjs';
+import { AuditLogger, AuditAction } from './audit-logger';
+import { ensureAuthenticated } from './middleware/auth-helpers';
 
 declare global {
   namespace Express {
@@ -88,19 +94,17 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.session?.user && req.session.user.isAdmin) {
-    next();
-  } else {
-    res.status(403).json({ message: 'Admin access required' });
+  if (req.isAuthenticated() && req.user?.isAdmin) {
+    return next();
   }
+  res.status(403).json({ message: 'Admin access required' });
 }
 
 export function requireAdminOrCouncil(req: Request, res: Response, next: NextFunction) {
   if (req.session?.user && (req.session.user.isAdmin || req.session.user.isCouncilMember)) {
-    next();
-  } else {
-    res.status(403).json({ message: 'Admin or council access required' });
+    return next();
   }
+  res.status(403).json({ message: 'Admin or council access required' });
 }
 
 export function setupAuth(app: Express) {
@@ -165,6 +169,80 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // GET all system settings
+  app.get("/api/settings", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const settings = await dbStorage.getAllSystemSettings();
+      const logoSetting = settings.find(s => s.settingKey === 'strata_logo_url');
+      let logoUrl = null;
+
+      if (logoSetting && logoSetting.settingValue) {
+        // Assuming the value is just the filename, construct a URL
+        // In a real S3 setup, you'd generate a pre-signed URL here
+        logoUrl = `/api/uploads/${logoSetting.settingValue}`;
+      }
+
+      res.json({ settings, logoUrl });
+    } catch (error) {
+      logger.error('Failed to get system settings:', error);
+      res.status(500).json({ message: 'Failed to retrieve system settings' });
+    }
+  });
+  
+  // POST to update a specific system setting
+  app.post("/api/settings/:key", ensureAuthenticated, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      const userId = req.user?.id;
+
+      if (typeof value === 'undefined' || !userId) {
+        return res.status(400).json({ message: 'Value and user authentication are required.' });
+      }
+
+      await dbStorage.updateSystemSetting(key, value, userId);
+      res.status(200).json({ message: `Setting ${key} updated successfully.` });
+    } catch (error) {
+      logger.error(`Failed to update system setting ${req.params.key}:`, error);
+      res.status(500).json({ message: 'Failed to update system setting.' });
+    }
+  });
+
+  // Multer setup for file uploads
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, uploadsDir);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  const upload = multer({ storage: storage });
+
+  app.post('/api/settings/upload-logo', ensureAuthenticated, requireAdmin, upload.single('logo'), async (req, res) => {
+    if (!req.file) {
+      return res.status(400).send('No file uploaded.');
+    }
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      await dbStorage.updateSystemSetting('strata_logo_url', req.file.filename, userId);
+      res.status(200).json({ filename: req.file.filename });
+    } catch (error) {
+      logger.error('Failed to upload logo and update setting:', error);
+      res.status(500).json({ message: 'Failed to upload logo' });
+    }
+  });
+
   // Configure Passport to use email as the username field
   passport.use(
     new LocalStrategy(
@@ -181,6 +259,10 @@ export function setupAuth(app: Express) {
           if (!user) {
             logger.warn(`[AUTH] Login failed - User not found`, { email });
             logger.perf(`authentication_failed_no_user`, authStartTime, { email });
+            await AuditLogger.logAuth(AuditAction.USER_LOGIN_FAILED, {
+              userEmail: email,
+              details: { reason: 'User not found' },
+            });
             return done(null, false, { message: "Invalid email or password" });
           }
           
@@ -198,6 +280,12 @@ export function setupAuth(app: Express) {
               failedAttempts: user.failedLoginAttempts 
             });
             logger.perf(`authentication_failed_locked`, authStartTime, { userId: user.id });
+            await AuditLogger.logAuth(AuditAction.USER_LOGIN_FAILED, {
+              userEmail: email,
+              userId: user.id,
+              userName: user.fullName,
+              details: { reason: 'Account locked' },
+            });
             return done(null, false, { message: "Account locked due to too many failed attempts" });
           }
           
@@ -212,6 +300,12 @@ export function setupAuth(app: Express) {
               if (typeof dbStorage.incrementFailedLoginAttempts === 'function') {
                 await dbStorage.incrementFailedLoginAttempts(user.id);
               }
+              await AuditLogger.logAuth(AuditAction.USER_LOGIN_FAILED, {
+                userEmail: email,
+                userId: user.id,
+                userName: user.fullName,
+                details: { reason: 'Invalid password' },
+              });
               return done(null, false, { message: "Invalid email or password" });
             }
             
@@ -223,7 +317,14 @@ export function setupAuth(app: Express) {
             await dbStorage.updateLastLogin(user.id);
           }
           
-          return done(null, user);
+          await AuditLogger.logAuth(AuditAction.USER_LOGIN, {
+            userEmail: user.email,
+            userId: user.id,
+            userName: user.fullName,
+            details: { loginMethod: 'local' },
+          });
+          
+          return done(null, getSafeUserData(user));
           } catch (error) {
             console.error("Error comparing passwords:", error);
             return done(error);
@@ -392,92 +493,14 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // User management APIs (admin only)
-  app.get("/api/users", async (req, res, next) => {
-    try {
-      // Check if user is authenticated and is an admin
-      if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      // Check both isAdmin and is_admin flags to support both formats
-      const isAdmin = req.user.isAdmin === true || (req.user as any).is_admin === true;
-      if (!isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
+  // Note: User management APIs have been moved to /routes/user-management.ts
+  // This avoids route conflicts and provides better organization
 
-      const users = await dbStorage.getAllUsers();
-      
-      // Remove sensitive information before sending
-      const safeUsers = users.map(user => {
-        const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
-        return safeUser;
-      });
-      
-      res.json(safeUsers);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.patch("/api/users/:id", async (req, res, next) => {
-    try {
-      // Check if the request is from an admin
-      if (!req.isAuthenticated() || !(req.user as any).is_admin) {
-        return res.status(403).json({ message: "Only administrators can update users" });
-      }
-
-      const userId = parseInt(req.params.id, 10);
-      
-      // Don't allow changing email to one that already exists
-      if (req.body.email) {
-        const existingUser = await dbStorage.getUserByEmail(req.body.email);
-        if (existingUser && existingUser.id !== userId) {
-          return res.status(400).json({ message: "Email already in use" });
-        }
-      }
-      
-      const updatedUser = await dbStorage.updateUser(userId, req.body);
-      if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // Remove sensitive fields before sending the user object
-      const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = updatedUser;
-      res.json(safeUser);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.delete("/api/users/:id", async (req, res, next) => {
-    try {
-      // Check if the request is from an admin
-      if (!req.isAuthenticated() || !(req.user.isAdmin || (req.user as any).is_admin)) {
-        return res.status(403).json({ message: "Only administrators can delete users" });
-      }
-
-      const userId = parseInt(req.params.id, 10);
-      
-      // Don't allow admins to delete themselves
-      if (req.user.id === userId) {
-        return res.status(400).json({ message: "Cannot delete your own account" });
-      }
-      
-      const deleted = await dbStorage.deleteUser(userId);
-      if (!deleted) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.sendStatus(204);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/api/logout", (req, res, next) => {
-    // Store session ID for logging before destroying it
+  app.post("/api/logout", async (req, res, next) => {
+    // Store user info for audit logging before logout
+    const user = req.user;
     const sessionId = req.sessionID;
+    const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] as string;
     
     req.logout((err) => {
       if (err) {
@@ -485,9 +508,24 @@ export function setupAuth(app: Express) {
       }
       
       // Destroy the session completely
-      req.session.destroy((destroyErr) => {
+      req.session.destroy(async (destroyErr) => {
         if (destroyErr) {
           // Continue even if session destroy fails
+        }
+        
+        // Log audit event
+        if (user) {
+          try {
+            await AuditLogger.logAuth(AuditAction.USER_LOGOUT, {
+              userId: user.id,
+              userName: user.fullName,
+              userEmail: user.email,
+              ipAddress: ipAddress,
+              details: { sessionId },
+            });
+          } catch (auditError) {
+            logger.error('Failed to log logout audit event:', auditError);
+          }
         }
         
         // Clear the session cookie
@@ -502,20 +540,8 @@ export function setupAuth(app: Express) {
   });
 }
 
-// Helper function to remove sensitive fields from user data
 function getSafeUserData(user: any) {
   if (!user) return null;
   const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
   return safeUser;
-}
-
-export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-  
-  // Get clean user data for response
-  const safeUser = getSafeUserData(req.user);
-  
-  next();
 }

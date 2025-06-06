@@ -6,10 +6,8 @@ set -e
 # ===============================================
 
 # Configuration
-DB_NAME="${POSTGRES_DB:-spectrum4}"
-DB_USER="${POSTGRES_USER:-spectrum4}"
-DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="${DB_PORT:-5432}"
+# Use DATABASE_URL if available, otherwise fall back to individual variables
+DB_URL="${DATABASE_URL:-postgres://${POSTGRES_USER:-spectrum4}:${POSTGRES_PASSWORD:-}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${POSTGRES_DB:-spectrum4}}"
 BACKUP_DIR="./backups"
 MIGRATION_DIR="./migrations"
 
@@ -63,8 +61,8 @@ check_prerequisites() {
 test_connection() {
     log_info "Testing database connection..."
     
-    if ! PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" &> /dev/null; then
-        log_error "Cannot connect to database. Please check your connection settings."
+    if ! psql -d "$DB_URL" -c "SELECT 1;" &> /dev/null; then
+        log_error "Cannot connect to database. Please check your DATABASE_URL or connection settings."
         exit 1
     fi
     
@@ -73,8 +71,9 @@ test_connection() {
 
 # Create backup
 create_backup() {
+    local db_name=$(echo "$DB_URL" | awk -F/ '{print $NF}')
     local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local backup_file="$BACKUP_DIR/${DB_NAME}_backup_${timestamp}.sql"
+    local backup_file="$BACKUP_DIR/${db_name}_backup_${timestamp}.sql"
     
     log_info "Creating database backup..."
     
@@ -82,7 +81,7 @@ create_backup() {
     mkdir -p "$BACKUP_DIR"
     
     # Create backup
-    if PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" > "$backup_file"; then
+    if pg_dump -d "$DB_URL" > "$backup_file"; then
         log_success "Backup created: $backup_file"
         echo "$backup_file"
     else
@@ -96,7 +95,7 @@ apply_migrations() {
     log_info "Applying database migrations..."
     
     # Check if migrations table exists, create if not
-    PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "
+    psql -d "$DB_URL" -c "
         CREATE TABLE IF NOT EXISTS migration_history (
             id SERIAL PRIMARY KEY,
             filename VARCHAR(255) NOT NULL UNIQUE,
@@ -104,11 +103,11 @@ apply_migrations() {
         );" > /dev/null
     
     # Get list of applied migrations
-    local applied_migrations=$(PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT filename FROM migration_history;" | tr -d ' ')
+    local applied_migrations=$(psql -d "$DB_URL" -t -c "SELECT filename FROM migration_history;" | tr -d ' ')
     
     # Apply each migration file
     local migration_count=0
-    for migration_file in "$MIGRATION_DIR"/*.sql; do
+    for migration_file in $(find "$MIGRATION_DIR" -name "*.sql" | sort); do
         if [ -f "$migration_file" ]; then
             local filename=$(basename "$migration_file")
             
@@ -121,9 +120,9 @@ apply_migrations() {
             log_info "Applying migration: $filename"
             
             # Apply migration
-            if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$migration_file"; then
+            if psql -d "$DB_URL" -f "$migration_file"; then
                 # Record successful migration
-                PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "INSERT INTO migration_history (filename) VALUES ('$filename');" > /dev/null
+                psql -d "$DB_URL" -c "INSERT INTO migration_history (filename) VALUES ('$filename');" > /dev/null
                 log_success "Applied migration: $filename"
                 ((migration_count++))
             else
@@ -145,7 +144,7 @@ verify_health() {
     log_info "Verifying database health..."
     
     # Test basic queries
-    if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "
+    if psql -d "$DB_URL" -c "
         SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';
         SELECT COUNT(*) FROM users;
         SELECT COUNT(*) FROM violations;
@@ -159,25 +158,32 @@ verify_health() {
 
 # Main execution
 main() {
+    local force_mode=false
+    if [[ "$1" == "--force" || "$1" == "-y" ]]; then
+        force_mode=true
+    fi
+
     log_info "Starting StrataTracker production migration..."
-    echo "Database: $DB_NAME"
-    echo "Host: $DB_HOST:$DB_PORT"
-    echo "User: $DB_USER"
-    echo ""
     
     # Confirmation prompt
-    read -p "Continue with migration? [y/N]: " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log_info "Migration cancelled by user"
-        exit 0
+    if [ "$force_mode" = false ]; then
+        local db_details=$(echo "$DB_URL" | sed -E 's/postgres:\/\/[^:]+:[^@]+@/postgres:\/\/[REDACTED]:[REDACTED]@/')
+        echo "Database URL: $db_details"
+        read -p "Continue with migration? [y/N]: " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Migration cancelled by user"
+            exit 0
+        fi
+    else
+        log_warning "Running in non-interactive mode (--force)."
     fi
-    
+
     check_prerequisites
     test_connection
     
     # Create backup
-    backup_file=$(create_backup)
+    local backup_file=$(create_backup)
     
     # Apply migrations
     apply_migrations
@@ -190,7 +196,8 @@ main() {
     
     # Cleanup old backups (keep last 10)
     log_info "Cleaning up old backups..."
-    find "$BACKUP_DIR" -name "${DB_NAME}_backup_*.sql" -type f | sort -r | tail -n +11 | xargs -r rm
+    local db_name=$(echo "$DB_URL" | awk -F/ '{print $NF}')
+    find "$BACKUP_DIR" -name "${db_name}_backup_*.sql" -type f | sort -r | tail -n +11 | xargs -r rm
     log_success "Cleanup completed"
 }
 
@@ -199,16 +206,14 @@ case "${1:-}" in
     --help|-h)
         echo "Usage: $0 [options]"
         echo "Options:"
-        echo "  --help, -h     Show this help message"
-        echo "  --backup-only  Create backup only (no migrations)"
-        echo "  --verify-only  Verify database health only"
+        echo "  --help, -h       Show this help message"
+        echo "  --backup-only    Create backup only (no migrations)"
+        echo "  --verify-only    Verify database health only"
+        echo "  --force, -y      Run non-interactively"
         echo ""
         echo "Environment variables:"
-        echo "  POSTGRES_DB       Database name (default: spectrum4)"
-        echo "  POSTGRES_USER     Database user (default: spectrum4)"
-        echo "  POSTGRES_PASSWORD Database password (required)"
-        echo "  DB_HOST           Database host (default: localhost)"
-        echo "  DB_PORT           Database port (default: 5432)"
+        echo "  DATABASE_URL     Full database connection string"
+        echo "  (or POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, DB_HOST, DB_PORT)"
         exit 0
         ;;
     --backup-only)
@@ -222,6 +227,9 @@ case "${1:-}" in
         test_connection
         verify_health
         exit 0
+        ;;
+    --force|-y)
+        main "$1"
         ;;
     "")
         main

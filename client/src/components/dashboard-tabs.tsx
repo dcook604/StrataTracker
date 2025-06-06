@@ -1,11 +1,8 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ViolationStatus } from "@shared/schema";
 import { format } from "date-fns";
-import { ClipboardList, AlertCircle, Trash2, FileSearch, Eye } from "lucide-react";
+import { ClipboardList, AlertCircle, Eye } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 type Violation = {
@@ -31,45 +28,55 @@ type Violation = {
   };
 };
 
+type PaginatedViolationsResponse = {
+  violations: Violation[];
+  total: number;
+};
+
+const ViolationTable = ({ data, isLoading, columns, emptyState }: { data: Violation[] | undefined, isLoading: boolean, columns: ColumnDef<Violation>[], emptyState: React.ReactNode }) => {
+  if (isLoading) return <Skeleton className="h-72 w-full" />;
+  if (!data || data.length === 0) {
+    return <div className="p-6">{emptyState}</div>;
+  }
+  return <DataTable columns={columns} data={data} />;
+};
+
 export function DashboardTabs() {
-  const [activeTab, setActiveTab] = useState<'recent' | 'pending' | 'disputed'>('recent');
-  const [, navigate] = useLocation();
-  
   const { data: recentViolations, isLoading: recentLoading } = useQuery<Violation[]>({
-    queryKey: ['/api/violations/recent'],
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
-  });
-  
-  const { data: pendingViolations, isLoading: pendingLoading } = useQuery<Violation[]>({
-    queryKey: ['/api/violations', { status: 'pending_approval' }],
+    queryKey: ['violations', 'recent'],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/violations?status=pending_approval");
+      const res = await apiRequest("GET", "/api/violations/recent");
+      if (!res.ok) throw new Error('Failed to fetch recent violations');
       return res.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
-  });
-  
-  const { data: disputedViolations, isLoading: disputedLoading } = useQuery<Violation[]>({
-    queryKey: ['/api/violations', { status: 'disputed' }],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/violations?status=disputed");
-      return res.json();
-    },
-    enabled: activeTab === 'disputed',
-    refetchInterval: activeTab === 'disputed' ? 30000 : false, // Refresh only when tab is active
+    refetchInterval: 30000,
   });
 
+  const { data: pendingViolations, isLoading: pendingLoading } = useQuery<Violation[]>({
+    queryKey: ['violations', { status: 'pending_approval' }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/violations?status=pending_approval&limit=5");
+      if (!res.ok) throw new Error('Failed to fetch pending violations');
+      const data: PaginatedViolationsResponse = await res.json();
+      return data.violations;
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: disputedViolations, isLoading: disputedLoading } = useQuery<Violation[]>({
+    queryKey: ['violations', { status: 'disputed' }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/violations?status=disputed&limit=5");
+      if (!res.ok) throw new Error('Failed to fetch disputed violations');
+      const data: PaginatedViolationsResponse = await res.json();
+      return data.violations;
+    },
+    refetchInterval: 30000,
+  });
+  
   const getViolationTypeName = (type: string) => {
-    const typeMap: Record<string, string> = {
-      noise: "Noise Complaint",
-      parking: "Parking Violation",
-      garbage: "Improper Garbage Disposal",
-      pet: "Unauthorized Pet",
-      property: "Property Damage",
-      balcony: "Balcony Misuse",
-      other: "Other",
-    };
-    return typeMap[type] || type;
+    // This can be expanded or moved to a utility function
+    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const columns: ColumnDef<Violation>[] = [
@@ -96,102 +103,77 @@ export function DashboardTabs() {
     {
       id: "actions",
       cell: ({ row }) => (
-        <div className="flex gap-2">
-          <Link href={`/violations/${row.original.uuid}`}>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 text-blue-600 hover:text-blue-900 hover:bg-blue-50"
-              title="View violation details"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
+        <Link href={`/violations/${row.original.uuid}`}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+            title="View violation details"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        </Link>
       ),
     },
   ];
 
-  // Determine which data to display based on the active tab
-  const displayData = () => {
-    if (activeTab === 'recent') {
-      if (recentLoading) return <Skeleton className="h-72 w-full" />;
-      if (!recentViolations || recentViolations.length === 0) {
-        return (
-          <EmptyState
-            title="No recent violations"
-            description="There are no recent violations to display."
-            icon={<ClipboardList className="h-8 w-8 text-neutral-400" />}
-            actionLabel="Create Violation"
-            onAction={() => navigate("/violations/new")}
-          />
-        );
-      }
-      return <DataTable columns={columns} data={recentViolations} />;
-    }
-    
-    if (activeTab === 'pending') {
-      if (pendingLoading) return <Skeleton className="h-72 w-full" />;
-      if (!pendingViolations || pendingViolations.length === 0) {
-        return (
-          <EmptyState
-            title="No pending violations"
-            description="There are no violations pending approval."
-            icon={<ClipboardList className="h-8 w-8 text-neutral-400" />}
-          />
-        );
-      }
-      return <DataTable columns={columns} data={pendingViolations} />;
-    }
-    
-    if (activeTab === 'disputed') {
-      if (disputedLoading) return <Skeleton className="h-72 w-full" />;
-      if (!disputedViolations || disputedViolations.length === 0) {
-        return (
-          <EmptyState
-            title="No disputed violations"
-            description="There are no disputed violations."
-            icon={<AlertCircle className="h-8 w-8 text-neutral-400" />}
-          />
-        );
-      }
-      return <DataTable columns={columns} data={disputedViolations} />;
-    }
-    
-    return null;
-  };
-
   return (
-    <Card className="shadow rounded-lg mb-6 overflow-hidden">
-      <div className="border-b border-neutral-200">
-        <nav className="flex -mb-px">
-          <Button
-            onClick={() => setActiveTab('recent')}
-            variant="ghost"
-            className={`px-6 py-3 rounded-none ${activeTab === 'recent' ? 'border-b-2 border-primary-500 text-primary-600' : 'border-b-2 border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'}`}
-          >
-            Recent Violations
-          </Button>
-          <Button
-            onClick={() => setActiveTab('pending')}
-            variant="ghost"
-            className={`px-6 py-3 rounded-none ${activeTab === 'pending' ? 'border-b-2 border-primary-500 text-primary-600' : 'border-b-2 border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'}`}
-          >
-            Pending Approval
-          </Button>
-          <Button
-            onClick={() => setActiveTab('disputed')}
-            variant="ghost"
-            className={`px-6 py-3 rounded-none ${activeTab === 'disputed' ? 'border-b-2 border-primary-500 text-primary-600' : 'border-b-2 border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'}`}
-          >
-            Disputed
-          </Button>
-        </nav>
-      </div>
-      
-      <CardContent className="p-0">
-        {displayData()}
-      </CardContent>
+    <Card className="shadow rounded-lg">
+      <Tabs defaultValue="recent">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="recent">Recent Violations</TabsTrigger>
+          <TabsTrigger value="pending">Pending Approval</TabsTrigger>
+          <TabsTrigger value="disputed">Disputed</TabsTrigger>
+        </TabsList>
+        <TabsContent value="recent">
+          <CardContent className="p-0">
+            <ViolationTable 
+              data={recentViolations} 
+              isLoading={recentLoading} 
+              columns={columns}
+              emptyState={
+                <EmptyState
+                  title="No recent violations"
+                  description="No violations have been reported recently."
+                  icon={<ClipboardList className="h-12 w-12 text-neutral-400" />}
+                />
+              }
+            />
+          </CardContent>
+        </TabsContent>
+        <TabsContent value="pending">
+          <CardContent className="p-0">
+            <ViolationTable 
+              data={pendingViolations} 
+              isLoading={pendingLoading} 
+              columns={columns} 
+              emptyState={
+                <EmptyState
+                  title="No pending violations"
+                  description="There are no violations awaiting council approval."
+                  icon={<ClipboardList className="h-12 w-12 text-neutral-400" />}
+                />
+              }
+            />
+          </CardContent>
+        </TabsContent>
+        <TabsContent value="disputed">
+          <CardContent className="p-0">
+            <ViolationTable 
+              data={disputedViolations} 
+              isLoading={disputedLoading} 
+              columns={columns} 
+              emptyState={
+                <EmptyState
+                  title="No disputed violations"
+                  description="There are currently no disputed violations."
+                  icon={<AlertCircle className="h-12 w-12 text-neutral-400" />}
+                />
+              }
+            />
+          </CardContent>
+        </TabsContent>
+      </Tabs>
     </Card>
   );
 }
