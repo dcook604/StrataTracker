@@ -862,3 +862,16 @@ export const adminAnnouncements = pgTable("admin_announcements", {
 export type AdminAnnouncement = typeof adminAnnouncements.$inferSelect;
 export type InsertAdminAnnouncement = typeof adminAnnouncements.$inferInsert;
 
+// Public user sessions for owners/tenants accessing violations via email verification
+export const publicUserSessions = pgTable("public_user_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: uuid("session_id").defaultRandom().notNull().unique(),
+  personId: integer("person_id").notNull().references(() => persons.id),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
+  email: text("email").notNull(),
+  role: text("role").notNull(), // 'owner' or 'tenant'
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastAccessedAt: timestamp("last_accessed_at"),
+});
+

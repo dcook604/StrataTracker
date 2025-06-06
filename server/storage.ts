@@ -39,10 +39,11 @@ import {
   type ParkingSpot,
   type StorageLocker,
   type BikeLocker,
-  emailVerificationCodes
+  emailVerificationCodes,
+  publicUserSessions
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray, isNull, gt } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
@@ -230,6 +231,21 @@ export interface IStorage {
     personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
     facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
   ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }>;
+
+  // Public user session management for owners/tenants
+  createPublicUserSession(data: {
+    personId: number;
+    unitId: number;
+    email: string;
+    role: string;
+    expiresInHours?: number;
+  }): Promise<any>;
+
+  getPublicUserSession(sessionId: string): Promise<any>;
+
+  getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<any[]>;
+
+  expirePublicUserSession(sessionId: string): Promise<void>;
 }
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
@@ -1777,18 +1793,12 @@ export class DatabaseStorage implements IStorage {
         })
         .from(unitPersonRoles)
         .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
-        .where(eq(unitPersonRoles.unitId, unitId))
-        .execute();
+        .where(eq(unitPersonRoles.unitId, unitId));
       
-      // Ensure role is one of the expected values, though DB constraint might exist
-      return result.map(r => ({
-        ...r,
-        role: r.role || 'unknown', // Default or throw error if role is critical and nullable
-        receiveEmailNotifications: r.receiveEmailNotifications ?? true // Default if nullable, though schema says notNull().default(true)
-      }));
+      return result;
     } catch (error) {
-      console.error(`Error fetching persons for unit ${unitId}:`, error);
-      throw error; // Or return empty array / handle as appropriate
+      console.error('Error getting persons with roles for unit:', error);
+      return [];
     }
   }
 
@@ -1989,6 +1999,124 @@ export class DatabaseStorage implements IStorage {
         facilities: createdFacilities,
       };
     });
+  }
+
+  // Public user session management for owners/tenants
+  async createPublicUserSession(data: {
+    personId: number;
+    unitId: number;
+    email: string;
+    role: string;
+    expiresInHours?: number;
+  }) {
+    try {
+      const expiresInHours = data.expiresInHours || 24; // Default 24 hours
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+
+      const [session] = await db
+        .insert(publicUserSessions)
+        .values({
+          personId: data.personId,
+          unitId: data.unitId,
+          email: data.email,
+          role: data.role,
+          expiresAt: expiresAt,
+          lastAccessedAt: new Date(),
+        })
+        .returning();
+
+      return session;
+    } catch (error) {
+      console.error('Error creating public user session:', error);
+      return null;
+    }
+  }
+
+  async getPublicUserSession(sessionId: string) {
+    try {
+      const [session] = await db
+        .select({
+          session: publicUserSessions,
+          person: persons,
+          unit: propertyUnits,
+        })
+        .from(publicUserSessions)
+        .innerJoin(persons, eq(publicUserSessions.personId, persons.id))
+        .innerJoin(propertyUnits, eq(publicUserSessions.unitId, propertyUnits.id))
+        .where(
+          and(
+            eq(publicUserSessions.sessionId, sessionId),
+            gt(publicUserSessions.expiresAt, new Date())
+          )
+        );
+
+      if (session) {
+        // Update last accessed time
+        await db
+          .update(publicUserSessions)
+          .set({ lastAccessedAt: new Date() })
+          .where(eq(publicUserSessions.sessionId, sessionId));
+
+        return {
+          sessionId: session.session.sessionId,
+          personId: session.session.personId,
+          unitId: session.session.unitId,
+          email: session.session.email,
+          role: session.session.role,
+          fullName: session.person.fullName,
+          unitNumber: session.unit.unitNumber,
+          expiresAt: session.session.expiresAt,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error getting public user session:', error);
+      return null;
+    }
+  }
+
+  async getViolationsForUnit(unitId: number, includeStatuses?: string[]) {
+    try {
+      const conditions = [eq(violations.unitId, unitId)];
+      
+      if (includeStatuses && includeStatuses.length > 0) {
+        conditions.push(inArray(violations.status, includeStatuses));
+      }
+
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits,
+          category: violationCategories,
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
+        .where(and(...conditions))
+        .orderBy(desc(violations.createdAt));
+
+      return result.map(row => ({
+        ...row.violation,
+        unit: row.unit,
+        category: row.category,
+      }));
+    } catch (error) {
+      console.error('Error getting violations for unit:', error);
+      return [];
+    }
+  }
+
+  async expirePublicUserSession(sessionId: string) {
+    try {
+      await db
+        .update(publicUserSessions)
+        .set({ expiresAt: new Date() })
+        .where(eq(publicUserSessions.sessionId, sessionId));
+    } catch (error) {
+      console.error('Error expiring public user session:', error);
+    }
   }
 }
 

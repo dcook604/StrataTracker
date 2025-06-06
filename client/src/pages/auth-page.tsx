@@ -173,7 +173,7 @@ export default function AuthPage() {
           <img 
             src="/spectrum4-small.jpeg" 
             alt="Spectrum 4 Logo" 
-            className="h-16 w-auto mx-auto" // Reverted back to original size (64px)
+            className="h-56 w-auto mx-auto" // Increased by another 20% (from 192px to 224px)
           />
         </div>
         <CardHeader className="space-y-1 text-center pt-0"> {/* Adjusted pt-0 as logo div has padding */}

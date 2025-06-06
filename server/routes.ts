@@ -14,6 +14,7 @@ import violationCategoriesRoutes from './routes/violation-categories'; // Import
 import unitsRoutes from './routes/units'; // Import the new units router
 import reportsRoutes from './routes/reports'; // Import the new reports router
 import auditLogsRoutes from './routes/audit-logs'; // Import the audit logs router
+import publicViolationsRoutes from './routes/public-violations'; // Import public violations router
 import path from "path";
 import fs from "fs/promises";
 import logger from "./utils/logger";
@@ -98,6 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/property-units', unitsRoutes);
   app.use('/api/reports', reportsRoutes); // Register the reports router
   app.use('/api/audit-logs', auditLogsRoutes); // Register the audit logs router
+  app.use('/public', publicViolationsRoutes); // Register public violations router
 
   // Serve uploaded files statically
   app.use('/api/uploads', express.static(uploadsDir));

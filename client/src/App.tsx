@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/hooks/use-auth";
+import { PublicAuthProvider } from "@/hooks/use-public-auth";
 import { LoadingProvider } from "@/contexts/loading-context";
 import { GlobalLoadingOverlay } from "@/components/global-loading-overlay";
 import { ProtectedRoute } from "@/lib/protected-route";
@@ -25,6 +26,8 @@ import ForgotPasswordPage from "@/pages/forgot-password-page";
 import SetPasswordPage from "@/pages/set-password-page";
 import UserProfilePage from "@/pages/user-profile-page";
 import PublicViolationCommentPage from "@/pages/public-violation-comment-page";
+import EnhancedPublicViolationPage from "@/pages/enhanced-public-violation-page";
+import PublicViolationsPage from "@/pages/public-violations-page";
 import { Route, Redirect } from "wouter";
 import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -39,36 +42,39 @@ export default function App() {
           <TooltipProvider>
             <LoadingProvider>
               <AuthProvider>
-                <Switch>
-                  <Route path="/auth" component={AuthPage} />
-                  <Route path="/forgot-password" component={ForgotPasswordPage} />
-                  <Route path="/reset-password" component={ResetPasswordPage} />
-                  <Route path="/set-password" component={SetPasswordPage} />
-                  <Route path="/violation/comment/:token" component={PublicViolationCommentPage} />
-                  <ProtectedRoute path="/" component={DashboardPage} />
-                  <ProtectedRoute path="/violations" component={AllViolationsPage} />
-                  <ProtectedRoute path="/violations/new" component={NewViolationPage} />
-                  <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
-                  <ProtectedRoute path="/communications" component={CommunicationsPage} />
-                  <ProtectedRoute path="/reports" component={ReportsPage} />
-                  <ProtectedRoute path="/units" component={UnitsPage} />
-                  <ProtectedRoute path="/categories" component={CategoriesPage} />
-                  <Route path="/settings">
-                    <Redirect to="/settings/email" />
-                  </Route>
-                  <ProtectedRoute path="/settings/audit-log" component={AuditLogPage} />
-                  <ProtectedRoute path="/settings/announcements" component={AdminAnnouncementsPage} />
-                  <ProtectedRoute path="/settings/email" component={SettingsPage} />
-                  <ProtectedRoute path="/settings/system" component={SettingsPage} />
-                  <ProtectedRoute path="/settings/smtp" component={SettingsPage} />
-                  <ProtectedRoute path="/settings/users" component={SettingsPage} />
-                  <ProtectedRoute path="/profile" component={UserProfilePage} />
-                  <ProtectedRoute path="/bylaws" component={BylawsPage} />
-                  <ProtectedRoute path="/disputes" component={DisputeManagementPage} />
-                  <Route component={NotFound} />
-                </Switch>
-                <Toaster />
-                <GlobalLoadingOverlay />
+                <PublicAuthProvider>
+                  <Switch>
+                    <Route path="/auth" component={AuthPage} />
+                    <Route path="/forgot-password" component={ForgotPasswordPage} />
+                    <Route path="/reset-password" component={ResetPasswordPage} />
+                    <Route path="/set-password" component={SetPasswordPage} />
+                    <Route path="/violation/comment/:token" component={EnhancedPublicViolationPage} />
+                    <Route path="/public/violations" component={PublicViolationsPage} />
+                    <ProtectedRoute path="/" component={DashboardPage} />
+                    <ProtectedRoute path="/violations" component={AllViolationsPage} />
+                    <ProtectedRoute path="/violations/new" component={NewViolationPage} />
+                    <ProtectedRoute path="/violations/:id" component={ViolationDetailPage} />
+                    <ProtectedRoute path="/communications" component={CommunicationsPage} />
+                    <ProtectedRoute path="/reports" component={ReportsPage} />
+                    <ProtectedRoute path="/units" component={UnitsPage} />
+                    <ProtectedRoute path="/categories" component={CategoriesPage} />
+                    <Route path="/settings">
+                      <Redirect to="/settings/email" />
+                    </Route>
+                    <ProtectedRoute path="/settings/audit-log" component={AuditLogPage} />
+                    <ProtectedRoute path="/settings/announcements" component={AdminAnnouncementsPage} />
+                    <ProtectedRoute path="/settings/email" component={SettingsPage} />
+                    <ProtectedRoute path="/settings/system" component={SettingsPage} />
+                    <ProtectedRoute path="/settings/smtp" component={SettingsPage} />
+                    <ProtectedRoute path="/settings/users" component={SettingsPage} />
+                    <ProtectedRoute path="/profile" component={UserProfilePage} />
+                    <ProtectedRoute path="/bylaws" component={BylawsPage} />
+                    <ProtectedRoute path="/disputes" component={DisputeManagementPage} />
+                    <Route component={NotFound} />
+                  </Switch>
+                  <Toaster />
+                  <GlobalLoadingOverlay />
+                </PublicAuthProvider>
               </AuthProvider>
             </LoadingProvider>
           </TooltipProvider>
