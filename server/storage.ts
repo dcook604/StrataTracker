@@ -39,10 +39,11 @@ import {
   type ParkingSpot,
   type StorageLocker,
   type BikeLocker,
-  emailVerificationCodes
+  emailVerificationCodes,
+  publicUserSessions
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, like, ilike, or, not, gte, lte, asc, SQL, Name, inArray, isNull, gt } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
@@ -147,7 +148,7 @@ export interface IStorage {
   sessionStore: session.Store;
 
   getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
-  getAllUnitsPaginated(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ units: PropertyUnit[], total: number }>;
+  getAllUnitsPaginated(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }>;
 
   setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
 
@@ -230,6 +231,21 @@ export interface IStorage {
     personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
     facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
   ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }>;
+
+  // Public user session management for owners/tenants
+  createPublicUserSession(data: {
+    personId: number;
+    unitId: number;
+    email: string;
+    role: string;
+    expiresInHours?: number;
+  }): Promise<any>;
+
+  getPublicUserSession(sessionId: string): Promise<any>;
+
+  getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<any[]>;
+
+  expirePublicUserSession(sessionId: string): Promise<void>;
 }
 
 export interface ViolationHistoryWithUser extends ViolationHistory {
@@ -1332,7 +1348,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc') {
+  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string) {
     const offset = (page - 1) * limit;
     
     // Determine sort order
@@ -1350,8 +1366,20 @@ export class DatabaseStorage implements IStorage {
       orderByClause = sortOrder === 'asc' ? asc(propertyUnits.unitNumber) : desc(propertyUnits.unitNumber);
     }
 
+    // Build where conditions for search
+    const whereConditions = [];
+    if (search && search.trim()) {
+      // Search in unit number and strata lot
+      whereConditions.push(
+        or(
+          ilike(propertyUnits.unitNumber, `%${search.trim()}%`),
+          ilike(propertyUnits.strataLot, `%${search.trim()}%`)
+        )
+      );
+    }
+
     // Get units with persons
-    const paginatedUnits = await db
+    let query = db
       .select({
         unit: propertyUnits,
         roles: unitPersonRoles,
@@ -1359,7 +1387,14 @@ export class DatabaseStorage implements IStorage {
       })
       .from(propertyUnits)
       .leftJoin(unitPersonRoles, eq(propertyUnits.id, unitPersonRoles.unitId))
-      .leftJoin(persons, eq(unitPersonRoles.personId, persons.id))
+      .leftJoin(persons, eq(unitPersonRoles.personId, persons.id));
+
+    // Apply search conditions if any
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+
+    const paginatedUnits = await query
       .orderBy(orderByClause)
       .limit(limit)
       .offset(offset);
@@ -1432,10 +1467,17 @@ export class DatabaseStorage implements IStorage {
     // Convert map to array
     const unitsWithPeopleAndFacilities = Array.from(unitsMap.values());
 
-    // Count query
-    const [{ count }] = await db
+    // Count query with search filter
+    let countQuery = db
       .select({ count: sql<number>`count(*)::int` })
       .from(propertyUnits);
+
+    // Apply search conditions to count query if any
+    if (whereConditions.length > 0) {
+      countQuery = countQuery.where(and(...whereConditions));
+    }
+
+    const [{ count }] = await countQuery;
 
     return {
       units: unitsWithPeopleAndFacilities as (PropertyUnit & { owners: Person[], tenants: Person[], facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] } })[],
@@ -1777,18 +1819,12 @@ export class DatabaseStorage implements IStorage {
         })
         .from(unitPersonRoles)
         .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
-        .where(eq(unitPersonRoles.unitId, unitId))
-        .execute();
+        .where(eq(unitPersonRoles.unitId, unitId));
       
-      // Ensure role is one of the expected values, though DB constraint might exist
-      return result.map(r => ({
-        ...r,
-        role: r.role || 'unknown', // Default or throw error if role is critical and nullable
-        receiveEmailNotifications: r.receiveEmailNotifications ?? true // Default if nullable, though schema says notNull().default(true)
-      }));
+      return result;
     } catch (error) {
-      console.error(`Error fetching persons for unit ${unitId}:`, error);
-      throw error; // Or return empty array / handle as appropriate
+      console.error('Error getting persons with roles for unit:', error);
+      return [];
     }
   }
 
@@ -1989,6 +2025,124 @@ export class DatabaseStorage implements IStorage {
         facilities: createdFacilities,
       };
     });
+  }
+
+  // Public user session management for owners/tenants
+  async createPublicUserSession(data: {
+    personId: number;
+    unitId: number;
+    email: string;
+    role: string;
+    expiresInHours?: number;
+  }) {
+    try {
+      const expiresInHours = data.expiresInHours || 24; // Default 24 hours
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+
+      const [session] = await db
+        .insert(publicUserSessions)
+        .values({
+          personId: data.personId,
+          unitId: data.unitId,
+          email: data.email,
+          role: data.role,
+          expiresAt: expiresAt,
+          lastAccessedAt: new Date(),
+        })
+        .returning();
+
+      return session;
+    } catch (error) {
+      console.error('Error creating public user session:', error);
+      return null;
+    }
+  }
+
+  async getPublicUserSession(sessionId: string) {
+    try {
+      const [session] = await db
+        .select({
+          session: publicUserSessions,
+          person: persons,
+          unit: propertyUnits,
+        })
+        .from(publicUserSessions)
+        .innerJoin(persons, eq(publicUserSessions.personId, persons.id))
+        .innerJoin(propertyUnits, eq(publicUserSessions.unitId, propertyUnits.id))
+        .where(
+          and(
+            eq(publicUserSessions.sessionId, sessionId),
+            gt(publicUserSessions.expiresAt, new Date())
+          )
+        );
+
+      if (session) {
+        // Update last accessed time
+        await db
+          .update(publicUserSessions)
+          .set({ lastAccessedAt: new Date() })
+          .where(eq(publicUserSessions.sessionId, sessionId));
+
+        return {
+          sessionId: session.session.sessionId,
+          personId: session.session.personId,
+          unitId: session.session.unitId,
+          email: session.session.email,
+          role: session.session.role,
+          fullName: session.person.fullName,
+          unitNumber: session.unit.unitNumber,
+          expiresAt: session.session.expiresAt,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error getting public user session:', error);
+      return null;
+    }
+  }
+
+  async getViolationsForUnit(unitId: number, includeStatuses?: string[]) {
+    try {
+      const conditions = [eq(violations.unitId, unitId)];
+      
+      if (includeStatuses && includeStatuses.length > 0) {
+        conditions.push(inArray(violations.status, includeStatuses));
+      }
+
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits,
+          category: violationCategories,
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
+        .where(and(...conditions))
+        .orderBy(desc(violations.createdAt));
+
+      return result.map(row => ({
+        ...row.violation,
+        unit: row.unit,
+        category: row.category,
+      }));
+    } catch (error) {
+      console.error('Error getting violations for unit:', error);
+      return [];
+    }
+  }
+
+  async expirePublicUserSession(sessionId: string) {
+    try {
+      await db
+        .update(publicUserSessions)
+        .set({ expiresAt: new Date() })
+        .where(eq(publicUserSessions.sessionId, sessionId));
+    } catch (error) {
+      console.error('Error expiring public user session:', error);
+    }
   }
 }
 
