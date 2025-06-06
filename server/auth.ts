@@ -91,19 +91,17 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.session?.user && req.session.user.isAdmin) {
-    next();
-  } else {
-    res.status(403).json({ message: 'Admin access required' });
+  if (req.isAuthenticated() && req.user?.isAdmin) {
+    return next();
   }
+  res.status(403).json({ message: 'Admin access required' });
 }
 
 export function requireAdminOrCouncil(req: Request, res: Response, next: NextFunction) {
   if (req.session?.user && (req.session.user.isAdmin || req.session.user.isCouncilMember)) {
-    next();
-  } else {
-    res.status(403).json({ message: 'Admin or council access required' });
+    return next();
   }
+  res.status(403).json({ message: 'Admin or council access required' });
 }
 
 export function setupAuth(app: Express) {
@@ -499,20 +497,8 @@ export function setupAuth(app: Express) {
   });
 }
 
-// Helper function to remove sensitive fields from user data
 function getSafeUserData(user: any) {
   if (!user) return null;
   const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = user;
   return safeUser;
-}
-
-export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-  
-  // Get clean user data for response
-  const safeUser = getSafeUserData(req.user);
-  
-  next();
 }

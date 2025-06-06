@@ -830,3 +830,21 @@ export const emailVerificationCodes = pgTable("email_verification_codes", {
 
 export type EmailVerificationCode = typeof emailVerificationCodes.$inferSelect;
 
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'set null' }),
+  userName: text("user_name"),
+  userEmail: text("user_email"),
+  action: text("action").notNull(),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  details: jsonb("details"),
+  ipAddress: text("ip_address"),
+});
+
+export type AuditLog = z.infer<typeof selectAuditLogSchema>;
+export const selectAuditLogSchema = createSelectSchema(auditLogs);
+export const insertAuditLogSchema = createInsertSchema(auditLogs);
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
