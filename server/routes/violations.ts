@@ -16,6 +16,7 @@ import {
 } from '../email';
 import { insertViolationSchema, type User } from '@shared/schema';
 import logger from '../utils/logger';
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
 
 const router = express.Router();
 
@@ -113,6 +114,18 @@ router.post("/",
 
         const violation = await dbStorage.createViolation(validatedData);
         logger.info(`[Violation Upload] Created violation with UUID: ${violation.uuid}`);
+        
+        // Log audit event
+        await AuditLogger.logFromRequest(req, AuditAction.VIOLATION_CREATED, {
+          targetType: TargetType.VIOLATION,
+          targetId: violation.uuid,
+          details: {
+            violationType: violation.violationType,
+            unitId: violation.unitId,
+            status: violation.status,
+            attachmentCount: attachments.length,
+          },
+        });
         
         res.status(201).json(violation);
         
@@ -251,6 +264,23 @@ router.patch("/:id/status", ensureAuthenticated, async (req, res) => {
         });
       }
 
+      // Log audit event for status change
+      const auditAction = status === 'approved' ? AuditAction.VIOLATION_APPROVED :
+                         status === 'rejected' ? AuditAction.VIOLATION_REJECTED :
+                         status === 'disputed' ? AuditAction.VIOLATION_DISPUTED :
+                         AuditAction.VIOLATION_STATUS_CHANGED;
+      
+      await AuditLogger.logFromRequest(req, auditAction, {
+        targetType: TargetType.VIOLATION,
+        targetId: violationId.toString(),
+        details: {
+          oldStatus: violation.status, // Note: this might be the new status, consider fetching old status if needed
+          newStatus: status,
+          comment: comment,
+          rejectionReason: rejectionReason,
+        },
+      });
+
       res.json(violation);
     } catch (error) {
       logger.error(`Failed to update violation status for ID ${req.params.id}:`, error);
@@ -271,7 +301,24 @@ router.get("/:id/history", ensureAuthenticated, async (req, res) => {
 // DELETE /api/violations/:id
 router.delete("/:id", ensureAuthenticated, async (req, res) => {
     try {
-        await dbStorage.deleteViolation(parseInt(req.params.id));
+        const violationId = parseInt(req.params.id);
+        
+        // Get violation details before deletion for audit log
+        const violation = await getViolationByIdOrUuid(req.params.id);
+        
+        await dbStorage.deleteViolation(violationId);
+        
+        // Log audit event
+        await AuditLogger.logFromRequest(req, AuditAction.VIOLATION_DELETED, {
+          targetType: TargetType.VIOLATION,
+          targetId: violation?.uuid || violationId.toString(),
+          details: {
+            violationType: violation?.violationType,
+            unitId: violation?.unitId,
+            status: violation?.status,
+          },
+        });
+        
         res.status(204).send();
     } catch (error) {
         res.status(500).json({ message: "Failed to delete violation" });

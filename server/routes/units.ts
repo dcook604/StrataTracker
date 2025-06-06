@@ -4,6 +4,7 @@ import { storage as dbStorage } from '../storage';
 import { ensureAuthenticated } from '../middleware/auth-helpers';
 import { insertPropertyUnitSchema } from '@shared/schema';
 import logger from '../utils/logger';
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
 
 const router = express.Router();
 
@@ -80,6 +81,18 @@ router.post("/property-units", ensureAuthenticated, async (req, res) => {
     try {
       const unitData = insertPropertyUnitSchema.parse(req.body);
       const unit = await dbStorage.createPropertyUnit(unitData);
+      
+      // Log audit event
+      await AuditLogger.logFromRequest(req, AuditAction.UNIT_CREATED, {
+        targetType: TargetType.UNIT,
+        targetId: unit.id.toString(),
+        details: {
+          unitNumber: unit.unitNumber,
+          floor: unit.floor,
+          ownerName: unit.ownerName,
+        },
+      });
+      
       res.status(201).json(unit);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -104,6 +117,17 @@ router.patch("/:id", ensureAuthenticated, async (req, res) => {
     
     const updatedUnit = await dbStorage.updateUnitWithPersonsAndFacilities(id, unitData, persons, facilities);
     
+    // Log audit event
+    await AuditLogger.logFromRequest(req, AuditAction.UNIT_UPDATED, {
+      targetType: TargetType.UNIT,
+      targetId: id.toString(),
+      details: {
+        unitData: unitData,
+        personsCount: persons?.length || 0,
+        facilitiesCount: facilities?.length || 0,
+      },
+    });
+    
     res.json(updatedUnit);
   } catch (error: any) {
     logger.error(`[API] Failed to update unit ${req.params.id}:`, error);
@@ -119,7 +143,23 @@ router.delete("/:id", ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: "Invalid unit ID" });
     }
     
+    // Get unit details before deletion for audit log
+    const unitToDelete = await dbStorage.getPropertyUnit(id);
+    
     await dbStorage.deleteUnit(id);
+    
+    // Log audit event
+    if (unitToDelete) {
+      await AuditLogger.logFromRequest(req, AuditAction.UNIT_DELETED, {
+        targetType: TargetType.UNIT,
+        targetId: id.toString(),
+        details: {
+          unitNumber: unitToDelete.unitNumber,
+          floor: unitToDelete.floor,
+          ownerName: unitToDelete.ownerName,
+        },
+      });
+    }
     
     res.status(204).send();
   } catch (error: any) {

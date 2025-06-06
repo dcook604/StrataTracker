@@ -6,6 +6,7 @@ import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { sendWelcomeEmail, sendPasswordResetEmail, sendInvitationEmail } from '../email-service';
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
 
 const router = express.Router();
 const scryptAsync = promisify(scrypt);
@@ -79,6 +80,18 @@ router.post('/', isAdmin, async (req, res) => {
     // Send welcome email with password
     await sendWelcomeEmail(email, password, fullName);
     
+    // Log audit event
+    await AuditLogger.logFromRequest(req, AuditAction.USER_CREATED, {
+      targetType: TargetType.USER,
+      targetId: user.id.toString(),
+      details: {
+        email: user.email,
+        fullName: user.fullName,
+        isAdmin: user.isAdmin,
+        isCouncilMember: user.isCouncilMember,
+      },
+    });
+    
     // Don't return the password in the response
     const { password: _, ...userWithoutPassword } = user;
     res.status(201).json(userWithoutPassword);
@@ -116,6 +129,19 @@ router.put('/:id', isAdmin, async (req, res) => {
       return res.status(404).json({ message: 'User not found after update' });
     }
     
+    // Log audit event
+    await AuditLogger.logFromRequest(req, AuditAction.USER_UPDATED, {
+      targetType: TargetType.USER,
+      targetId: userId.toString(),
+      details: {
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        isAdmin: updatedUser.isAdmin,
+        isCouncilMember: updatedUser.isCouncilMember,
+        changes: updateData,
+      },
+    });
+    
     // Remove sensitive fields before responding
     const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = updatedUser;
     
@@ -136,9 +162,26 @@ router.delete('/:id', isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete your own account' });
     }
     
+    // Get user details before deletion for audit log
+    const userToDelete = await dbStorage.getUser(userId);
+    
     const success = await dbStorage.deleteUser(userId);
     if (!success) {
       return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Log audit event
+    if (userToDelete) {
+      await AuditLogger.logFromRequest(req, AuditAction.USER_DELETED, {
+        targetType: TargetType.USER,
+        targetId: userId.toString(),
+        details: {
+          email: userToDelete.email,
+          fullName: userToDelete.fullName,
+          isAdmin: userToDelete.isAdmin,
+          isCouncilMember: userToDelete.isCouncilMember,
+        },
+      });
     }
     
     res.json({ message: 'User deleted successfully' });

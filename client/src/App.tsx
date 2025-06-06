@@ -18,6 +18,7 @@ import ReportsPage from "@/pages/reports-page";
 import UnitsPage from "@/pages/units-page";
 import CategoriesPage from "@/pages/categories-page";
 import SettingsPage from "@/pages/settings-page";
+import AuditLogPage from "@/pages/audit-log-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import SetPasswordPage from "@/pages/set-password-page";
@@ -54,6 +55,7 @@ export default function App() {
                   <Route path="/settings">
                     <Redirect to="/settings/email" />
                   </Route>
+                  <ProtectedRoute path="/settings/audit-log" component={AuditLogPage} />
                   <ProtectedRoute path="/settings/email" component={SettingsPage} />
                   <ProtectedRoute path="/settings/system" component={SettingsPage} />
                   <ProtectedRoute path="/settings/smtp" component={SettingsPage} />

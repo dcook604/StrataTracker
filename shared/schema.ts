@@ -843,8 +843,6 @@ export const auditLogs = pgTable("audit_logs", {
   ipAddress: text("ip_address"),
 });
 
-export type AuditLog = z.infer<typeof selectAuditLogSchema>;
-export const selectAuditLogSchema = createSelectSchema(auditLogs);
-export const insertAuditLogSchema = createInsertSchema(auditLogs);
-export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;
 

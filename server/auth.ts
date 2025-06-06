@@ -14,6 +14,9 @@ import MemoryStore from 'memorystore';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
+import { AuditLogger, AuditAction } from './audit-logger';
+import { ensureAuthenticated } from './middleware/auth-helpers';
 
 declare global {
   namespace Express {
@@ -256,6 +259,10 @@ export function setupAuth(app: Express) {
           if (!user) {
             logger.warn(`[AUTH] Login failed - User not found`, { email });
             logger.perf(`authentication_failed_no_user`, authStartTime, { email });
+            await AuditLogger.logAuth(AuditAction.USER_LOGIN_FAILED, {
+              userEmail: email,
+              details: { reason: 'User not found' },
+            });
             return done(null, false, { message: "Invalid email or password" });
           }
           
@@ -273,6 +280,12 @@ export function setupAuth(app: Express) {
               failedAttempts: user.failedLoginAttempts 
             });
             logger.perf(`authentication_failed_locked`, authStartTime, { userId: user.id });
+            await AuditLogger.logAuth(AuditAction.USER_LOGIN_FAILED, {
+              userEmail: email,
+              userId: user.id,
+              userName: user.fullName,
+              details: { reason: 'Account locked' },
+            });
             return done(null, false, { message: "Account locked due to too many failed attempts" });
           }
           
@@ -287,6 +300,12 @@ export function setupAuth(app: Express) {
               if (typeof dbStorage.incrementFailedLoginAttempts === 'function') {
                 await dbStorage.incrementFailedLoginAttempts(user.id);
               }
+              await AuditLogger.logAuth(AuditAction.USER_LOGIN_FAILED, {
+                userEmail: email,
+                userId: user.id,
+                userName: user.fullName,
+                details: { reason: 'Invalid password' },
+              });
               return done(null, false, { message: "Invalid email or password" });
             }
             
@@ -298,7 +317,14 @@ export function setupAuth(app: Express) {
             await dbStorage.updateLastLogin(user.id);
           }
           
-          return done(null, user);
+          await AuditLogger.logAuth(AuditAction.USER_LOGIN, {
+            userEmail: user.email,
+            userId: user.id,
+            userName: user.fullName,
+            details: { loginMethod: 'local' },
+          });
+          
+          return done(null, getSafeUserData(user));
           } catch (error) {
             console.error("Error comparing passwords:", error);
             return done(error);
@@ -470,9 +496,11 @@ export function setupAuth(app: Express) {
   // Note: User management APIs have been moved to /routes/user-management.ts
   // This avoids route conflicts and provides better organization
 
-  app.post("/api/logout", (req, res, next) => {
-    // Store session ID for logging before destroying it
+  app.post("/api/logout", async (req, res, next) => {
+    // Store user info for audit logging before logout
+    const user = req.user;
     const sessionId = req.sessionID;
+    const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] as string;
     
     req.logout((err) => {
       if (err) {
@@ -480,9 +508,24 @@ export function setupAuth(app: Express) {
       }
       
       // Destroy the session completely
-      req.session.destroy((destroyErr) => {
+      req.session.destroy(async (destroyErr) => {
         if (destroyErr) {
           // Continue even if session destroy fails
+        }
+        
+        // Log audit event
+        if (user) {
+          try {
+            await AuditLogger.logAuth(AuditAction.USER_LOGOUT, {
+              userId: user.id,
+              userName: user.fullName,
+              userEmail: user.email,
+              ipAddress: ipAddress,
+              details: { sessionId },
+            });
+          } catch (auditError) {
+            logger.error('Failed to log logout audit event:', auditError);
+          }
         }
         
         // Clear the session cookie
