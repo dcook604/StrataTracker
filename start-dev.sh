@@ -226,8 +226,26 @@ cleanup() {
 # Trap SIGINT and SIGTERM to cleanup properly
 trap cleanup SIGINT SIGTERM
 
-# Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+# Keep the script running until user presses Ctrl+C
+# The trap will handle cleanup when SIGINT/SIGTERM is received
+echo "[INFO] Development servers are running. Press Ctrl+C to stop."
+echo ""
+
+# Wait indefinitely until interrupted
+while true; do
+    # Check if processes are still running
+    if ! kill -0 $BACKEND_PID 2>/dev/null; then
+        echo "[ERROR] Backend process died unexpectedly. Check backend.log for details."
+        break
+    fi
+    
+    if ! kill -0 $FRONTEND_PID 2>/dev/null; then
+        echo "[ERROR] Frontend process died unexpectedly. Check frontend.log for details."
+        break
+    fi
+    
+    sleep 5
+done
 
 echo "[INFO] All development servers have terminated."
 echo "[INFO] Database continues running in Docker." 

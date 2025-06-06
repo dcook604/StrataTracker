@@ -102,8 +102,18 @@ export function createAppBootstrap() {
   };
 }
 
+// Flag to prevent multiple shutdown attempts
+let shutdownInProgress = false;
+
 // Graceful shutdown handler
 async function shutdown(signal: string) {
+  // Prevent multiple shutdown attempts
+  if (shutdownInProgress) {
+    console.log(`[SHUTDOWN] Shutdown already in progress, ignoring ${signal}`);
+    return;
+  }
+  
+  shutdownInProgress = true;
   console.log(`[SHUTDOWN] Received ${signal}, starting graceful shutdown...`);
 
   // Try to log shutdown, but fallback to console if logger fails
@@ -136,8 +146,12 @@ async function shutdown(signal: string) {
   // Close database connections
   try {
     console.log('[SHUTDOWN] Closing database connections...');
-    await pool.end();
-    console.log('[SHUTDOWN] Database connections closed');
+    if (!pool.ended) {
+      await pool.end();
+      console.log('[SHUTDOWN] Database connections closed');
+    } else {
+      console.log('[SHUTDOWN] Database connections already closed');
+    }
   } catch (err) {
     console.error('[SHUTDOWN] Error closing database connections:', err);
   }
