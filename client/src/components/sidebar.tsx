@@ -141,6 +141,7 @@ export function Sidebar({ className }: SidebarProps) {
       title: "Settings",
       icon: <Settings className="h-5 w-5" />,
       subItems: [
+        { title: "Announcements", href: "/settings/announcements", adminOnly: true },
         { title: "Audit Log", href: "/settings/audit-log", adminOnly: true },
         { title: "Email Settings", href: "/settings/email", adminOnly: true },
         { title: "System Settings", href: "/settings/system", adminOnly: true },
