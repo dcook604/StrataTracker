@@ -88,23 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   app.use("/api", apiRateLimiter);
   
-  // Register modular routes
-  app.use("/api/users", userManagementRoutes);
-  app.use("/api/email-config", emailConfigRoutes);
-  app.use("/api/communications", communicationsRoutes);
-  app.use("/api/bylaws", bylawsRoutes);
-  app.use("/api/violations", violationsRoutes);
-  app.use('/api/violation-categories', violationCategoriesRoutes);
-  app.use('/api/units', unitsRoutes);
-  app.use('/api/property-units', unitsRoutes);
-  app.use('/api/reports', reportsRoutes); // Register the reports router
-  app.use('/api/audit-logs', auditLogsRoutes); // Register the audit logs router
-  app.use('/public', publicViolationsRoutes); // Register public violations router
-
-  // Serve uploaded files statically
-  app.use('/api/uploads', express.static(uploadsDir));
-
-  // Admin Announcements Routes
+  // Admin Announcements Routes - MUST be defined before modular routes to avoid conflicts
   app.get('/api/admin-announcements', async (req, res) => {
     try {
       const announcements = await db
@@ -123,23 +107,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin-announcements/manage', requireAdmin, async (req, res) => {
     try {
       const announcements = await db
-        .select({
-          id: adminAnnouncements.id,
-          title: adminAnnouncements.title,
-          content: adminAnnouncements.content,
-          htmlContent: adminAnnouncements.htmlContent,
-          isActive: adminAnnouncements.isActive,
-          priority: adminAnnouncements.priority,
-          createdAt: adminAnnouncements.createdAt,
-          updatedAt: adminAnnouncements.updatedAt,
-          createdBy: adminAnnouncements.createdBy,
-          updatedBy: adminAnnouncements.updatedBy,
-          createdByName: users.fullName,
-          updatedByName: sql<string | null>`updated_by_user.full_name`,
-        })
+        .select()
         .from(adminAnnouncements)
-        .leftJoin(users, eq(adminAnnouncements.createdBy, users.id))
-        .leftJoin(sql`users updated_by_user`, sql`admin_announcements.updated_by = updated_by_user.id`)
         .orderBy(desc(adminAnnouncements.priority), desc(adminAnnouncements.createdAt));
       
       res.json(announcements);
@@ -248,6 +217,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to delete announcement' });
     }
   });
+
+  // Register modular routes
+  app.use("/api/users", userManagementRoutes);
+  app.use("/api/email-config", emailConfigRoutes);
+  app.use("/api/communications", communicationsRoutes);
+  app.use("/api/bylaws", bylawsRoutes);
+  app.use("/api/violations", violationsRoutes);
+  app.use('/api/violation-categories', violationCategoriesRoutes);
+  app.use('/api/units', unitsRoutes);
+  app.use('/api/property-units', unitsRoutes);
+  app.use('/api/reports', reportsRoutes); // Register the reports router
+  app.use('/api/audit-logs', auditLogsRoutes); // Register the audit logs router
+  app.use('/public', publicViolationsRoutes); // Register public violations router
+
+  // Serve uploaded files statically
+  app.use('/api/uploads', express.static(uploadsDir));
 
   // Any remaining, un-refactored routes can be cleaned up or moved next.
   
