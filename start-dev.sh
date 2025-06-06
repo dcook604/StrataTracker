@@ -1,30 +1,59 @@
 #!/bin/bash
 
-DEFAULT_BACKEND_PORT=3001
-DEFAULT_FRONTEND_PORT=3002
+DEFAULT_FRONTEND_PORT=5173
 MAX_PORT_SEARCH_ATTEMPTS=10 # How many ports to try after the default one
 
-# Function to stop existing development processes
-stop_existing_processes() {
-    echo "[INFO] Checking for existing development processes..."
+# Check if StrataTracker backend is running in Docker
+check_backend_status() {
+    echo "[INFO] Checking StrataTracker backend status..."
     
-    # Find existing npm dev processes
-    local EXISTING_PIDS=$(pgrep -f "npm run dev" 2>/dev/null)
-    local BACKEND_PIDS=$(pgrep -f "npm run dev:backend" 2>/dev/null)
+    local BACKEND_CONTAINER=$(sudo docker ps --format "{{.Names}}" | grep -E "(stratatracker.*backend|backend.*stratatracker)" | head -1)
     
-    if [ -n "$EXISTING_PIDS" ] || [ -n "$BACKEND_PIDS" ]; then
-        echo "[INFO] Found existing development processes. Stopping them..."
+    if [ -n "$BACKEND_CONTAINER" ]; then
+        echo "[INFO] Found StrataTracker backend container: $BACKEND_CONTAINER"
         
-        # Kill npm dev processes
-        if [ -n "$EXISTING_PIDS" ]; then
-            echo "[INFO] Stopping frontend processes (PIDs: $EXISTING_PIDS)..."
-            echo "$EXISTING_PIDS" | xargs kill -TERM 2>/dev/null
+        # Check if it's healthy/running
+        local BACKEND_STATUS=$(sudo docker ps --format "{{.Status}}" --filter "name=$BACKEND_CONTAINER")
+        echo "[INFO] Backend container status: $BACKEND_STATUS"
+        
+        # Test if backend is responding on port 3001
+        if curl -s http://localhost:3001/api/health > /dev/null 2>&1; then
+            echo "[INFO] ✅ Backend is running and responding on http://localhost:3001"
+            return 0
+        else
+            echo "[WARNING] ⚠️  Backend container is running but not responding on port 3001"
+            echo "[INFO] You may need to wait for it to fully start up, or check the logs:"
+            echo "       sudo docker logs $BACKEND_CONTAINER"
+            return 1
+        fi
+    else
+        echo "[ERROR] ❌ No StrataTracker backend container found!"
+        echo "[INFO] Please start it with: docker-compose up -d db backend"
+        return 1
+    fi
+}
+
+# Function to stop existing frontend development processes
+stop_existing_frontend_processes() {
+    echo "[INFO] Checking for existing frontend development processes..."
+    
+    # Find existing npm/node dev processes (but not Docker backend)
+    local FRONTEND_PIDS=$(pgrep -f "npm run dev" | grep -v backend 2>/dev/null)
+    local VITE_PIDS=$(pgrep -f "vite" 2>/dev/null)
+    
+    if [ -n "$FRONTEND_PIDS" ] || [ -n "$VITE_PIDS" ]; then
+        echo "[INFO] Found existing frontend development processes. Stopping them..."
+        
+        # Kill npm dev processes (frontend only)
+        if [ -n "$FRONTEND_PIDS" ]; then
+            echo "[INFO] Stopping frontend npm processes (PIDs: $FRONTEND_PIDS)..."
+            echo "$FRONTEND_PIDS" | xargs kill -TERM 2>/dev/null
         fi
         
-        # Kill npm dev:backend processes
-        if [ -n "$BACKEND_PIDS" ]; then
-            echo "[INFO] Stopping backend processes (PIDs: $BACKEND_PIDS)..."
-            echo "$BACKEND_PIDS" | xargs kill -TERM 2>/dev/null
+        # Kill Vite processes
+        if [ -n "$VITE_PIDS" ]; then
+            echo "[INFO] Stopping Vite processes (PIDs: $VITE_PIDS)..."
+            echo "$VITE_PIDS" | xargs kill -TERM 2>/dev/null
         fi
         
         # Wait a moment for graceful shutdown
@@ -32,28 +61,23 @@ stop_existing_processes() {
         sleep 3
         
         # Force kill if any are still running
-        local REMAINING_PIDS=$(pgrep -f "npm run dev" 2>/dev/null)
-        local REMAINING_BACKEND_PIDS=$(pgrep -f "npm run dev:backend" 2>/dev/null)
+        local REMAINING_PIDS=$(pgrep -f "npm run dev\|vite" | grep -v backend 2>/dev/null)
         
-        if [ -n "$REMAINING_PIDS" ] || [ -n "$REMAINING_BACKEND_PIDS" ]; then
-            echo "[INFO] Force killing remaining processes..."
-            [ -n "$REMAINING_PIDS" ] && echo "$REMAINING_PIDS" | xargs kill -KILL 2>/dev/null
-            [ -n "$REMAINING_BACKEND_PIDS" ] && echo "$REMAINING_BACKEND_PIDS" | xargs kill -KILL 2>/dev/null
+        if [ -n "$REMAINING_PIDS" ]; then
+            echo "[INFO] Force killing remaining frontend processes..."
+            echo "$REMAINING_PIDS" | xargs kill -KILL 2>/dev/null
         fi
         
-        echo "[INFO] Existing processes stopped."
+        echo "[INFO] Frontend processes stopped."
     else
-        echo "[INFO] No existing development processes found."
+        echo "[INFO] No existing frontend development processes found."
     fi
 }
-
-# Stop any existing development processes first
-stop_existing_processes
 
 # Function to find an available port starting from a base port
 find_available_port() {
   local BASE_PORT=$1
-  local SERVICE_NAME=$2 # For logging purposes, e.g., "Backend" or "Frontend"
+  local SERVICE_NAME=$2 # For logging purposes, e.g., "Frontend"
   local CURRENT_PORT=$BASE_PORT
 
   for i in $(seq 0 $MAX_PORT_SEARCH_ATTEMPTS); do
@@ -72,13 +96,28 @@ find_available_port() {
   return 1 # Indicate failure
 }
 
-# Find available port for backend
-BACKEND_PORT=$(find_available_port $DEFAULT_BACKEND_PORT "Backend")
-if [ $? -ne 0 ]; then
-    echo "[FATAL] Could not find an available port for the backend service. Exiting."
+# Main execution
+echo "🚀 StrataTracker Development Startup Script"
+echo "=============================================="
+echo "[INFO] This script starts the frontend in development mode."
+echo "[INFO] It expects the backend and database to be running in Docker."
+echo ""
+
+# Check backend status first
+if ! check_backend_status; then
+    echo ""
+    echo "[FATAL] Backend is not running or not ready. Please ensure your Docker backend is up:"
+    echo "        docker-compose up -d db backend"
+    echo ""
+    echo "You can check the backend logs with:"
+    echo "        docker-compose logs backend"
     exit 1
 fi
-echo "[INFO] Backend will attempt to start on port $BACKEND_PORT."
+
+echo ""
+
+# Stop any existing frontend processes
+stop_existing_frontend_processes
 
 # Find available port for frontend
 FRONTEND_PORT=$(find_available_port $DEFAULT_FRONTEND_PORT "Frontend")
@@ -86,52 +125,43 @@ if [ $? -ne 0 ]; then
     echo "[FATAL] Could not find an available port for the frontend service. Exiting."
     exit 1
 fi
-echo "[INFO] Frontend will attempt to start on port $FRONTEND_PORT."
 
+echo ""
+echo "[INFO] Frontend will start on port $FRONTEND_PORT"
+echo "[INFO] Backend is running on port 3001 (Docker)"
+echo ""
 
-echo "[INFO] Starting backend server on port $BACKEND_PORT..."
-# Load environment variables from .env file and pass them to the npm command
-# Pass the selected port to the backend server.
-# Assuming the backend (server/index.ts) reads process.env.PORT or process.env.BACKEND_PORT
-# If it reads process.env.PORT, this will set it. If it specifically needs BACKEND_PORT, adjust accordingly.
-DATABASE_URL="postgres://spectrum4:spectrum4password@localhost:5432/spectrum4" \
-NODE_ENV="development" \
-SESSION_SECRET="your-session-secret-change-this-in-production" \
-VIRUS_SCANNING_ENABLED="true" \
-PORT=$BACKEND_PORT \
-npm run dev:backend &
-BACKEND_PID=$!
-echo "[INFO] Backend server process started with PID $BACKEND_PID."
+# Set up environment for frontend development
+export VITE_API_URL="http://localhost:3001"
 
-# Brief pause to let backend initialize
-sleep 3
+echo "[INFO] Starting frontend development server..."
+echo "[INFO] Frontend will connect to backend at: http://localhost:3001"
 
-echo "[INFO] Starting frontend dev server on port $FRONTEND_PORT..."
-# Start the frontend dev server using the found port
+# Start the frontend dev server
 PORT=$FRONTEND_PORT npm run dev &
 FRONTEND_PID=$!
-echo "[INFO] Frontend dev server process started with PID $FRONTEND_PID."
+echo "[INFO] Frontend development server started with PID $FRONTEND_PID."
 
 echo ""
 echo "---------------------------------------------------------------------"
-echo "[SUCCESS] Services are starting!"
-echo "[INFO] Frontend should be available on http://localhost:$FRONTEND_PORT"
-echo "[INFO] Backend is running on port $BACKEND_PORT"
+echo "🎉 Development Environment Ready!"
+echo ""
+echo "📱 Frontend:  http://localhost:$FRONTEND_PORT"
+echo "🔧 Backend:   http://localhost:3001 (Docker)"
+echo "🗄️  Database: localhost:5432 (Docker)"
+echo ""
+echo "💡 Backend API Health: http://localhost:3001/api/health"
 echo "---------------------------------------------------------------------"
 echo ""
-echo "[INFO] Press Ctrl+C to attempt to stop this script and child processes."
-echo "[INFO] If Ctrl+C fails, you may need to manually kill processes:"
-echo "       Backend PID: $BACKEND_PID"
-echo "       Frontend PID: $FRONTEND_PID"
-echo "       Or use: pkill -P $$"
+echo "[INFO] Press Ctrl+C to stop the frontend development server."
+echo "[INFO] To stop the backend: docker-compose down"
 echo ""
 
-# Wait for background PIDs. If this script receives SIGINT (Ctrl+C),
-# it should be propagated to these child processes.
-# Trap SIGINT and SIGTERM to try and kill child processes
-trap 'echo "[INFO] Terminating child processes..."; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit' SIGINT SIGTERM
+# Trap SIGINT and SIGTERM to kill frontend process
+trap 'echo "[INFO] Stopping frontend development server..."; kill $FRONTEND_PID 2>/dev/null; echo "[INFO] Frontend stopped. Backend continues running in Docker."; exit' SIGINT SIGTERM
 
-wait $BACKEND_PID
+# Wait for the frontend process
 wait $FRONTEND_PID
 
-echo "[INFO] All services have terminated." 
+echo "[INFO] Frontend development server has terminated."
+echo "[INFO] Backend and database continue running in Docker." 

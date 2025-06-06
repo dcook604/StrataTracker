@@ -72,7 +72,7 @@ export function AdminAnnouncementWidget() {
     },
   });
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.isAdmin;
 
   if (error) {
     console.error('Error fetching announcements:', error);
