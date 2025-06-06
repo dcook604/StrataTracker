@@ -10,17 +10,18 @@ const router = express.Router();
 
 // --- UNIT MANAGEMENT API ---
 
-// GET /api/units (paginated)
+// GET /api/units (paginated with search)
 router.get("/", ensureAuthenticated, async (req, res) => {
   try {
-    const { page, limit, sortBy, sortOrder } = req.query;
+    const { page, limit, sortBy, sortOrder, search } = req.query;
     const pageNum = parseInt(page as string) || 1;
     const limitNum = parseInt(limit as string) || 20;
     const result = await dbStorage.getAllUnitsPaginated(
       pageNum,
       limitNum,
       sortBy as string | undefined,
-      sortOrder as 'asc' | 'desc' | undefined
+      sortOrder as 'asc' | 'desc' | undefined,
+      search as string | undefined
     );
     res.json(result);
   } catch (error: any) {

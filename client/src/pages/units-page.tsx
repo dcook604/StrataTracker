@@ -118,6 +118,7 @@ const PAGE_SIZE_KEY = "unitsPageSize";
 const PAGE_KEY = "unitsPage";
 const SORT_KEY = "unitsSort";
 const SORT_ORDER_KEY = "unitsSortOrder";
+const SEARCH_KEY = "unitsSearch";
 
 type PersonForm = {
   fullName: string;
@@ -161,6 +162,7 @@ export default function UnitsPage() {
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(PAGE_SIZE_KEY)) || 20);
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
+  const [search, setSearch] = useState(() => localStorage.getItem(SEARCH_KEY) || "");
   const defaultPerson = { fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false };
 
   const form = useForm<FormValues>({
@@ -202,6 +204,7 @@ export default function UnitsPage() {
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
+  useEffect(() => { localStorage.setItem(SEARCH_KEY, search); }, [search]);
   
   useEffect(() => {
     if (!isAddDialogOpen) {
@@ -274,13 +277,16 @@ export default function UnitsPage() {
   }, [editingUnit, isAddDialogOpen, form]);
 
   const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeopleAndFacilities[], total: number }>({
-    queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder }],
+    queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder, search }],
     queryFn: async () => {
       const url = new URL("/api/units", window.location.origin);
       url.searchParams.set("page", String(page));
       url.searchParams.set("limit", String(pageSize));
       url.searchParams.set("sortBy", sortBy);
       url.searchParams.set("sortOrder", sortOrder);
+      if (search.trim()) {
+        url.searchParams.set("search", search.trim());
+      }
       const res = await apiRequest("GET", url.pathname + url.search);
       return res.json(); 
     },
@@ -469,6 +475,11 @@ export default function UnitsPage() {
     else { setSortBy(column); setSortOrder('asc'); }
     setPage(1);
   };
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setPage(1); // Reset to first page when searching
+  };
   
   const columns: ColumnDef<UnitWithPeopleAndFacilities>[] = [
     { accessorKey: "unitNumber", header: () => <span className="cursor-pointer" onClick={() => handleSort('unitNumber')}>Unit {sortBy === 'unitNumber' && (sortOrder === 'asc' ? '▲' : '▼')}</span>, cell: ({ row }) => <div className="font-medium">#{row.original.unitNumber}</div> },
@@ -616,6 +627,24 @@ export default function UnitsPage() {
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Search units..."
+                value={search}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-64"
+              />
+              {search && (
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => handleSearch("")}
+                  title="Clear search"
+                >
+                  <FilterX className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
             <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1); }}>
               <SelectTrigger className="w-[120px]">
                 <SelectValue placeholder="Page size" />
@@ -629,6 +658,17 @@ export default function UnitsPage() {
             </Select>
           </div>
         </div>
+
+        {/* Search Results Info */}
+        {!unitsLoading && units.length > 0 && (
+          <div className="text-sm text-gray-600 mb-4">
+            {search ? (
+              <>Showing {units.length} of {total} units matching "{search}"</>
+            ) : (
+              <>Showing {units.length} of {total} units</>
+            )}
+          </div>
+        )}
         
         {(unitsLoading || isPropertyUnitsLoading) ? (
           <div className="flex justify-center p-8">
@@ -639,8 +679,6 @@ export default function UnitsPage() {
             <DataTable 
               columns={columns} 
               data={units}
-              searchColumn="unitNumber"
-              searchPlaceholder="Search by unit number..."
             />
             <div className="py-4 flex justify-center">
               <Pagination>

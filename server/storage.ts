@@ -43,7 +43,7 @@ import {
   publicUserSessions
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, not, gte, lte, asc, SQL, Name, inArray, isNull, gt } from "drizzle-orm";
+import { eq, and, desc, sql, like, ilike, or, not, gte, lte, asc, SQL, Name, inArray, isNull, gt } from "drizzle-orm";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
@@ -148,7 +148,7 @@ export interface IStorage {
   sessionStore: session.Store;
 
   getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
-  getAllUnitsPaginated(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ units: PropertyUnit[], total: number }>;
+  getAllUnitsPaginated(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }>;
 
   setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
 
@@ -1348,7 +1348,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc') {
+  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string) {
     const offset = (page - 1) * limit;
     
     // Determine sort order
@@ -1366,8 +1366,20 @@ export class DatabaseStorage implements IStorage {
       orderByClause = sortOrder === 'asc' ? asc(propertyUnits.unitNumber) : desc(propertyUnits.unitNumber);
     }
 
+    // Build where conditions for search
+    const whereConditions = [];
+    if (search && search.trim()) {
+      // Search in unit number and strata lot
+      whereConditions.push(
+        or(
+          ilike(propertyUnits.unitNumber, `%${search.trim()}%`),
+          ilike(propertyUnits.strataLot, `%${search.trim()}%`)
+        )
+      );
+    }
+
     // Get units with persons
-    const paginatedUnits = await db
+    let query = db
       .select({
         unit: propertyUnits,
         roles: unitPersonRoles,
@@ -1375,7 +1387,14 @@ export class DatabaseStorage implements IStorage {
       })
       .from(propertyUnits)
       .leftJoin(unitPersonRoles, eq(propertyUnits.id, unitPersonRoles.unitId))
-      .leftJoin(persons, eq(unitPersonRoles.personId, persons.id))
+      .leftJoin(persons, eq(unitPersonRoles.personId, persons.id));
+
+    // Apply search conditions if any
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+
+    const paginatedUnits = await query
       .orderBy(orderByClause)
       .limit(limit)
       .offset(offset);
@@ -1448,10 +1467,17 @@ export class DatabaseStorage implements IStorage {
     // Convert map to array
     const unitsWithPeopleAndFacilities = Array.from(unitsMap.values());
 
-    // Count query
-    const [{ count }] = await db
+    // Count query with search filter
+    let countQuery = db
       .select({ count: sql<number>`count(*)::int` })
       .from(propertyUnits);
+
+    // Apply search conditions to count query if any
+    if (whereConditions.length > 0) {
+      countQuery = countQuery.where(and(...whereConditions));
+    }
+
+    const [{ count }] = await countQuery;
 
     return {
       units: unitsWithPeopleAndFacilities as (PropertyUnit & { owners: Person[], tenants: Person[], facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] } })[],
