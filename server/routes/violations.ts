@@ -301,21 +301,39 @@ router.get("/:id/history", ensureAuthenticated, async (req, res) => {
 // DELETE /api/violations/:id
 router.delete("/:id", ensureAuthenticated, async (req, res) => {
     try {
-        const violationId = parseInt(req.params.id);
+        const idOrUuid = req.params.id;
         
         // Get violation details before deletion for audit log
-        const violation = await getViolationByIdOrUuid(req.params.id);
+        const violation = await getViolationByIdOrUuid(idOrUuid);
         
-        await dbStorage.deleteViolation(violationId);
+        if (!violation) {
+            return res.status(404).json({ message: "Violation not found" });
+        }
+        
+        // Delete using the appropriate method based on identifier type
+        let deleteSuccess: boolean;
+        if (isUUID(idOrUuid)) {
+            deleteSuccess = await dbStorage.deleteViolationByUuid(idOrUuid);
+        } else {
+            const violationId = parseInt(idOrUuid);
+            if (isNaN(violationId)) {
+                return res.status(400).json({ message: "Invalid violation ID" });
+            }
+            deleteSuccess = await dbStorage.deleteViolation(violationId);
+        }
+        
+        if (!deleteSuccess) {
+            return res.status(404).json({ message: "Violation not found" });
+        }
         
         // Log audit event
         await AuditLogger.logFromRequest(req, AuditAction.VIOLATION_DELETED, {
           targetType: TargetType.VIOLATION,
-          targetId: violation?.uuid || violationId.toString(),
+          targetId: violation.uuid,
           details: {
-            violationType: violation?.violationType,
-            unitId: violation?.unitId,
-            status: violation?.status,
+            violationType: violation.violationType,
+            unitId: violation.unitId,
+            status: violation.status,
           },
         });
         
