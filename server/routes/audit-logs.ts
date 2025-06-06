@@ -41,7 +41,10 @@ router.get('/', async (req, res) => {
       conditions.push(gte(auditLogs.timestamp, new Date(startDate as string)));
     }
     if (endDate) {
-      conditions.push(lte(auditLogs.timestamp, new Date(endDate as string)));
+      // Set end date to end of day (23:59:59.999) to include all records from that day
+      const endOfDay = new Date(endDate as string);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      conditions.push(lte(auditLogs.timestamp, endOfDay));
     }
 
     // User filter
@@ -148,7 +151,10 @@ router.get('/stats', async (req, res) => {
       conditions.push(gte(auditLogs.timestamp, new Date(startDate as string)));
     }
     if (endDate) {
-      conditions.push(lte(auditLogs.timestamp, new Date(endDate as string)));
+      // Set end date to end of day (23:59:59.999) to include all records from that day
+      const endOfDay = new Date(endDate as string);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      conditions.push(lte(auditLogs.timestamp, endOfDay));
     }
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -240,7 +246,12 @@ router.get('/export', async (req, res) => {
 
     const conditions = [];
     if (startDate) conditions.push(gte(auditLogs.timestamp, new Date(startDate as string)));
-    if (endDate) conditions.push(lte(auditLogs.timestamp, new Date(endDate as string)));
+    if (endDate) {
+      // Set end date to end of day (23:59:59.999) to include all records from that day
+      const endOfDay = new Date(endDate as string);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      conditions.push(lte(auditLogs.timestamp, endOfDay));
+    }
     if (userId) conditions.push(eq(auditLogs.userId, parseInt(userId as string)));
     if (action) {
       if (Array.isArray(action)) {

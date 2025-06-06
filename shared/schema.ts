@@ -846,3 +846,19 @@ export const auditLogs = pgTable("audit_logs", {
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
 
+export const adminAnnouncements = pgTable("admin_announcements", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: jsonb("content").notNull(), // Tiptap JSON content
+  htmlContent: text("html_content").notNull(), // Rendered HTML for display
+  isActive: boolean("is_active").default(true).notNull(),
+  priority: integer("priority").default(0).notNull(), // For ordering multiple announcements
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: 'set null' }),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: 'set null' }),
+});
+
+export type AdminAnnouncement = typeof adminAnnouncements.$inferSelect;
+export type InsertAdminAnnouncement = typeof adminAnnouncements.$inferInsert;
+

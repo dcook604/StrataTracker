@@ -23,7 +23,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
@@ -51,7 +51,18 @@ export function Sidebar({ className }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [violationsOpen, setViolationsOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(location.startsWith('/settings'));
+
+  // Auto-expand appropriate section based on current route
+  useEffect(() => {
+    if (location.startsWith('/settings')) {
+      setSettingsOpen(true);
+      setViolationsOpen(false);
+    } else if (location.startsWith('/violations') || location.startsWith('/categories')) {
+      setViolationsOpen(true);
+      setSettingsOpen(false);
+    }
+  }, [location]);
 
   const handleLogout = () => {
     logoutMutation.mutate();
