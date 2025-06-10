@@ -44,23 +44,19 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, like, ilike, or, not, gte, lte, asc, SQL, Name, inArray, isNull, gt } from "drizzle-orm";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import { randomBytes, randomUUID } from "crypto";
 import session from "express-session";
-// @ts-ignore
 import memorystore from "memorystore";
 import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
 import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, PgTransaction } from 'drizzle-orm/pg-core';
 import { drizzle, NodePgQueryResultHKT, NodePgDatabase, NodePgClient } from 'drizzle-orm/node-postgres';
-// @ts-ignore
-import connectPgSimple from 'connect-pg-simple';
 import logger from './utils/logger';
 import { Buffer } from 'buffer';
-import { randomUUID } from "crypto";
 
-const scryptAsync = promisify(scrypt);
+// @ts-expect-error
+import connectPgSimple from 'connect-pg-simple';
 
-const MemoryStore = memorystore(session) as any;
+const MemoryStore = memorystore(session);
 
 export interface IStorage {
   // User operations
@@ -736,7 +732,6 @@ export class DatabaseStorage implements IStorage {
     const history = await db.select({
       id: violationHistories.id,
       violationId: violationHistories.violationId,
-      // violationUuid: violationHistories.violationUuid, // Column doesn't exist
       userId: violationHistories.userId,
       action: violationHistories.action,
       rejectionReason: violationHistories.rejectionReason,
@@ -762,7 +757,6 @@ export class DatabaseStorage implements IStorage {
       .insert(violationHistories)
       .values({
         ...history,
-        // violationUuid: violation?.uuid, // Column doesn't exist
         createdAt: new Date()
       })
       .returning();
