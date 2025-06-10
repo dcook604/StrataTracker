@@ -1,8 +1,8 @@
 import express from 'express';
 import { db } from '../db';
-import { auditLogs, users, type AuditLog } from '@shared/schema';
+import { auditLogs, profiles, type AuditLog } from '@shared/schema';
 import { eq, desc, and, gte, lte, like, or, inArray, sql } from 'drizzle-orm';
-import { requireAdmin } from '../auth';
+import { requireAdmin } from '../middleware/supabase-auth-middleware';
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
 
 const router = express.Router();

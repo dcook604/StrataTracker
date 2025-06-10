@@ -1,6 +1,6 @@
 import express from 'express';
 import { storage as dbStorage } from '../storage';
-import { ensureAuthenticated } from '../middleware/auth-helpers';
+// Note: Authentication now handled at route level in routes.ts
 // import { generateViolationsPdf } from '../pdfGenerator';
 import { format } from 'date-fns';
 import logger from '../utils/logger';
@@ -15,7 +15,7 @@ router.get("/test", (req, res) => {
 // --- REPORTING API ---
 
 // GET /api/reports/violations-pdf - TEMPORARILY DISABLED
-// router.get("/violations-pdf", ensureAuthenticated, async (req, res) => {
+// router.get("/violations-pdf", async (req, res) => {
 //   try {
 //     const from = req.query.from ? new Date(req.query.from as string) : undefined;
 //     const to = req.query.to ? new Date(req.query.to as string) : undefined;
@@ -42,7 +42,7 @@ router.get("/test", (req, res) => {
 // });
 
 // GET /api/reports/violations-csv
-router.get("/violations-csv", ensureAuthenticated, async (req, res) => {
+router.get("/violations-csv", async (req, res) => {
   try {
     const filters = {
       from: req.query.from ? new Date(req.query.from as string) : undefined,
@@ -85,7 +85,7 @@ router.get("/violations-csv", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/reports/stats
-router.get("/stats", ensureAuthenticated, async (req, res) => {
+router.get("/stats", async (req, res) => {
   try {
     const filters = {
       from: req.query.from ? new Date(req.query.from as string) : undefined,
@@ -113,7 +113,7 @@ router.get("/stats", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/reports/repeat-violations
-router.get("/repeat-violations", ensureAuthenticated, async (req, res) => {
+router.get("/repeat-violations", async (req, res) => {
   try {
     const minCount = req.query.minCount ? parseInt(req.query.minCount as string) : 2;
     const repeatViolations = await dbStorage.getRepeatViolations(minCount);
@@ -125,7 +125,7 @@ router.get("/repeat-violations", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/reports/violations-by-month
-router.get("/violations-by-month", ensureAuthenticated, async (req, res) => {
+router.get("/violations-by-month", async (req, res) => {
   try {
     const filters = {
       from: req.query.from ? new Date(req.query.from as string) : undefined,
@@ -141,7 +141,7 @@ router.get("/violations-by-month", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/reports/violations-by-type
-router.get("/violations-by-type", ensureAuthenticated, async (req, res) => {
+router.get("/violations-by-type", async (req, res) => {
   try {
     const filters = {
       from: req.query.from ? new Date(req.query.from as string) : undefined,
@@ -157,7 +157,7 @@ router.get("/violations-by-type", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/reports/monthly-fines
-router.get("/monthly-fines", ensureAuthenticated, async (req, res) => {
+router.get("/monthly-fines", async (req, res) => {
   try {
     const filters = {
       from: req.query.from ? new Date(req.query.from as string) : undefined,

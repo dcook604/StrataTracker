@@ -9,7 +9,7 @@ import {
   propertyUnits,
   persons,
   unitPersonRoles,
-  users,
+  profiles,
   insertCommunicationCampaignSchema,
   insertCommunicationTemplateSchema,
   CommunicationType,
@@ -52,7 +52,7 @@ router.get('/campaigns', async (req, res) => {
         sentAt: communicationCampaigns.sentAt,
         createdAt: communicationCampaigns.createdAt,
         createdBy: {
-          fullName: users.fullName,
+          fullName: profiles.fullName,
           email: users.email
         }
       })

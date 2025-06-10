@@ -162,16 +162,35 @@ DATABASE_URL="$DATABASE_URL" PORT="$BACKEND_PORT" npm run dev:backend > backend.
 BACKEND_PID=$!
 echo "[INFO] Backend development server started with PID $BACKEND_PID."
 
-# Wait a moment for backend to start
-echo "[INFO] Waiting for backend to start..."
-sleep 5
+# --- Wait for backend to be fully ready ---
+WAIT_SECONDS=30
+echo "[INFO] Waiting up to $WAIT_SECONDS seconds for backend to become healthy..."
 
-# Test if backend is responding
-if curl -s http://localhost:$BACKEND_PORT/api/health > /dev/null 2>&1; then
-    echo "[INFO] ✅ Backend is responding on http://localhost:$BACKEND_PORT"
-else
-    echo "[WARNING] ⚠️  Backend may still be starting up..."
+# Use a while loop with a timeout to check the health endpoint
+backend_ready=false
+for i in $(seq 1 $WAIT_SECONDS); do
+    # Use curl with silent (-s) and fail (-f) options
+    if curl -s -f "http://localhost:$BACKEND_PORT/api/health" > /dev/null 2>&1; then
+        echo "[INFO] ✅ Backend is healthy and responding on http://localhost:$BACKEND_PORT (took ${i}s)"
+        backend_ready=true
+        break
+    fi
+    # Print a dot to show progress without spamming logs
+    printf "."
+    sleep 1
+done
+
+echo "" # Newline after the progress dots
+
+if [ "$backend_ready" = false ]; then
+    echo "[FATAL] ❌ Backend did not become healthy after $WAIT_SECONDS seconds."
+    echo "[INFO] Please check the backend logs for errors:"
+    echo "       tail -f backend.log"
+    # Make sure to kill the process if the script exits
+    kill $BACKEND_PID
+    exit 1
 fi
+# --- End of backend readiness check ---
 
 echo ""
 echo "[INFO] Starting frontend development server..."

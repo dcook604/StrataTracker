@@ -37,7 +37,6 @@ import {
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
-  rememberMe: z.boolean().default(false),
 });
 
 // Registration is now admin-only and handled in the users page
@@ -107,7 +106,6 @@ export default function AuthPage() {
     defaultValues: {
       email: "",
       password: "",
-      rememberMe: false,
     },
   });
 
@@ -129,10 +127,9 @@ export default function AuthPage() {
       setIsLoading(true);
       setError(null);
       await loginMutation.mutateAsync({
-      email: values.email,
-      password: values.password,
-      rememberMe: values.rememberMe
-    });
+        email: values.email,
+        password: values.password,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
@@ -229,36 +226,12 @@ export default function AuthPage() {
                   )}
                 />
                 
-                  <FormField
-                    control={loginForm.control}
-                    name="rememberMe"
-                    render={({ field }) => (
-              <FormItem className="flex flex-row items-center space-x-2">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value} 
-                            onCheckedChange={field.onChange}
-                    disabled={isLoading}
-                          />
-                        </FormControl>
-                <FormLabel className="text-sm font-normal">Remember me</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                
                 <Button 
                   type="submit" 
-                  className="w-full" 
-          disabled={isLoading}
+                  className="w-full"
+                  disabled={isLoading}
                 >
-                {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        "Sign in"
-                      )}
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
                 </Button>
               </form>
             </Form>

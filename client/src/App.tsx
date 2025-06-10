@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/hooks/use-auth";
-import { PublicAuthProvider } from "@/hooks/use-public-auth";
 import { LoadingProvider } from "@/contexts/loading-context";
 import { GlobalLoadingOverlay } from "@/components/global-loading-overlay";
 import { ProtectedRoute } from "@/lib/protected-route";
@@ -42,7 +41,6 @@ export default function App() {
           <TooltipProvider>
             <LoadingProvider>
               <AuthProvider>
-                <PublicAuthProvider>
                   <Switch>
                     <Route path="/auth" component={AuthPage} />
                     <Route path="/forgot-password" component={ForgotPasswordPage} />
@@ -74,7 +72,6 @@ export default function App() {
                   </Switch>
                   <Toaster />
                   <GlobalLoadingOverlay />
-                </PublicAuthProvider>
               </AuthProvider>
             </LoadingProvider>
           </TooltipProvider>

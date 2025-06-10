@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
 import userManagementRoutes from "./routes/user-management";
 import emailConfigRoutes from "./routes/email-config";
 import communicationsRoutes from "./routes/communications";
@@ -19,11 +18,11 @@ import path from "path";
 import fs from "fs/promises";
 import logger from "./utils/logger";
 import { getVirusScanner } from "./services/virusScanner";
-import { adminAnnouncements, type AdminAnnouncement, type InsertAdminAnnouncement, users } from '@shared/schema';
+import { adminAnnouncements, type AdminAnnouncement, type InsertAdminAnnouncement } from '@shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { AuditLogger, AuditAction, TargetType } from './audit-logger';
-import { requireAdmin } from './auth';
 import { db } from './db';
+import { authenticateUser, requireAdmin, requireAdminOrCouncil, optionalAuth, AuthenticatedRequest } from './middleware/supabase-auth-middleware';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Public health endpoint for Docker health checks (no authentication required)
@@ -76,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // Set up authentication routes first
-  setupAuth(app);
+  // setupAuth(app); // Old auth setup removed
   
   // Apply rate limiting specifically to /api routes
   const apiRateLimiter = rateLimit({
@@ -87,6 +86,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     message: 'Too many requests to API, please try again later.'
   });
   app.use("/api", apiRateLimiter);
+
+  // Apply optional auth to admin announcements (public route)
+  // Note: Individual routes will apply authenticateUser where needed
   
   // Admin Announcements Routes - MUST be defined before modular routes to avoid conflicts
   app.get('/api/admin-announcements', async (req, res) => {
@@ -104,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin-announcements/manage', requireAdmin, async (req, res) => {
+  app.get('/api/admin-announcements/manage', authenticateUser, requireAdmin, async (req, res) => {
     try {
       const announcements = await db
         .select()
@@ -118,9 +120,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin-announcements', requireAdmin, async (req, res) => {
+  app.post('/api/admin-announcements', authenticateUser, requireAdmin, async (req, res) => {
     try {
       const { title, content, htmlContent, isActive, priority } = req.body;
+      const user = (req as AuthenticatedRequest).user;
       
       if (!title || !content || !htmlContent) {
         return res.status(400).json({ message: 'Title, content, and htmlContent are required' });
@@ -134,10 +137,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           htmlContent,
           isActive: isActive ?? true,
           priority: priority ?? 0,
-          createdBy: req.user!.id,
-          updatedBy: req.user!.id,
+          createdBy: null, // Old column - set to null
+          updatedBy: null, // Old column - set to null  
         })
         .returning();
+
+      // Update with new UUID columns using raw SQL since schema might not be updated yet
+      await db.execute(sql`
+        UPDATE admin_announcements 
+        SET created_by_new = ${user.id}, updated_by_new = ${user.id}
+        WHERE id = ${announcement.id}
+      `);
 
       await AuditLogger.logFromRequest(req, AuditAction.SYSTEM_SETTING_UPDATED, {
         targetType: TargetType.SYSTEM_SETTING,
@@ -152,10 +162,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/admin-announcements/:id', requireAdmin, async (req, res) => {
+  app.put('/api/admin-announcements/:id', authenticateUser, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const { title, content, htmlContent, isActive, priority } = req.body;
+      const user = (req as AuthenticatedRequest).user;
       
       if (!title || !content || !htmlContent) {
         return res.status(400).json({ message: 'Title, content, and htmlContent are required' });
@@ -169,11 +180,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           htmlContent,
           isActive,
           priority,
-          updatedBy: req.user!.id,
+          updatedBy: null, // Old column - set to null
           updatedAt: new Date(),
         })
         .where(eq(adminAnnouncements.id, parseInt(id)))
         .returning();
+
+      // Update with new UUID column using raw SQL
+      await db.execute(sql`
+        UPDATE admin_announcements 
+        SET updated_by_new = ${user.id}
+        WHERE id = ${parseInt(id)}
+      `);
 
       if (!announcement) {
         return res.status(404).json({ message: 'Announcement not found' });
@@ -192,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/admin-announcements/:id', requireAdmin, async (req, res) => {
+  app.delete('/api/admin-announcements/:id', authenticateUser, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -218,18 +236,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Register modular routes
-  app.use("/api/users", userManagementRoutes);
-  app.use("/api/email-config", emailConfigRoutes);
-  app.use("/api/communications", communicationsRoutes);
-  app.use("/api/bylaws", bylawsRoutes);
-  app.use("/api/violations", violationsRoutes);
-  app.use('/api/violation-categories', violationCategoriesRoutes);
-  app.use('/api/units', unitsRoutes);
-  app.use('/api/property-units', unitsRoutes);
-  app.use('/api/reports', reportsRoutes); // Register the reports router
-  app.use('/api/audit-logs', auditLogsRoutes); // Register the audit logs router
-  app.use('/public', publicViolationsRoutes); // Register public violations router
+  // Register modular routes - apply authentication middleware where needed
+  app.use("/api/users", authenticateUser, userManagementRoutes);
+  app.use("/api/email-config", authenticateUser, emailConfigRoutes);
+  app.use("/api/communications", authenticateUser, communicationsRoutes);
+  app.use("/api/bylaws", authenticateUser, bylawsRoutes);
+  app.use("/api/violations", authenticateUser, violationsRoutes);
+  app.use('/api/violation-categories', authenticateUser, violationCategoriesRoutes);
+  app.use('/api/units', authenticateUser, unitsRoutes);
+  app.use('/api/property-units', authenticateUser, unitsRoutes);
+  app.use('/api/reports', authenticateUser, reportsRoutes); // Register the reports router
+  app.use('/api/audit-logs', authenticateUser, auditLogsRoutes); // Register the audit logs router
+  app.use('/public', publicViolationsRoutes); // Register public violations router (no auth)
 
   // Serve uploaded files statically
   app.use('/api/uploads', express.static(uploadsDir));

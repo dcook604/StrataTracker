@@ -1,7 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
 import { storage as dbStorage } from '../storage';
-import { ensureAuthenticated } from '../middleware/auth-helpers';
+// Note: Authentication now handled at route level in routes.ts
 import { insertPropertyUnitSchema } from '@shared/schema';
 import logger from '../utils/logger';
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
@@ -11,7 +11,7 @@ const router = express.Router();
 // --- UNIT MANAGEMENT API ---
 
 // GET /api/units (paginated with search)
-router.get("/", ensureAuthenticated, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const { page, limit, sortBy, sortOrder, search } = req.query;
     const pageNum = parseInt(page as string) || 1;
@@ -31,7 +31,7 @@ router.get("/", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/units/:id/details
-router.get("/:id/details", ensureAuthenticated, async (req, res) => {
+router.get("/:id/details", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -49,7 +49,7 @@ router.get("/:id/details", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/units/check-duplicate
-router.get("/check-duplicate", ensureAuthenticated, async (req, res) => {
+router.get("/check-duplicate", async (req, res) => {
   try {
     const { unitNumber } = req.query;
     if (!unitNumber || typeof unitNumber !== 'string') {
@@ -67,7 +67,7 @@ router.get("/check-duplicate", ensureAuthenticated, async (req, res) => {
 // --- PROPERTY UNITS (Legacy/Generic, might be merged with /units later) ---
 
 // GET /api/property-units (gets all, not paginated)
-router.get("/property-units", ensureAuthenticated, async (req, res) => {
+router.get("/property-units", async (req, res) => {
     try {
       const units = await dbStorage.getAllPropertyUnits();
       res.json(units);
@@ -78,7 +78,7 @@ router.get("/property-units", ensureAuthenticated, async (req, res) => {
 });
 
 // POST /api/property-units
-router.post("/property-units", ensureAuthenticated, async (req, res) => {
+router.post("/property-units", async (req, res) => {
     try {
       const unitData = insertPropertyUnitSchema.parse(req.body);
       const unit = await dbStorage.createPropertyUnit(unitData);
@@ -106,7 +106,7 @@ router.post("/property-units", ensureAuthenticated, async (req, res) => {
 // NOTE: We need to find the PUT and DELETE endpoints for units and move them here.
 
 // PATCH /api/units/:id
-router.patch("/:id", ensureAuthenticated, async (req, res) => {
+router.patch("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -137,7 +137,7 @@ router.patch("/:id", ensureAuthenticated, async (req, res) => {
 });
 
 // DELETE /api/units/:id
-router.delete("/:id", ensureAuthenticated, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {

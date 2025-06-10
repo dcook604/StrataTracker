@@ -5,7 +5,7 @@ import {
   bylawCategories, 
   bylawCategoryLinks,
   bylawRevisions,
-  users,
+  profiles,
   insertBylawSchema,
   insertBylawCategorySchema,
   insertBylawRevisionSchema,
@@ -121,13 +121,13 @@ router.get('/', async (req, res) => {
         createdAt: bylaws.createdAt,
         updatedAt: bylaws.updatedAt,
         createdBy: {
-          id: users.id,
-          fullName: users.fullName,
-          email: users.email
+          id: profiles.id,
+          fullName: profiles.fullName,
+          email: profiles.email
         }
       })
       .from(bylaws)
-      .leftJoin(users, eq(bylaws.createdById, users.id))
+      .leftJoin(users, eq(bylaws.createdById, profiles.id))
       .where(and(...whereConditions));
 
     // Add category filter if specified
@@ -158,13 +158,13 @@ router.get('/', async (req, res) => {
               createdAt: bylaws.createdAt,
               updatedAt: bylaws.updatedAt,
               createdBy: {
-                id: users.id,
-                fullName: users.fullName,
-                email: users.email
+                id: profiles.id,
+                fullName: profiles.fullName,
+                email: profiles.email
               }
             })
             .from(bylaws)
-            .leftJoin(users, eq(bylaws.createdById, users.id))
+            .leftJoin(users, eq(bylaws.createdById, profiles.id))
             .where(and(...whereConditions));
         }
       }
@@ -242,13 +242,13 @@ router.get('/:id', async (req, res) => {
         createdAt: bylaws.createdAt,
         updatedAt: bylaws.updatedAt,
         createdBy: {
-          id: users.id,
-          fullName: users.fullName,
-          email: users.email
+          id: profiles.id,
+          fullName: profiles.fullName,
+          email: profiles.email
         }
       })
       .from(bylaws)
-      .leftJoin(users, eq(bylaws.createdById, users.id))
+      .leftJoin(users, eq(bylaws.createdById, profiles.id))
       .where(eq(bylaws.id, bylawId));
 
     if (!bylaw) {
@@ -441,13 +441,13 @@ router.get('/:id/revisions', ensureCouncilOrAdmin, async (req, res) => {
         effectiveDate: bylawRevisions.effectiveDate,
         createdAt: bylawRevisions.createdAt,
         createdBy: {
-          id: users.id,
-          fullName: users.fullName,
-          email: users.email
+          id: profiles.id,
+          fullName: profiles.fullName,
+          email: profiles.email
         }
       })
       .from(bylawRevisions)
-      .leftJoin(users, eq(bylawRevisions.createdById, users.id))
+      .leftJoin(users, eq(bylawRevisions.createdById, profiles.id))
       .where(eq(bylawRevisions.bylawId, bylawId))
       .orderBy(desc(bylawRevisions.createdAt));
 

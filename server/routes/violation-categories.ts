@@ -1,6 +1,6 @@
 import express from 'express';
 import { storage as dbStorage } from '../storage';
-import { ensureAuthenticated } from '../middleware/auth-helpers';
+// Note: Authentication now handled at route level in routes.ts
 import logger from '../utils/logger';
 
 const router = express.Router();
@@ -8,7 +8,7 @@ const router = express.Router();
 // --- VIOLATION CATEGORIES API ---
 
 // GET /api/violation-categories
-router.get("/", ensureAuthenticated, async (req, res) => {
+router.get("/", async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
       res.json(categories);
@@ -19,7 +19,7 @@ router.get("/", ensureAuthenticated, async (req, res) => {
 });
 
 // POST /api/violation-categories
-router.post("/", ensureAuthenticated, async (req, res) => {
+router.post("/", async (req, res) => {
     try {
       const category = await dbStorage.createViolationCategory({ name: req.body.name });
       res.status(201).json(category);
@@ -30,7 +30,7 @@ router.post("/", ensureAuthenticated, async (req, res) => {
 });
 
 // PUT /api/violation-categories/:id
-router.put("/:id", ensureAuthenticated, async (req, res) => {
+router.put("/:id", async (req, res) => {
     try {
       const category = await dbStorage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
       if (!category) {
@@ -44,7 +44,7 @@ router.put("/:id", ensureAuthenticated, async (req, res) => {
 });
 
 // DELETE /api/violation-categories/:id
-router.delete("/:id", ensureAuthenticated, async (req, res) => {
+router.delete("/:id", async (req, res) => {
     try {
       const success = await dbStorage.deleteViolationCategory(parseInt(req.params.id));
       if (!success) {

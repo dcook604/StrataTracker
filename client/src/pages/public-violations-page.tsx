@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { PublicSidebar } from "@/components/public-sidebar";
-import { usePublicAuth, usePublicApiRequest } from "@/hooks/use-public-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Eye, AlertCircle, Calendar, FileText } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { supabase } from "@/lib/supabase";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Violation {
   id: number;
@@ -27,34 +29,35 @@ interface Violation {
 
 export default function PublicViolationsPage() {
   const [, navigate] = useLocation();
-  const { isAuthenticated, publicUser, logout } = usePublicAuth();
-  const publicApiRequest = usePublicApiRequest();
+  const { session, user, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirect if not authenticated
+  // The AuthProvider now handles auth state, so we just need to wait for it.
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/');
+    if (!authIsLoading && !user) {
+      navigate('/auth'); // Redirect to main login page if not authenticated
       return;
     }
-  }, [isAuthenticated, navigate]);
+  }, [authIsLoading, user, navigate]);
 
   // Fetch violations for the user's unit
   useEffect(() => {
-    if (isAuthenticated) {
+    if (user) {
       loadViolations();
     }
-  }, [isAuthenticated]);
+  }, [user]);
 
   const loadViolations = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await publicApiRequest('GET', '/public/violations');
+      // We need a new endpoint for public users to get their violations.
+      // Let's assume there is a /api/public/violations endpoint
+      const response = await apiRequest('GET', '/api/public/violations');
       const data = await response.json();
       setViolations(data.violations || []);
     } catch (err: any) {
@@ -94,8 +97,12 @@ export default function PublicViolationsPage() {
     return diffDays;
   };
 
-  if (!isAuthenticated) {
-    return null; // Will redirect in useEffect
+  if (authIsLoading || !user) {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+    );
   }
 
   return (
@@ -109,7 +116,7 @@ export default function PublicViolationsPage() {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Unit Violations</h1>
                 <p className="text-gray-600 mt-1">
-                  All violations for Unit {publicUser?.unitNumber}
+                  All violations for your unit.
                 </p>
               </div>
               <div className="text-right">

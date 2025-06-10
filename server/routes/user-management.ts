@@ -2,7 +2,7 @@ import express from 'express';
 import { randomBytes, scrypt } from 'crypto';
 import { promisify } from 'util';
 import { storage as dbStorage } from '../storage';
-import { users } from '@shared/schema';
+import { profiles } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { sendWelcomeEmail, sendPasswordResetEmail, sendInvitationEmail } from '../email-service';

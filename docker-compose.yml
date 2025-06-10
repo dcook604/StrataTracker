@@ -1,42 +1,38 @@
-services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: spectrum4
-      POSTGRES_USER: spectrum4
-      POSTGRES_PASSWORD: spectrum4password
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d
-      - ./migrations:/docker-entrypoint-initdb.d/migrations
-    ports:
-      - "5432:5432"
+version: '3.8'
 
-  backend:
-    build: .
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.coolify
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://spectrum4:spectrum4password@db:5432/spectrum4
-      SESSION_SECRET: your-session-secret
-      PUBLIC_BASE_URL: http://localhost:3001
-      VIRUS_SCANNING_ENABLED: "true"
-      CLAMAV_HOST: "127.0.0.1"
-      CLAMAV_PORT: "3310"
-      # Add other env vars as needed
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      APP_URL: ${APP_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      SMTP_HOST: ${SMTP_HOST:-mail.smtp2go.com}
+      SMTP_PORT: ${SMTP_PORT:-2525}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+      VIRUS_SCANNING_ENABLED: ${VIRUS_SCANNING_ENABLED:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-WARN}
     ports:
-      - "3001:3000"
+      - "3000:3000"
     volumes:
-      - clamav_data:/var/lib/clamav
-      - quarantine_data:/app/quarantine
-      - supervisor_logs:/var/log/supervisor
-      - clamav_logs:/var/log/clamav
-      - ./uploads:/app/uploads
-    depends_on:
-      - db
+      - app_uploads:/app/uploads
+      - app_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
-  db_data:
-  clamav_data:
-  quarantine_data:
-  supervisor_logs:
-  clamav_logs: 
+  app_uploads:
+  app_logs: 

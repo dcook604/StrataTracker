@@ -2,12 +2,10 @@ import express from 'express';
 import { z } from 'zod';
 import { storage as dbStorage } from '../storage';
 import { 
-  ensureAuthenticated, 
-  ensureCouncilMember, 
-  getUserId,
   isUUID,
   getViolationByIdOrUuid
 } from '../middleware/auth-helpers';
+import { requireAdminOrCouncil } from '../middleware/supabase-auth-middleware';
 import { createSecureUpload, cleanupUploadedFiles } from '../middleware/fileUploadSecurity';
 import { 
   sendNewViolationToOccupantsNotification,
@@ -38,7 +36,7 @@ const { upload, virusScanMiddleware, contentValidationMiddleware } = createSecur
 // --- VIOLATIONS API ---
 
 // GET /api/violations
-router.get("/", ensureAuthenticated, async (req, res) => {
+router.get("/", async (req, res) => {
     try {
       const { status, unitId, page, limit, sortBy, sortOrder } = req.query;
       const pageNum = parseInt(page as string) || 1;
@@ -58,7 +56,7 @@ router.get("/", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/violations/recent
-router.get("/recent", ensureAuthenticated, async (req, res) => {
+router.get("/recent", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 5;
       const violations = await dbStorage.getRecentViolations(limit);
@@ -70,9 +68,9 @@ router.get("/recent", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/violations/pending-approval
-router.get("/pending-approval", ensureAuthenticated, ensureCouncilMember, async (req, res) => {
+router.get("/pending-approval", async (req, res) => {
     try {
-      const userId = getUserId(req, res);
+      const userId = req.user?.id as string || "";
       if (userId === undefined) return;
       const pendingViolations = await dbStorage.getPendingApprovalViolations(userId);
       res.json(pendingViolations);
@@ -84,12 +82,12 @@ router.get("/pending-approval", ensureAuthenticated, ensureCouncilMember, async 
 
 // POST /api/violations
 router.post("/", 
-    ensureAuthenticated, 
+    
     upload.array("attachments", 5),
     contentValidationMiddleware,
     virusScanMiddleware,
     async (req, res) => {
-      const userId = getUserId(req, res);
+      const userId = req.user?.id as string || "";
       if (userId === undefined) return;
 
       const files = req.files as Express.Multer.File[];
@@ -218,7 +216,7 @@ router.post("/",
 );
 
 // GET /api/violations/:id
-router.get("/:id", ensureAuthenticated, async (req, res) => {
+router.get("/:id", async (req, res) => {
     try {
       const violation = await getViolationByIdOrUuid(req.params.id);
       if (!violation) {
@@ -231,8 +229,8 @@ router.get("/:id", ensureAuthenticated, async (req, res) => {
 });
 
 // PATCH /api/violations/:id/status
-router.patch("/:id/status", ensureAuthenticated, async (req, res) => {
-    const userId = getUserId(req, res);
+router.patch("/:id/status", async (req, res) => {
+    const userId = req.user?.id as string || "";
     if (userId === undefined) return;
 
     try {
@@ -289,7 +287,7 @@ router.patch("/:id/status", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/violations/:id/history
-router.get("/:id/history", ensureAuthenticated, async (req, res) => {
+router.get("/:id/history", async (req, res) => {
     try {
         const history = await dbStorage.getViolationHistory(parseInt(req.params.id));
         res.json(history);
@@ -299,7 +297,7 @@ router.get("/:id/history", ensureAuthenticated, async (req, res) => {
 });
 
 // DELETE /api/violations/:id
-router.delete("/:id", ensureAuthenticated, async (req, res) => {
+router.delete("/:id", async (req, res) => {
     try {
         const idOrUuid = req.params.id;
         
@@ -348,7 +346,7 @@ router.delete("/:id", ensureAuthenticated, async (req, res) => {
 // The latter is handled by a separate route registration in routes.ts
 
 // GET /api/violations/categories (also available as /api/violation-categories via separate mount)
-router.get("/categories", ensureAuthenticated, async (req, res) => {
+router.get("/categories", async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
       res.json(categories);
@@ -358,7 +356,7 @@ router.get("/categories", ensureAuthenticated, async (req, res) => {
 });
 
 // GET /api/violations/categories 
-router.get("/categories", ensureAuthenticated, async (req, res) => {
+router.get("/categories", async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
       res.json(categories);
@@ -368,7 +366,7 @@ router.get("/categories", ensureAuthenticated, async (req, res) => {
 });
 
 // POST /api/violations/categories
-router.post("/categories", ensureAuthenticated, async (req, res) => {
+router.post("/categories", async (req, res) => {
     try {
       const category = await dbStorage.createViolationCategory({ name: req.body.name });
       res.status(201).json(category);
@@ -378,7 +376,7 @@ router.post("/categories", ensureAuthenticated, async (req, res) => {
 });
 
 // PUT /api/violations/categories/:id
-router.put("/categories/:id", ensureAuthenticated, async (req, res) => {
+router.put("/categories/:id", async (req, res) => {
     try {
       const category = await dbStorage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
       res.json(category);
@@ -388,7 +386,7 @@ router.put("/categories/:id", ensureAuthenticated, async (req, res) => {
 });
 
 // DELETE /api/violations/categories/:id
-router.delete("/categories/:id", ensureAuthenticated, async (req, res) => {
+router.delete("/categories/:id", async (req, res) => {
     try {
       await dbStorage.deleteViolationCategory(parseInt(req.params.id));
       res.status(204).send();
