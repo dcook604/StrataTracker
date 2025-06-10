@@ -18,8 +18,6 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Type,
-  Palette,
 } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 

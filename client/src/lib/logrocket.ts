@@ -1,5 +1,5 @@
 import LogRocket from 'logrocket';
-// @ts-ignore - Type declarations for logrocket-react are not available
+// @ts-expect-error - Type declarations for logrocket-react are not available
 import setupLogRocketReact from 'logrocket-react';
 
 // Initialize LogRocket only if we have an app ID and we're not in test environment

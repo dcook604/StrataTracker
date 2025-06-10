@@ -30,7 +30,7 @@ import { format } from "date-fns";
 import { EmptyState } from "@/components/empty-state";
 import { useQueryParams } from "@/hooks/use-query-params";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext, PaginationEllipsis } from "@/components/ui/pagination";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -53,7 +53,7 @@ const PAGE_KEY = "violationsPage";
 const SORT_KEY = "violationsSort";
 
 export function ViolationsList() {
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { queryParams } = useQueryParams();
   const unitId = queryParams.get("unitId");

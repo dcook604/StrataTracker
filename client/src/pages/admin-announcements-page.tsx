@@ -66,7 +66,7 @@ export function AdminAnnouncementsPage() {
   const { 
     data: announcements, 
     isLoading, 
-    error 
+    error: _error 
   } = useQuery<AdminAnnouncement[]>({
     queryKey: ['admin-announcements-manage'],
     queryFn: async () => {
@@ -249,7 +249,7 @@ export function AdminAnnouncementsPage() {
           description: `Announcement ${!currentStatus ? 'activated' : 'deactivated'}`,
         });
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update announcement status",
@@ -258,7 +258,7 @@ export function AdminAnnouncementsPage() {
     }
   };
 
-  if (error) {
+  if (_error) {
     return (
       <Layout title="Announcement Management">
         <div className="container mx-auto p-6">

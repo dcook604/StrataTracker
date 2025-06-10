@@ -3,7 +3,7 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
+import { InsertUser } from "@shared/schema";
 import { queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { identifyUser } from "@/lib/logrocket";
@@ -11,15 +11,15 @@ import { supabase } from "@/lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
 
 // Omit the password from the user type for client-side usage
-type SafeUser = Omit<SelectUser, "password"> & {
-  // Add compatibility required fields that ensure consistent boolean values
-  isAdmin: boolean;
-  is_admin: boolean;
-  isCouncilMember: boolean;
-  is_council_member: boolean;
-  isUser: boolean;
-  is_user: boolean;
-};
+// type SafeUser = Omit<SelectUser, "password"> & {
+//   // Add compatibility required fields that ensure consistent boolean values
+//   isAdmin: boolean;
+//   is_admin: boolean;
+//   isCouncilMember: boolean;
+//   is_council_member: boolean;
+//   isUser: boolean;
+//   is_user: boolean;
+// };
 
 type AuthContextType = {
   user: User | null;
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error] = useState<Error | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (userData: InsertUser) => {
+    mutationFn: async (_userData: InsertUser) => {
         // This will now be handled via Supabase directly, or a serverless function.
         // For now, this is a placeholder.
       console.warn("Registration should be handled via Supabase UI or a dedicated serverless function.");

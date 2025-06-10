@@ -24,7 +24,6 @@ import ResetPasswordPage from "@/pages/reset-password-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import SetPasswordPage from "@/pages/set-password-page";
 import UserProfilePage from "@/pages/user-profile-page";
-import PublicViolationCommentPage from "@/pages/public-violation-comment-page";
 import EnhancedPublicViolationPage from "@/pages/enhanced-public-violation-page";
 import PublicViolationsPage from "@/pages/public-violations-page";
 import { Route, Redirect } from "wouter";

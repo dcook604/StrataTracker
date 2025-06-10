@@ -1,6 +1,4 @@
-import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
 import { ReactNode } from "react";
 
 interface EmptyStateProps {

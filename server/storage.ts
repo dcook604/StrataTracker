@@ -51,7 +51,7 @@ import session from "express-session";
 import memorystore from "memorystore";
 import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
 import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, PgTransaction } from 'drizzle-orm/pg-core';
-import { drizzle, NodePgQueryResultHKT, NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { drizzle, NodePgQueryResultHKT, NodePgDatabase, NodePgClient } from 'drizzle-orm/node-postgres';
 // @ts-ignore
 import connectPgSimple from 'connect-pg-simple';
 import logger from './utils/logger';
@@ -143,11 +143,6 @@ export interface IStorage {
   getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
   getAllUnitsPaginated(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }>;
 
-  /**
-   * Create a unit with multiple persons/roles (owners/tenants) and facilities in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, facilities: { parkingSpots?: string[], storageLockers?: string[], bikeLockers?: string[] }, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
-   * @returns The created unit, facilities, and associated persons/roles.
-   */
   createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
     facilities: {
@@ -166,14 +161,13 @@ export interface IStorage {
     }>
   }): Promise<{ unit: PropertyUnit; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; persons: Person[]; roles: UnitPersonRole[] }>;
 
-  // Violation access link operations
   getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined>;
   markViolationAccessLinkUsed(id: number): Promise<void>;
 
   deleteViolation(id: number): Promise<boolean>;
   deleteViolationByUuid(uuid: string): Promise<boolean>;
   deleteUnit(id: number): Promise<boolean>;
-  getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[] } | undefined>;
+  getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[] } | undefined>;
   getPendingApprovalViolations(userId: string): Promise<(Violation & { unit: PropertyUnit })[]>;
 
   getPersonsWithRolesForUnit(unitId: number): Promise<Array<{
@@ -201,21 +195,8 @@ export interface IStorage {
   getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any>;
   markEmailVerificationCodeUsed(id: number): Promise<void>;
 
-  /**
-   * Returns total fines issued per month, filtered by date/category if provided.
-   * Each entry: { month: 'YYYY-MM', totalFines: number }
-   */
   getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
 
-  /**
-   * Updates a unit with its associated persons, roles, and facilities within a single transaction.
-   * This method will replace existing persons/roles and facilities with the new data provided.
-   * @param unitId The ID of the unit to update.
-   * @param unitData The new data for the property_units table.
-   * @param personsData An array of new persons and their roles for the unit.
-   * @param facilitiesData An object containing arrays of new facility numbers (parking, storage, etc.).
-   * @returns The fully updated unit object.
-   */
   updateUnitWithPersonsAndFacilities(
     unitId: number,
     unitData: Partial<InsertPropertyUnit>,
@@ -223,7 +204,6 @@ export interface IStorage {
     facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
   ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }>;
 
-  // Public user session management for owners/tenants
   createPublicUserSession(data: {
     personId: number;
     unitId: number;
@@ -249,7 +229,7 @@ export class DatabaseStorage implements IStorage {
   constructor() {
     const pgSession = connectPgSimple(session);
     this.sessionStore = new pgSession({
-      pool: db.session.client,
+      pool: (db as any).pool, // Use the exported pool from db.ts
       createTableIfMissing: true,
     });
   }
@@ -266,7 +246,6 @@ export class DatabaseStorage implements IStorage {
   
   async getAllCustomers(page: number = 1, limit: number = 10, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
-    // Only allow sorting by known columns
     const sortMap = {
       unitNumber: customers.unitNumber,
       ownerName: customers.ownerName,
@@ -275,7 +254,7 @@ export class DatabaseStorage implements IStorage {
       createdAt: customers.createdAt,
       id: customers.id
     };
-    let orderField = sortMap[sortBy as keyof typeof sortMap] || customers.unitNumber;
+    const orderField = sortMap[sortBy as keyof typeof sortMap] || customers.unitNumber;
     const orderFn = sortOrder === 'desc' ? desc(orderField) : orderField;
     const customersList = await db.select().from(customers)
       .orderBy(orderFn)
@@ -326,7 +305,6 @@ export class DatabaseStorage implements IStorage {
     return updatedCustomer;
   }
   
-  // Violation category operations
   async getViolationCategory(id: number): Promise<ViolationCategory | undefined> {
     const [category] = await db.select().from(violationCategories).where(eq(violationCategories.id, id));
     return category;
@@ -369,7 +347,7 @@ export class DatabaseStorage implements IStorage {
       return (result.rowCount ?? 0) > 0;
     } catch (e: unknown) {
       logger.error(`Error deleting violation category ${id}:`, e);
-      const error = e as { code?: string }; // Type assertion
+      const error = e as { code?: string };
       if (error.code === '23503') { 
         throw new Error('Cannot delete category as it is currently associated with existing violations.');
       }
@@ -377,7 +355,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  // System settings operations
   async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
     const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.settingKey, key));
     return setting;
@@ -402,10 +379,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getUserByEmail(email: string): Promise<Profile | undefined> {
-    const person = await db.query.persons.findFirst({
-      where: eq(persons.email, email)
-    });
-
+    const [person] = await db.select().from(persons).where(eq(persons.email, email));
     if (!person || !person.authUserId) {
       return undefined;
     }
@@ -430,13 +404,11 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<boolean> {
     const result = await db.delete(profiles).where(eq(profiles.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
   
   async getAllUsers(): Promise<Profile[]> {
-    return db.query.profiles.findMany({
-      orderBy: [desc(profiles.updatedAt)],
-    });
+    return db.select().from(profiles).orderBy(desc(profiles.updatedAt));
   }
 
   async getPropertyUnit(id: number): Promise<PropertyUnit | undefined> {
@@ -494,7 +466,6 @@ export class DatabaseStorage implements IStorage {
     const violationData = result[0].violation;
     const unitData = result[0].unit;
 
-    // Fetch persons associated with this unit
     const unitPersons = await db
       .select({
         person: persons,
@@ -548,7 +519,6 @@ export class DatabaseStorage implements IStorage {
     const violationData = result[0].violation;
     const unitData = result[0].unit;
 
-    // Fetch persons associated with this unit
     const unitPersons = await db
       .select({
         person: persons,
@@ -595,7 +565,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .orderBy(desc(violations.createdAt));
     
-    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+    return result.map((r) => ({
       ...r.violation,
       unit: r.unit
     }));
@@ -613,7 +583,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(violations.status, status))
         .orderBy(desc(violations.createdAt));
     
-      return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+      return result.map((r) => ({
         ...r.violation,
         unit: r.unit
       }));
@@ -632,10 +602,11 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getViolationsByReporter(userId: string): Promise<Violation[]> {
-    return db.query.violations.findMany({
-      where: eq(violations.reportedById, userId),
-      orderBy: [desc(violations.createdAt)],
-    });
+    return db
+      .select()
+      .from(violations)
+      .where(eq(violations.reportedById, userId))
+      .orderBy(desc(violations.createdAt));
   }
   
   async getViolationsByCategory(categoryId: number): Promise<Violation[]> {
@@ -657,14 +628,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(violations.createdAt))
       .limit(limit);
       
-    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+    return result.map((r) => ({
       ...r.violation,
       unit: r.unit
     }));
   }
   
   async createViolation(violation: InsertViolation): Promise<Violation> {
-    console.log("[DB] createViolation called with attachments:", violation.attachments);
     const [newViolation] = await db
       .insert(violations)
       .values({
@@ -674,7 +644,6 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .returning();
-    console.log("[DB] createViolation inserted attachments:", newViolation.attachments);
     return newViolation;
   }
   
@@ -763,13 +732,13 @@ export class DatabaseStorage implements IStorage {
     return updatedViolation;
   }
   
-  // Violation history operations
   async getViolationHistory(violationId: number): Promise<ViolationHistoryWithUser[]> {
     const history = await db.select({
       id: violationHistories.id,
       violationId: violationHistories.violationId,
+      // violationUuid: violationHistories.violationUuid, // Column doesn't exist
       userId: violationHistories.userId,
-      status: violationHistories.status,
+      action: violationHistories.action,
       rejectionReason: violationHistories.rejectionReason,
       createdAt: violationHistories.createdAt,
       details: violationHistories.details,
@@ -784,14 +753,16 @@ export class DatabaseStorage implements IStorage {
   }
   
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
-    // Get the violation UUID for the given violation ID
+    if (history.violationId === null || history.violationId === undefined) {
+      throw new Error("Cannot add history without a violationId");
+    }
     const violation = await this.getViolation(history.violationId);
     
     const [newHistory] = await db
       .insert(violationHistories)
       .values({
         ...history,
-        violationUuid: violation?.uuid, // Populate UUID if available
+        // violationUuid: violation?.uuid, // Column doesn't exist
         createdAt: new Date()
       })
       .returning();
@@ -799,7 +770,6 @@ export class DatabaseStorage implements IStorage {
     return newHistory;
   }
   
-  // Reporting operations
   async getRepeatViolations(minCount: number): Promise<{ unitId: number, unitNumber: string, count: number, lastViolationDate: Date }[]> {
     const result = await db
       .select({
@@ -811,8 +781,7 @@ export class DatabaseStorage implements IStorage {
       .groupBy(violations.unitId)
       .having(sql`count(*) >= ${minCount}`);
       
-    // Get unit numbers for each unit ID
-    const unitIds = result.map(r => r.unitId as number);
+    const unitIds = result.map(r => r.unitId as number).filter(id => id !== null);
     
     if (unitIds.length === 0) {
       return [];
@@ -824,23 +793,19 @@ export class DatabaseStorage implements IStorage {
         unitNumber: propertyUnits.unitNumber
       })
       .from(propertyUnits)
-      .where(
-        or(...unitIds.map((id: number) => eq(propertyUnits.id, id)))
-      );
+      .where(inArray(propertyUnits.id, unitIds));
     
-    // Create a map of unit IDs to unit numbers
     const unitMap = new Map<number, string>();
-    units.forEach((unit: { id: number; unitNumber: string }) => {
+    units.forEach((unit) => {
       unitMap.set(unit.id, unit.unitNumber);
     });
     
-    // Create the final result
-    return result.map((r: { unitId: number; count: number | string; lastViolation: Date }) => ({
-      unitId: r.unitId,
-      unitNumber: unitMap.get(r.unitId) || 'Unknown',
+    return result.map((r) => ({
+      unitId: r.unitId as number,
+      unitNumber: unitMap.get(r.unitId as number) || 'Unknown',
       count: Number(r.count),
       lastViolationDate: r.lastViolation
-    })).sort((a: { count: number }, b: { count: number }) => b.count - a.count);
+    })).sort((a, b) => b.count - a.count);
   }
   
   async getViolationStats(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{
@@ -853,9 +818,6 @@ export class DatabaseStorage implements IStorage {
     resolvedViolations: number,
     averageResolutionTimeDays: number | null
   }> {
-    try {
-      console.log('[getViolationStats] Starting with filters:', filters);
-      
       const { from, to, categoryId } = filters;
       const conditions: SQL[] = [];
       if (from) conditions.push(gte(violations.createdAt, from));
@@ -863,29 +825,7 @@ export class DatabaseStorage implements IStorage {
       if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-      console.log('[getViolationStats] Conditions count:', conditions.length);
 
-      // First, let's check if we have any violations at all
-      const totalCount = await db
-        .select({ count: drizzleCount() })
-        .from(violations);
-      console.log('[getViolationStats] Total violations in database:', totalCount[0]?.count || 0);
-
-      if (!totalCount[0]?.count || totalCount[0].count === 0) {
-        console.log('[getViolationStats] No violations found, returning zero stats');
-        return {
-          totalViolations: 0,
-          newViolations: 0,
-          pendingViolations: 0,
-          approvedViolations: 0,
-          disputedViolations: 0,
-          rejectedViolations: 0,
-          resolvedViolations: 0,
-          averageResolutionTimeDays: null
-        };
-      }
-
-      console.log('[getViolationStats] Executing main stats query...');
       const [counts] = await db
         .select({
           total: drizzleCount(),
@@ -899,10 +839,6 @@ export class DatabaseStorage implements IStorage {
         .from(violations)
         .where(whereClause);
 
-      console.log('[getViolationStats] Raw counts result:', counts);
-
-      // Calculate average resolution time
-      console.log('[getViolationStats] Calculating resolution time...');
       const resolvedViolationsData = await db
         .select({
           createdAt: violations.createdAt,
@@ -912,7 +848,7 @@ export class DatabaseStorage implements IStorage {
         .where(whereClause ? and(whereClause, eq(violations.status, 'resolved')) : eq(violations.status, 'resolved'));
 
       let totalResolutionTimeMs = 0;
-      resolvedViolationsData.forEach((v: { createdAt?: Date; updatedAt?: Date }) => {
+      resolvedViolationsData.forEach((v) => {
         if (v.createdAt && v.updatedAt) {
           totalResolutionTimeMs += v.updatedAt.getTime() - v.createdAt.getTime();
         }
@@ -922,7 +858,7 @@ export class DatabaseStorage implements IStorage {
         ? (totalResolutionTimeMs / resolvedViolationsData.length) / (1000 * 60 * 60 * 24) 
         : null;
 
-      const result = {
+      return {
         totalViolations: Number(counts?.total) || 0,
         newViolations: Number(counts?.new) || 0,
         pendingViolations: Number(counts?.pending) || 0,
@@ -932,36 +868,20 @@ export class DatabaseStorage implements IStorage {
         resolvedViolations: Number(counts?.resolved) || 0,
         averageResolutionTimeDays: averageResolutionTimeDays !== null ? parseFloat(averageResolutionTimeDays.toFixed(1)) : null
       };
-
-      console.log('[getViolationStats] Final result:', result);
-      return result;
-    } catch (error) {
-      console.error('[getViolationStats] Error occurred:', error);
-      throw error;
-    }
   }
   
   async getViolationsByMonth(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{ month: string, count: number }[]> {
     const { from, to, categoryId } = filters;
-    const conditions = [];
+    const conditions: SQL[] = [];
     
-    // Date range for query
     let queryFromDate = from;
     let queryToDate = to;
 
-    if (!queryFromDate && !queryToDate) {
-      // Default to current year if no dates are provided
+    if (!queryFromDate || !queryToDate) {
       const now = new Date();
-      queryFromDate = new Date(now.getFullYear(), 0, 1); // Start of current year
-      queryToDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999); // End of current year
-    } else if (queryFromDate && !queryToDate) {
-      // If only from is provided, set to to end of that year or sensible default
-      queryToDate = new Date(queryFromDate.getFullYear(), 11, 31, 23, 59, 59, 999);
-    } else if (!queryFromDate && queryToDate) {
-      // If only to is provided, set from to start of that year or sensible default
-      queryFromDate = new Date(queryToDate.getFullYear(), 0, 1);
+      queryFromDate = queryFromDate || new Date(now.getFullYear(), 0, 1);
+      queryToDate = queryToDate || new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
     }
-
 
     if (queryFromDate) conditions.push(gte(violations.createdAt, queryFromDate));
     if (queryToDate) conditions.push(lte(violations.createdAt, queryToDate));
@@ -969,25 +889,23 @@ export class DatabaseStorage implements IStorage {
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Group by YYYY-MM
     const violationsByMonthRaw = await db.select({
       yearMonth: sql<string>`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`,
-      count: drizzleCount(sql`*`)
+      count: drizzleCount()
     })
     .from(violations)
     .where(whereClause)
     .groupBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`)
     .orderBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`);
 
-    // Ensure all months within the range are represented, even if count is 0
     const result: { month: string, count: number }[] = [];
     if (queryFromDate && queryToDate) {
-      let currentDate = new Date(queryFromDate.getFullYear(), queryFromDate.getMonth(), 1);
+      const currentDate = new Date(queryFromDate.getFullYear(), queryFromDate.getMonth(), 1);
       const finalDate = new Date(queryToDate.getFullYear(), queryToDate.getMonth(), 1);
 
       while (currentDate <= finalDate) {
         const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+        const month = currentDate.getMonth() + 1;
         const yearMonthStr = `${year}-${month.toString().padStart(2, '0')}`;
         
         const monthData = violationsByMonthRaw.find(v => v.yearMonth === yearMonthStr);
@@ -996,7 +914,6 @@ export class DatabaseStorage implements IStorage {
         currentDate.setMonth(currentDate.getMonth() + 1);
       }
     } else {
-       // Fallback for cases where date range might not be perfectly defined (should ideally not happen with new defaults)
        violationsByMonthRaw.forEach(item => {
         result.push({ month: item.yearMonth, count: Number(item.count) });
        });
@@ -1016,16 +933,16 @@ export class DatabaseStorage implements IStorage {
 
     const result = await db.select({
       type: violationCategories.name,
-      count: drizzleCount(sql`*`)
+      count: drizzleCount()
     })
     .from(violations)
     .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
     .where(whereClause)
     .groupBy(violationCategories.name)
-    .orderBy(desc(drizzleCount(sql`*`)));
+    .orderBy(desc(drizzleCount()));
 
-    return result.map((r: { type: string | null; count: number | string }) => ({ 
-      type: r.type ?? 'Unknown', // Ensure type is always string
+    return result.map((r) => ({ 
+      type: r.type ?? 'Unknown',
       count: Number(r.count) 
     }));
   }
@@ -1050,72 +967,47 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
       .where(whereClause)
-      .orderBy(desc(violations.createdAt)); // Or any other order suitable for the report
+      .orderBy(desc(violations.createdAt));
     
-    return result.map((r: { violation: Violation; unit: PropertyUnit; category: ViolationCategory | null }) => ({
+    return result.map((r) => ({
       ...r.violation,
       unit: r.unit,
-      category: r.category || undefined // Handle cases where category might be null
+      category: r.category || undefined
     }));
   }
   
   async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
-    // Only allow sorting by known columns
-    const sortMap = {
-      createdAt: violations.createdAt,
-      violationType: violations.violationType,
-      status: violations.status,
-      fineAmount: violations.fineAmount,
-      unitNumber: propertyUnits.unitNumber,
-      id: violations.id
+    const sortMap: Record<string, SQL | Name | undefined> = {
+      createdAt: violations.createdAt as any,
+      violationType: violations.violationType as any,
+      status: violations.status as any,
+      fineAmount: violations.fineAmount as any,
+      unitNumber: propertyUnits.unitNumber as any,
+      id: violations.id as any
     };
-    let orderField = sortMap[sortBy as keyof typeof sortMap] || violations.createdAt;
-    const orderFn = sortOrder === 'asc' ? asc(orderField) : desc(orderField);
-    let whereClause = [];
-    if (status) whereClause.push(eq(violations.status, status));
-    if (unitId) whereClause.push(eq(violations.unitId, unitId));
+    const orderField = sortMap[sortBy || ''] || violations.createdAt;
+    const orderFn = sortOrder === 'asc' ? asc(orderField as Name) : desc(orderField as Name);
+    
+    const whereConditions: SQL[] = [];
+    if (status) whereConditions.push(eq(violations.status, status as ViolationStatus));
+    if (unitId) whereConditions.push(eq(violations.unitId, unitId));
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
     const result = await db
       .select({ violation: violations, unit: propertyUnits })
       .from(violations)
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(whereClause.length ? and(...whereClause) : undefined)
+      .where(whereClause)
       .orderBy(orderFn)
       .limit(limit)
       .offset(offset);
 
-    // Count query
     const countQuery = db
       .select({ count: sql`count(*)` })
-      .from(violations);
-
-    // Only add join if it's actually needed for the where clause or future sort/filter on count
-    // For now, the whereClause only pertains to the 'violations' table.
-    // If sortMap included unit specific fields that were part of the 'whereClause' for count, then join.
-    // Current 'whereClause' does not require a join for the count.
-
-    if (whereClause.length > 0) {
-      // If there are filters on the violations table, apply them directly.
-      // If any filter in whereClause were to depend on propertyUnits, a join would be needed here.
-      // Example: if (whereClause.some(condition => condition involves propertyUnits)) {
-      //   countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
-      // }
-      // For now, no join in count is strictly necessary as filters are on `violations` table.
-      // However, to keep it symmetric with the main query for potential future changes or if
-      // the DB optimizer benefits from identical structures:
-      countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
-      countQuery.where(and(...whereClause));
-    } else {
-      // If no filters, count all violations. This can be slow.
-      // Consider if a different strategy is needed for unfiltered counts on very large tables.
-      // For now, keeping it simple and counting all related to the query (which has an implicit join).
-      // To count all violations *without* the join (if that's ever the desired total):
-      // const [{ count }] = await db.select({ count: sql`count(*)` }).from(violations);
-      // But the current 'total' should reflect the items that *could* be paged through.
-       countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
-       // No .where() clause means count all records resulting from the join
-    }
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(whereClause);
 
     const [{ count }] = await countQuery;
 
@@ -1125,7 +1017,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string) {
+  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }> {
     throw new Error("Method not implemented.");
   }
 
@@ -1139,7 +1031,7 @@ export class DatabaseStorage implements IStorage {
     persons: Array<{
       fullName: string;
       email: string;
-      phone: string;
+      phone?: string;
       role: 'owner' | 'tenant';
       receiveEmailNotifications: boolean;
       hasCat?: boolean;
@@ -1152,65 +1044,67 @@ export class DatabaseStorage implements IStorage {
       storageLockers: StorageLocker[];
       bikeLockers: BikeLocker[];
     };
-    persons: (Person & { role: string; receiveEmailNotifications: boolean })[];
+    persons: Person[];
+    roles: UnitPersonRole[];
   }> {
-    const { unit, facilities, persons } = unitData;
+    const { unit, facilities, persons: personsData } = unitData;
 
-    // Start a transaction
-    const [tx] = await db.transaction(async (tx) => {
-      // Insert the unit
+    const result = await db.transaction(async (tx) => {
       const [newUnit] = await tx
         .insert(propertyUnits)
         .values(unit)
         .returning();
 
-      // Insert facilities
-      const newFacilities = {
+      const newFacilities: {
+        parkingSpots: ParkingSpot[],
+        storageLockers: StorageLocker[],
+        bikeLockers: BikeLocker[],
+      } = {
         parkingSpots: [],
         storageLockers: [],
         bikeLockers: [],
       };
 
-      if (facilities.parkingSpots) {
+      if (facilities.parkingSpots && facilities.parkingSpots.length > 0) {
         newFacilities.parkingSpots = await tx
           .insert(parkingSpots)
           .values(
             facilities.parkingSpots.map((spot) => ({
               unitId: newUnit.id,
-              spotNumber: spot,
+              identifier: spot,
             }))
           )
           .returning();
       }
 
-      if (facilities.storageLockers) {
+      if (facilities.storageLockers && facilities.storageLockers.length > 0) {
         newFacilities.storageLockers = await tx
           .insert(storageLockers)
           .values(
             facilities.storageLockers.map((locker) => ({
               unitId: newUnit.id,
-              lockerNumber: locker,
+              identifier: locker,
             }))
           )
           .returning();
       }
 
-      if (facilities.bikeLockers) {
+      if (facilities.bikeLockers && facilities.bikeLockers.length > 0) {
         newFacilities.bikeLockers = await tx
           .insert(bikeLockers)
           .values(
             facilities.bikeLockers.map((locker) => ({
               unitId: newUnit.id,
-              lockerNumber: locker,
+              identifier: locker,
             }))
           )
           .returning();
       }
 
-      // Insert persons and their roles
-      const newPersons: (Person & { role: string; receiveEmailNotifications: boolean })[] = [];
+      const newPersons: Person[] = [];
+      const newRoles: UnitPersonRole[] = [];
 
-      for (const person of persons) {
+      for (const person of personsData) {
         const [newPerson] = await tx
           .insert(persons)
           .values({
@@ -1222,7 +1116,7 @@ export class DatabaseStorage implements IStorage {
           })
           .returning();
 
-        await tx
+        const [newRole] = await tx
           .insert(unitPersonRoles)
           .values({
             unitId: newUnit.id,
@@ -1231,36 +1125,68 @@ export class DatabaseStorage implements IStorage {
             receiveEmailNotifications: person.receiveEmailNotifications,
           })
           .returning();
-
-        newPersons.push({
-          ...newPerson,
-          role: person.role,
-          receiveEmailNotifications: person.receiveEmailNotifications,
-        });
+        
+        newPersons.push(newPerson);
+        newRoles.push(newRole);
       }
 
       return {
         unit: newUnit,
         facilities: newFacilities,
         persons: newPersons,
+        roles: newRoles,
       };
     });
 
-    return tx;
+    return result;
+  }
+
+  async getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined> {
+    const [link] = await db.select().from(violationAccessLinks).where(eq(violationAccessLinks.token, token));
+    return link;
+  }
+
+  async markViolationAccessLinkUsed(id: number): Promise<void> {
+    await db.update(violationAccessLinks).set({ usedAt: new Date() }).where(eq(violationAccessLinks.id, id));
+  }
+
+  async deleteViolation(id: number): Promise<boolean> {
+    const result = await db.delete(violations).where(eq(violations.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async deleteViolationByUuid(uuid: string): Promise<boolean> {
+    const result = await db.delete(violations).where(eq(violations.uuid, uuid));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async deleteUnit(id: number): Promise<boolean> {
+    const result = await db.delete(propertyUnits).where(eq(propertyUnits.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean; })[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[]; } | undefined> {
+    throw new Error("Method not implemented.");
   }
 
   async getPendingApprovalViolations(userId: string): Promise<(Violation & { unit: PropertyUnit })[]> {
-    const result = await db.query.violations.findMany({
-      where: and(
+    const result = await db
+      .select({
+        violation: violations,
+        unit: propertyUnits,
+      })
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(and(
         eq(violations.status, 'pending_approval'),
         eq(violations.reportedById, userId)
-      ),
-      with: {
-        unit: true,
-      },
-      orderBy: [desc(violations.createdAt)],
-    });
-    return result;
+      ))
+      .orderBy(desc(violations.createdAt));
+
+    return result.map(r => ({
+      ...r.violation,
+      unit: r.unit,
+    }));
   }
 
   async getPersonsWithRolesForUnit(unitId: number): Promise<Array<{
@@ -1322,23 +1248,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }) {
-    const { personId, violationId, codeHash, expiresAt } = params;
-    
-    const [newCode] = await db
-      .insert(emailVerificationCodes)
-      .values({
-        personId,
-        violationId,
-        codeHash,
-        expiresAt
-      })
-      .returning();
-    
-    return newCode;
+  async addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void> {
+    await db.insert(emailVerificationCodes).values(params);
   }
 
-  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string) {
+  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any> {
     const [code] = await db
       .select()
       .from(emailVerificationCodes)
@@ -1353,6 +1267,12 @@ export class DatabaseStorage implements IStorage {
     
     return code;
   }
+  
+  async markEmailVerificationCodeUsed(id: number): Promise<void> {
+    await db.update(emailVerificationCodes).set({ usedAt: new Date(), codeHash: '' }).where(eq(emailVerificationCodes.id, id));
+  }
+
+  async getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
 
   async getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]> {
     throw new Error("Method not implemented.");

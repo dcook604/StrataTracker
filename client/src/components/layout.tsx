@@ -8,7 +8,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 interface LayoutProps {
@@ -19,8 +18,7 @@ interface LayoutProps {
 
 export function Layout({ children, title, leftContent }: LayoutProps) {
   const { user, logoutMutation } = useAuth();
-  const [location, navigate] = useLocation();
-  const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // Use React Query for pending approvals with proper error handling and caching
   const { 

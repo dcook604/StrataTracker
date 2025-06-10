@@ -39,8 +39,9 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
 
   const clearLoading = useCallback((key: string) => {
     setLoadingStates(prev => {
-      const { [key]: removed, ...rest } = prev;
-      return rest;
+      const newState = { ...prev };
+      delete newState[key];
+      return newState;
     });
   }, []);
 

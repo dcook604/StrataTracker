@@ -12,12 +12,12 @@
  *   <ViolationSummaryCard />
  */
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Building2, ListChecks, AlertTriangle, HelpCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import React from "react";
+import { ReactNode } from "react";
 
 /**
  * StatCard
@@ -27,7 +27,7 @@ import React from "react";
  * @param value - The value to display
  * @param icon - A React node for the icon
  */
-function StatCard({ label, value, icon }: { label: string; value: React.ReactNode; icon: React.ReactNode }) {
+function StatCard({ label, value, icon }: { label: string; value: ReactNode; icon: ReactNode }) {
   return (
     <div className="flex items-center gap-3 bg-neutral-50 rounded p-3 shadow-sm">
       <div className="text-blue-600">{icon}</div>

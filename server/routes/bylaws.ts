@@ -87,7 +87,7 @@ router.get('/', async (req, res) => {
     const { category, search, part } = req.query;
     
     // Build where conditions
-    let whereConditions = [eq(bylaws.isActive, true)];
+    const whereConditions = [eq(bylaws.isActive, true)];
 
     // Add search filter
     if (search && typeof search === 'string') {

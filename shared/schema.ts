@@ -1,6 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 import { relations } from "drizzle-orm";
 import { unique } from "drizzle-orm/pg-core";
 import crypto from "crypto";
@@ -846,4 +845,6 @@ export const publicUserSessions = pgTable("public_user_sessions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastAccessedAt: timestamp("last_accessed_at"),
 });
+
+export type User = Profile; // Add alias for compatibility
 
