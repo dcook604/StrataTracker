@@ -22,7 +22,7 @@ const setPasswordSchema = z.object({
 type SetPasswordFormData = z.infer<typeof setPasswordSchema>;
 
 export default function SetPasswordPage() {
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

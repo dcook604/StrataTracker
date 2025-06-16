@@ -89,7 +89,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
           {this.state.sessionURL && (
             <p className="mt-4 text-xs text-neutral-600">
-              A debugging session has been recorded. Use the "Copy Debug URL" button to share with support.
+              A debugging session has been recorded. Use the &quot;Copy Debug URL&quot; button to share with support.
             </p>
           )}
         </div>

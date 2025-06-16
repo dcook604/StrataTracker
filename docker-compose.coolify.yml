@@ -1,0 +1,112 @@
+# Coolify Docker Compose Configuration for StrataTracker
+# Simplified configuration optimized for Coolify deployment
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-spectrum4}
+      POSTGRES_USER: ${POSTGRES_USER:-spectrum4}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spectrum4} -d ${POSTGRES_DB:-spectrum4}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - stratatracker
+
+  # StrataTracker Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.coolify
+    restart: unless-stopped
+    ports:
+      - "3361:3000"
+    environment:
+      # Core Configuration
+      NODE_ENV: production
+      PORT: 3000
+      
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-spectrum4}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-spectrum4}
+      
+      # Security
+      SESSION_SECRET: ${SESSION_SECRET}
+      TRUST_PROXY: 1
+      SECURE_COOKIES: ${SECURE_COOKIES:-true}
+      
+      # URLs
+      APP_URL: ${APP_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      
+      # Supabase Auth
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # Email Configuration
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+      
+      # Email Deduplication
+      EMAIL_DEDUP_TTL_HOURS: ${EMAIL_DEDUP_TTL_HOURS:-24}
+      EMAIL_CLEANUP_ENABLED: ${EMAIL_CLEANUP_ENABLED:-true}
+      EMAIL_RATE_LIMIT_MS: ${EMAIL_RATE_LIMIT_MS:-100}
+      
+      # Virus Scanning (disabled for Coolify)
+      VIRUS_SCANNING_ENABLED: ${VIRUS_SCANNING_ENABLED:-false}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FILES_ENABLED: ${LOG_FILES_ENABLED:-true}
+      
+      # Performance
+      DB_POOL_MIN: ${DB_POOL_MIN:-2}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-30}
+    
+    volumes:
+      - uploads_data:/app/uploads
+      - app_logs:/app/logs
+    
+    networks:
+      - stratatracker
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  stratatracker:
+    driver: bridge

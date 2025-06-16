@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 // Global 401 handler to ensure consistent authentication behavior
 let isHandling401 = false; // Prevent multiple simultaneous redirects
@@ -67,9 +68,24 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
+    // Get the current session token from Supabase
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const headers: Record<string, string> = {};
+    
+    // Add Authorization header if we have a session
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    
+    // Add Content-Type for requests with data
+    if (data) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const res = await fetch(url, {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
+      headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
     });
@@ -106,8 +122,19 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    // Get the current session token from Supabase
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const headers: Record<string, string> = {};
+    
+    // Add Authorization header if we have a session
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
     const res = await fetch(queryKey[0] as string, {
       credentials: "include",
+      headers,
     });
 
     // Handle 401 globally first

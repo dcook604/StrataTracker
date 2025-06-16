@@ -30,7 +30,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, FileTextIcon, BadgeAlertIcon } from "lucide-react";
+import { PencilIcon, BadgeAlertIcon } from "lucide-react";
 import { Layout } from "@/components/layout";
 
 const formSchema = z.object({

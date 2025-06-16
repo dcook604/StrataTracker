@@ -6,13 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
 import { 
   Megaphone, 
   Plus, 
   Edit, 
-  Eye, 
-  EyeOff, 
   ChevronUp, 
   ChevronDown,
   AlertCircle,
@@ -54,7 +51,6 @@ const getAnnouncementType = (title: string, content: string): keyof typeof annou
 
 export function AdminAnnouncementWidget() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const { 

@@ -2,7 +2,6 @@ import express from 'express';
 import { randomBytes, scrypt } from 'crypto';
 import { promisify } from 'util';
 import { storage as dbStorage } from '../storage';
-import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { sendWelcomeEmail, sendPasswordResetEmail, sendInvitationEmail } from '../email-service';
@@ -27,11 +26,12 @@ function generatePassword(length = 12) {
 
 // Check if user is authenticated and has admin privileges
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (!req.isAuthenticated() || !req.user) {
+  if (!req.user) {
     return res.status(401).json({ message: "Authentication required" });
   }
 
-  if (!req.user.isAdmin) {
+  // Only check role property
+  if (req.user.role !== 'admin') {
     return res.status(403).json({ message: "Admin access required" });
   }
 
@@ -43,7 +43,7 @@ router.get('/', isAdmin, async (req, res) => {
   try {
     const users = await dbStorage.getAllUsers();
     // Remove sensitive fields and include lockReason
-    const safeUsers = users.map(({ password, passwordResetToken, passwordResetExpires, ...u }) => u);
+    const safeUsers = users.map((u) => u); // No sensitive fields to remove, just return the user as is
     res.json(safeUsers);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -52,60 +52,15 @@ router.get('/', isAdmin, async (req, res) => {
 });
 
 // Create a new user (admin only)
-router.post('/', isAdmin, async (req, res) => {
-  try {
-    const { email, fullName, isCouncilMember, isAdmin, isUser } = req.body;
-    
-    // Check if user already exists
-    const existingUser = await dbStorage.getUserByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ message: 'User with this email already exists' });
-    }
-    
-    // Generate a random password
-    const password = generatePassword();
-    
-    // Create the user
-    const user = await dbStorage.createUser({
-      email,
-      username: email, // Use email as username by default
-      password,
-      fullName,
-      isCouncilMember: !!isCouncilMember,
-      isAdmin: !!isAdmin,
-      isUser: isUser !== false, // Default to true
-      forcePasswordChange: true
-    });
-    
-    // Send welcome email with password
-    await sendWelcomeEmail(email, password, fullName);
-    
-    // Log audit event
-    await AuditLogger.logFromRequest(req, AuditAction.USER_CREATED, {
-      targetType: TargetType.USER,
-      targetId: user.id.toString(),
-      details: {
-        email: user.email,
-        fullName: user.fullName,
-        isAdmin: user.isAdmin,
-        isCouncilMember: user.isCouncilMember,
-      },
-    });
-    
-    // Don't return the password in the response
-    const { password: _, ...userWithoutPassword } = user;
-    res.status(201).json(userWithoutPassword);
-  } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ message: 'Failed to create user' });
-  }
+router.post('/', isAdmin, (req, res) => {
+  res.status(501).json({ message: 'User creation is managed by Supabase Auth. This endpoint is not implemented.' });
 });
 
 // Update a user (admin only)
 router.put('/:id', isAdmin, async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
-    const { fullName, isCouncilMember, isAdmin, isUser, email } = req.body;
+    const userId = req.params.id;
+    const { fullName } = req.body;
     
     // Check if user exists
     const existingUser = await dbStorage.getUser(userId);
@@ -113,14 +68,7 @@ router.put('/:id', isAdmin, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    const updateData = {
-      fullName: fullName || existingUser.fullName,
-      isCouncilMember: isCouncilMember !== undefined ? !!isCouncilMember : existingUser.isCouncilMember,
-      isAdmin: isAdmin !== undefined ? !!isAdmin : existingUser.isAdmin,
-      isUser: isUser !== undefined ? !!isUser : existingUser.isUser,
-      email: email || existingUser.email,
-      username: email || existingUser.username
-    };
+    const updateData = { fullName };
     
     // Update user
     const updatedUser = await dbStorage.updateUser(userId, updateData);
@@ -132,20 +80,15 @@ router.put('/:id', isAdmin, async (req, res) => {
     // Log audit event
     await AuditLogger.logFromRequest(req, AuditAction.USER_UPDATED, {
       targetType: TargetType.USER,
-      targetId: userId.toString(),
+      targetId: userId,
       details: {
-        email: updatedUser.email,
         fullName: updatedUser.fullName,
-        isAdmin: updatedUser.isAdmin,
-        isCouncilMember: updatedUser.isCouncilMember,
-        changes: updateData,
       },
     });
     
-    // Remove sensitive fields before responding
-    const { password, failedLoginAttempts, passwordResetToken, passwordResetExpires, ...safeUser } = updatedUser;
-    
-    res.json(safeUser);
+    // API response: only return id, fullName, role, updatedAt
+    const { id: uid, fullName: updatedName, role: updatedRole, updatedAt: updatedTime } = updatedUser;
+    res.json({ id: uid, fullName: updatedName, role: updatedRole, updatedAt: updatedTime });
   } catch (error) {
     console.error('[USER-MGMT] Error updating user:', error);
     res.status(500).json({ message: 'Failed to update user' });
@@ -155,7 +98,7 @@ router.put('/:id', isAdmin, async (req, res) => {
 // Delete a user (admin only)
 router.delete('/:id', isAdmin, async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = req.params.id;
     
     // Check if trying to delete itself
     if (userId === (req.user as any).id) {
@@ -174,12 +117,9 @@ router.delete('/:id', isAdmin, async (req, res) => {
     if (userToDelete) {
       await AuditLogger.logFromRequest(req, AuditAction.USER_DELETED, {
         targetType: TargetType.USER,
-        targetId: userId.toString(),
+        targetId: userId,
         details: {
-          email: userToDelete.email,
           fullName: userToDelete.fullName,
-          isAdmin: userToDelete.isAdmin,
-          isCouncilMember: userToDelete.isCouncilMember,
         },
       });
     }
@@ -192,172 +132,33 @@ router.delete('/:id', isAdmin, async (req, res) => {
 });
 
 // Request password reset (public route)
-router.post('/forgot-password', async (req, res) => {
-  try {
-    const { email } = req.body;
-    
-    // Check if user exists
-    const user = await dbStorage.getUserByEmail(email);
-    if (!user) {
-      // Don't reveal that the user doesn't exist for security
-      return res.json({ message: 'If your email is registered, you will receive a password reset link' });
-    }
-    
-    // Generate reset token
-    const resetToken = randomBytes(32).toString('hex');
-    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
-    
-    // Save token to database
-    await dbStorage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
-    
-    // Send reset email, pass req for correct base URL
-    await sendPasswordResetEmail(user.email, resetToken, req);
-    
-    res.json({ message: 'If your email is registered, you will receive a password reset link' });
-  } catch (error) {
-    console.error('Error requesting password reset:', error);
-    res.status(500).json({ message: 'Failed to process password reset request' });
-  }
+router.post('/forgot-password', (req, res) => {
+  res.status(501).json({ message: 'Password reset is managed by Supabase Auth. This endpoint is not implemented.' });
 });
 
 // Reset password with token
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { token, password } = req.body;
-    
-    if (!token || !password) {
-      return res.status(400).json({ message: 'Token and password are required' });
-    }
-    
-    // Find user with valid token
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.passwordResetToken, token));
-    
-    if (!user || !user.passwordResetExpires) {
-      return res.status(400).json({ message: 'Password reset token is invalid or has expired' });
-    }
-    
-    // Check if token has expired
-    if (new Date() > new Date(user.passwordResetExpires)) {
-      return res.status(400).json({ message: 'Password reset token has expired' });
-    }
-    
-    // Update password
-    await dbStorage.updateUserPassword(user.id, password);
-    // Clear reset token
-    await dbStorage.updateUserPasswordResetToken(user.id, null, null);
-    
-    res.json({ message: 'Password has been updated successfully' });
-  } catch (error) {
-    console.error('Error resetting password:', error);
-    res.status(500).json({ message: 'Failed to reset password' });
-  }
+router.post('/reset-password', (req, res) => {
+  res.status(501).json({ message: 'Password reset is managed by Supabase Auth. This endpoint is not implemented.' });
 });
 
 // Change password (authenticated users)
-router.post('/change-password', async (req, res) => {
-  try {
-    const userId = (req.user as any).id;
-    const { currentPassword, newPassword } = req.body;
-    
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current password and new password are required' });
-    }
-    
-    // Get user
-    const user = await dbStorage.getUser(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Verify current password
-    const passwordMatch = await dbStorage.comparePasswords(currentPassword, user.password);
-    if (!passwordMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
-    }
-    
-    // Update password
-    await dbStorage.updateUserPassword(userId, newPassword);
-    
-    // Make sure forcePasswordChange is set to false
-    await dbStorage.updateUser(userId, {
-      forcePasswordChange: false
-    });
-    
-    res.json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ message: 'Failed to change password' });
-  }
+router.post('/change-password', (req, res) => {
+  res.status(501).json({ message: 'Password change is managed by Supabase Auth. This endpoint is not implemented.' });
 });
 
 // Manually lock a user (admin only)
-router.post('/:id/lock', isAdmin, async (req, res) => {
-  try {
-    const userId = parseInt(req.params.id);
-    const { reason } = req.body;
-    // Check if user exists
-    const user = await dbStorage.getUser(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    await dbStorage.setUserLock(userId, true, reason);
-    res.json({ message: 'User locked successfully' });
-  } catch (error) {
-    console.error('Error locking user:', error);
-    res.status(500).json({ message: 'Failed to lock user' });
-  }
+router.post('/:id/lock', isAdmin, (req, res) => {
+  res.status(501).json({ message: 'User locking is managed by Supabase Auth. This endpoint is not implemented.' });
 });
 
 // Unlock a locked user (admin only)
-router.post('/:id/unlock', isAdmin, async (req, res) => {
-  try {
-    const userId = parseInt(req.params.id);
-    // Check if user exists
-    const user = await dbStorage.getUser(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    await dbStorage.setUserLock(userId, false);
-    res.json({ message: 'User unlocked successfully' });
-  } catch (error) {
-    console.error('Error unlocking user:', error);
-    res.status(500).json({ message: 'Failed to unlock user' });
-  }
+router.post('/:id/unlock', isAdmin, (req, res) => {
+  res.status(501).json({ message: 'User unlocking is managed by Supabase Auth. This endpoint is not implemented.' });
 });
 
 // Invite a new user (admin only)
-router.post('/invite', isAdmin, async (req, res) => {
-  try {
-    const { email, fullName, isCouncilMember, isAdmin, isUser } = req.body;
-    // Check if user already exists
-    const existingUser = await dbStorage.getUserByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ message: 'User with this email already exists' });
-    }
-    // Create user with no password, force password change
-    const user = await dbStorage.createUser({
-      email,
-      username: email,
-      password: '', // No password yet
-      fullName,
-      isCouncilMember: !!isCouncilMember,
-      isAdmin: !!isAdmin,
-      isUser: isUser !== false,
-      forcePasswordChange: true
-    });
-    // Generate invitation token (reuse password reset logic)
-    const resetToken = randomBytes(32).toString('hex');
-    const resetExpires = new Date(Date.now() + 3600 * 1000 * 24); // 24 hours
-    await dbStorage.updateUserPasswordResetToken(user.id, resetToken, resetExpires);
-    // Send invitation email (not password reset)
-    await sendInvitationEmail(email, resetToken, fullName, req);
-    res.status(201).json({ message: 'Invitation sent successfully' });
-  } catch (error) {
-    console.error('Error inviting user:', error);
-    res.status(500).json({ message: 'Failed to invite user' });
-  }
+router.post('/invite', isAdmin, (req, res) => {
+  res.status(501).json({ message: 'User invitation is managed by Supabase Auth. This endpoint is not implemented.' });
 });
 
 export default router;

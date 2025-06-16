@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Sidebar } from "@/components/sidebar";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/user-avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
@@ -11,12 +9,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Bell, 
-  BarChart,
   DownloadCloud, 
   FileSpreadsheet,
   File,
-  Mail,
   Loader2,
   Eye
 } from "lucide-react";
@@ -31,18 +26,13 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  LineChart,
-  Line,
   Cell
 } from "recharts";
 import { EmptyState } from "@/components/empty-state";
 import { Layout } from "@/components/layout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { ViolationCategory } from "@shared/schema";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
 
 // Custom DateRangePicker component
 const DateRangePicker = ({ from, to, onFromChange, onToChange }: {
@@ -67,18 +57,6 @@ const DateRangePicker = ({ from, to, onFromChange, onToChange }: {
       />
     </div>
   );
-};
-
-// For the type chart
-type ViolationType = {
-  type: string;
-  count: number;
-};
-
-// For the monthly chart
-type MonthlyViolation = {
-  month: number;
-  count: number;
 };
 
 // For the repeat violations table
@@ -130,7 +108,6 @@ export default function ReportsPage() {
 
   const [dateRange, setDateRange] = useState({ from: priorDate, to: today });
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all"); // Store ID
-  const [isExporting, setIsExporting] = useState<boolean>(false); // New state for export loading
   const [selectedMonth, setSelectedMonth] = useState<string>(() => format(dateRange.to, 'yyyy-MM'));
 
   // Fetch violation categories for the dropdown
@@ -250,52 +227,6 @@ export default function ReportsPage() {
     refetchReportData();
   }, [dateRange, selectedCategoryId, refetchReportData]);
 
-  const handleGenerateReport = async (reportType: 'csv' | 'pdf') => {
-    setIsExporting(true);
-    const params = new URLSearchParams();
-    params.append('from', dateRange.from.toISOString());
-    params.append('to', dateRange.to.toISOString());
-    if (selectedCategoryId !== "all") {
-      params.append('categoryId', selectedCategoryId);
-    }
-
-    const endpoint = reportType === 'csv' ? `/api/reports/export/csv` : `/api/reports/export/pdf`;
-    const filename = reportType === 'csv' ? "violations_report.csv" : "violations_report.pdf";
-    
-    try {
-      const response = await apiRequest("GET", `${endpoint}?${params.toString()}`);
-
-      if (!response.ok) {
-        // Try to parse error message from backend if it's JSON
-        let errorDetail = `Failed to generate ${reportType} report. Status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorDetail = errorData.message || errorData.details || errorDetail;
-        } catch (e) {
-          // Ignore if error response is not JSON
-        }
-        throw new Error(errorDetail);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-
-    } catch (error: any) {
-      console.error(`Error generating ${reportType} report:`, error);
-      // TODO: Add toast notification for error, e.g., using useToast()
-      // Example: toast({ variant: "destructive", title: "Export Error", description: error.message });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const isLoading = reportDataLoading || categoriesLoading; // Overall loading state
 
   // Fetch monthly fines data
@@ -341,7 +272,7 @@ export default function ReportsPage() {
               <Select
                 value={selectedCategoryId}
                 onValueChange={handleCategoryChange} // Updated handler
-                disabled={categoriesLoading || isExporting}
+                disabled={categoriesLoading}
               >
                 <SelectTrigger className="h-12 md:h-10">
                   <SelectValue placeholder="Select category" />
@@ -353,29 +284,6 @@ export default function ReportsPage() {
                       {category.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Export Dropdown */}
-            <div className="w-full md:w-auto">
-              <Select onValueChange={(value: 'csv' | 'pdf') => handleGenerateReport(value)} disabled={isExporting}>
-                <SelectTrigger className="h-12 md:h-10 w-full md:w-[180px]">
-                  {isExporting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <DownloadCloud className="mr-2 h-4 w-4" />
-                  )}
-                  <SelectValue placeholder="Export Report" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csv">
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Export to CSV
-                  </SelectItem>
-                  <SelectItem value="pdf">
-                    <File className="mr-2 h-4 w-4" />
-                    Export to PDF
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

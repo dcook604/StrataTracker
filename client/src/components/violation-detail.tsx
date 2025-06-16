@@ -60,10 +60,9 @@ interface ViolationHistoryEntry {
 
 export function ViolationDetail({ id }: ViolationDetailProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  useAuth(); // Keep auth context active
   const [, navigate] = useLocation();
   const [comment, setComment] = useState("");
-  const [fineAmount, setFineAmount] = useState<number | "">("");
   const [showFineModal, setShowFineModal] = useState(false);
   const [pendingApprove, setPendingApprove] = useState(false);
   const [fineInput, setFineInput] = useState<number | "">("");
@@ -122,7 +121,7 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/violations/${id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/violations/${id}/history`] });
-      setFineAmount("");
+      setFineInput("");
       toast({
         title: "Fine set",
         description: "The fine amount has been set",
@@ -206,10 +205,10 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
     }
   };
 
-  const handleSetFine = () => {
-    if (fineAmount === "") return;
-    fineMutation.mutate(Number(fineAmount));
-  };
+  // const handleSetFine = () => {
+  //   if (fineAmount === "") return;
+  //   fineMutation.mutate(Number(fineAmount));
+  // };
 
   const handleAddComment = () => {
     if (!comment.trim()) return;

@@ -6,14 +6,12 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/use-auth";
 import { 
   Home, 
-  PlusCircle, 
   FileText, 
   BarChart, 
   Settings, 
   LogOut,
   Menu,
   Users,
-  Tags,
   Mail,
   ChevronLeft,
   ChevronRight,
@@ -24,9 +22,8 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+type SidebarProps = React.HTMLAttributes<HTMLDivElement>;
 
 // Define types for nav items and sub items
 interface SubNavItem {
@@ -47,7 +44,6 @@ interface NavItem {
 export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [violationsOpen, setViolationsOpen] = useState(true);

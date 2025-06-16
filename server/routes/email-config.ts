@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Check if user is authenticated and has admin privileges
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  // Check if user is authenticated - simplified check that doesn't rely on isAuthenticated()
+  // Check if user is authenticated
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required." });
   }

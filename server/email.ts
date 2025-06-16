@@ -4,6 +4,7 @@ import { sendEmailWithDeduplication, EmailDeduplicationService, type EmailReques
 import { db } from './db';
 import { unitPersonRoles, persons as PersonsSchema, type User as AdminUserType, type Violation } from '../shared/schema';
 import { and, eq } from 'drizzle-orm';
+import { supabaseAdmin } from './supabase-client';
 
 // Initialize with default local configuration
 let transporter = nodemailer.createTransport({
@@ -140,7 +141,7 @@ export const sendNewViolationToOccupantsNotification = async (params: NewViolati
   } = params;
 
   for (const person of personsToNotify) {
-    if (person.receiveEmailNotifications && person.accessLink && person.email) {
+    if (person.receiveEmailNotifications && person.email) {
       const subjects = await getEmailNotificationSubjects();
       let subject = subjects.newViolation;
       
@@ -150,6 +151,27 @@ export const sendNewViolationToOccupantsNotification = async (params: NewViolati
       const senderName = emailSettings?.fromName || 'Strata Management';
       const senderEmail = emailSettings?.from || 'no-reply@spectrum4.ca';
       
+      // Generate Magic Link
+      const { data, error: otpError } = await supabaseAdmin.auth.signInWithOtp({
+        email: person.email,
+        options: {
+          shouldCreateUser: true, // Create the user if they don't exist
+          emailRedirectTo: `${process.env.APP_URL}/public/violations?session_token={RAW_SESSION_TOKEN}`, // Redirect to public violation page
+        },
+      });
+
+      if (otpError) {
+        console.error(`[VIOLATION_EMAIL] Error generating magic link for ${person.email}:`, otpError);
+        continue; // Skip this person
+      }
+      
+      const magicLink = data.properties?.action_link;
+
+      if (!magicLink) {
+        console.error(`[VIOLATION_EMAIL] Could not retrieve magic link for ${person.email}.`);
+        continue;
+      }
+
       const textContent = `
 Dear ${person.fullName},
 
@@ -162,7 +184,7 @@ Violation Details:
 - Reported by: ${reporterName}
 
 You have 30 days to respond to this violation. If you would like to dispute this violation, or add comments and evidence, please use the following secure link:
-${person.accessLink}
+${magicLink}
 
 If no response is received within 30 days, this violation may proceed according to the strata bylaws.
 
@@ -200,8 +222,6 @@ ${senderName}
       }
     } else if (!person.receiveEmailNotifications) {
       console.log(`[VIOLATION_EMAIL] Skipping notification for ${person.role} ${person.fullName} (${person.email}) for violation ${violationId} due to notification preferences.`);
-    } else if (!person.accessLink) {
-      console.warn(`[VIOLATION_EMAIL] Skipping notification for ${person.role} ${person.fullName} (${person.email}) for violation ${violationId} due to missing access link, though notifications are enabled.`);
     }
   }
 };

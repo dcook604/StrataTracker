@@ -21,7 +21,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { insertViolationSchema, insertPropertyUnitSchema } from "@shared/schema";
 import { Loader2 } from "lucide-react";
 import { FileUpload } from "@/components/file-upload";
 import {
@@ -61,8 +60,8 @@ const violationFormSchema = z.object({
 
 export function ViolationForm() {
   const { toast } = useToast();
-  const [location, navigate] = useLocation();
-  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  useAuth(); // Keep auth context active
   const [attachments, setAttachments] = useState<File[]>([]);
   const [unitUpdateDialog, setUnitUpdateDialog] = useState<null | { existing: any; newUnit: any; changedFields: { field: string; oldValue: any; newValue: any }[] }>(null);
   const [pendingUnitUpdatePayload, setPendingUnitUpdatePayload] = useState<any>(null);
@@ -127,7 +126,7 @@ export function ViolationForm() {
     }
   }, [unitSearchTerm, filteredUnits, form]);
 
-  const watchUnitId = form.watch("unitId");
+  // const watchUnitId = form.watch("unitId");
   const watchCategoryId = form.watch("categoryId");
   const watchDamageToProperty = form.watch("damageToProperty");
   const watchPoliceInvolved = form.watch("policeInvolved");
@@ -244,7 +243,7 @@ export function ViolationForm() {
         </CardHeader>
         <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          <form onSubmit={form.handleSubmit(onSubmit, (_errors) => {
             toast({
               title: "Validation Error",
               description: "Please check the form for errors and fill all required fields.",

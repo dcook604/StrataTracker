@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { usePublicAuth, usePublicApiRequest } from "@/hooks/use-public-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { PublicSidebar } from "@/components/public-sidebar";
 
 interface ViolationDetails {
@@ -29,8 +29,7 @@ export default function EnhancedPublicViolationPage() {
   const [, navigate] = useLocation();
   const token = params?.token;
   const { toast } = useToast();
-  const { isAuthenticated, login } = usePublicAuth();
-  const publicApiRequest = usePublicApiRequest();
+  const { user, session } = useAuth();
 
   // Pre-authentication state
   const [loading, setLoading] = useState(true);
@@ -49,6 +48,29 @@ export default function EnhancedPublicViolationPage() {
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Helper function for authenticated API requests
+  const makeAuthenticatedRequest = async (method: string, url: string, body?: any) => {
+    if (!session?.access_token) {
+      throw new Error("No authentication token available");
+    }
+    
+    const response = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Request failed with status ${response.status}`);
+    }
+    
+    return response.json();
+  };
 
   // Check token status on mount
   useEffect(() => {
@@ -119,7 +141,8 @@ export default function EnhancedPublicViolationPage() {
       }
 
       const response = await res.json();
-      login(response.sessionId, response.userInfo);
+      // Note: With Supabase auth, we'd handle this differently
+      // For now, just navigate to the violations page
       
       toast({ 
         title: "Verified", 
@@ -141,7 +164,7 @@ export default function EnhancedPublicViolationPage() {
 
     setSubmitting(true);
     try {
-      await publicApiRequest("POST", `/public/violations/${violation.id}/dispute`, {
+      await makeAuthenticatedRequest("POST", `/public/violations/${violation.id}/dispute`, {
         comment,
       });
 
@@ -205,7 +228,7 @@ export default function EnhancedPublicViolationPage() {
   }
 
   // If authenticated, show full interface with sidebar
-  if (isAuthenticated) {
+  if (user) {
     return (
       <div className="h-screen flex">
         <PublicSidebar className="w-64 flex-shrink-0" />

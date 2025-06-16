@@ -35,7 +35,7 @@ export function DataTable<TData, TValue>({
   data,
   searchColumn,
   searchPlaceholder = "Search...",
-  className
+  className: _className
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])

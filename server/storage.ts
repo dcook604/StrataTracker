@@ -1,5 +1,5 @@
 import { 
-  users, 
+  profiles,
   customers,
   propertyUnits,
   violationCategories,
@@ -7,8 +7,8 @@ import {
   violations,
   violationHistories,
   persons,
-  type User, 
-  type InsertUser,
+  type Profile, 
+  type InsertProfile,
   type Customer,
   type InsertCustomer,
   type PropertyUnit, 
@@ -44,35 +44,28 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, like, ilike, or, not, gte, lte, asc, SQL, Name, inArray, isNull, gt } from "drizzle-orm";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import { randomBytes, randomUUID } from "crypto";
 import session from "express-session";
 import memorystore from "memorystore";
 import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
 import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, PgTransaction } from 'drizzle-orm/pg-core';
-import { drizzle, NodePgQueryResultHKT, NodePgDatabase } from 'drizzle-orm/node-postgres';
-import connectPgSimple from 'connect-pg-simple';
+import { drizzle, NodePgQueryResultHKT, NodePgDatabase, NodePgClient } from 'drizzle-orm/node-postgres';
 import logger from './utils/logger';
 import { Buffer } from 'buffer';
-import { randomUUID } from "crypto";
 
-const scryptAsync = promisify(scrypt);
+// @ts-expect-error
+import connectPgSimple from 'connect-pg-simple';
 
-const MemoryStore = memorystore(session) as any;
+const MemoryStore = memorystore(session);
 
 export interface IStorage {
   // User operations
-  getUser(id: number): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
-  updateUserPassword(id: number, password: string): Promise<boolean>;
-  updateUserPasswordResetToken(id: number, token: string | null, expires: Date | null): Promise<boolean>;
-  deleteUser(id: number): Promise<boolean>;
-  getAllUsers(): Promise<User[]>;
-  incrementFailedLoginAttempts(id: number): Promise<void>;
-  resetFailedLoginAttempts(id: number): Promise<void>;
-  updateLastLogin(id: number): Promise<void>;
+  getUser(id: string): Promise<Profile | undefined>;
+  getUserByEmail(email: string): Promise<Profile | undefined>;
+  createUser(user: InsertProfile): Promise<Profile>;
+  updateUser(id: string, userData: Partial<InsertProfile>): Promise<Profile | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+  getAllUsers(): Promise<Profile[]>;
   
   // Customer operations
   getCustomer(id: number): Promise<Customer | undefined>;
@@ -99,7 +92,7 @@ export interface IStorage {
   // System settings operations
   getSystemSetting(key: string): Promise<SystemSetting | undefined>;
   getAllSystemSettings(): Promise<SystemSetting[]>;
-  updateSystemSetting(key: string, value: string, userId: number): Promise<SystemSetting>;
+  updateSystemSetting(key: string, value: string, userId: string): Promise<SystemSetting>;
   
   // Violation operations
   getViolation(id: number): Promise<Violation | undefined>;
@@ -109,7 +102,7 @@ export interface IStorage {
   getAllViolations(): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByStatus(status: ViolationStatus): Promise<(Violation & { unit: PropertyUnit })[]>;
   getViolationsByUnit(unitId: number): Promise<Violation[]>;
-  getViolationsByReporter(userId: number): Promise<Violation[]>;
+  getViolationsByReporter(userId: string): Promise<Violation[]>;
   getViolationsByCategory(categoryId: number): Promise<Violation[]>;
   getRecentViolations(limit: number): Promise<(Violation & { unit: PropertyUnit })[]>;
   createViolation(violation: InsertViolation): Promise<Violation>;
@@ -140,23 +133,12 @@ export interface IStorage {
   getViolationsByType(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ type: string, count: number }[]>;
   getFilteredViolationsForReport(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<(Violation & { unit: PropertyUnit, category?: ViolationCategory })[]>;
   
-  // Password management
-  hashPassword(password: string): Promise<string>;
-  comparePasswords(supplied: string, stored: string): Promise<boolean>;
-  
   // Session store
   sessionStore: session.Store;
 
   getViolationsPaginated(page: number, limit: number, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ violations: (Violation & { unit: PropertyUnit })[], total: number }>;
   getAllUnitsPaginated(page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }>;
 
-  setUserLock(id: number, locked: boolean, reason?: string): Promise<void>;
-
-  /**
-   * Create a unit with multiple persons/roles (owners/tenants) and facilities in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, facilities: { parkingSpots?: string[], storageLockers?: string[], bikeLockers?: string[] }, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
-   * @returns The created unit, facilities, and associated persons/roles.
-   */
   createUnitWithPersons(unitData: {
     unit: InsertPropertyUnit,
     facilities: {
@@ -175,15 +157,14 @@ export interface IStorage {
     }>
   }): Promise<{ unit: PropertyUnit; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; persons: Person[]; roles: UnitPersonRole[] }>;
 
-  // Violation access link operations
   getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined>;
   markViolationAccessLinkUsed(id: number): Promise<void>;
 
   deleteViolation(id: number): Promise<boolean>;
   deleteViolationByUuid(uuid: string): Promise<boolean>;
   deleteUnit(id: number): Promise<boolean>;
-  getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[] } | undefined>;
-  getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit })[]>;
+  getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[] } | undefined>;
+  getPendingApprovalViolations(userId: string): Promise<(Violation & { unit: PropertyUnit })[]>;
 
   getPersonsWithRolesForUnit(unitId: number): Promise<Array<{
     personId: number;
@@ -201,30 +182,17 @@ export interface IStorage {
   }): Promise<string | null>;
 
   getAdminAndCouncilUsers(): Promise<Array<{
-    id: number;
+    id: string;
     email: string;
-    fullName: string;
+    fullName: string | null;
   }>>;
 
   addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void>;
   getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any>;
   markEmailVerificationCodeUsed(id: number): Promise<void>;
 
-  /**
-   * Returns total fines issued per month, filtered by date/category if provided.
-   * Each entry: { month: 'YYYY-MM', totalFines: number }
-   */
   getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
 
-  /**
-   * Updates a unit with its associated persons, roles, and facilities within a single transaction.
-   * This method will replace existing persons/roles and facilities with the new data provided.
-   * @param unitId The ID of the unit to update.
-   * @param unitData The new data for the property_units table.
-   * @param personsData An array of new persons and their roles for the unit.
-   * @param facilitiesData An object containing arrays of new facility numbers (parking, storage, etc.).
-   * @returns The fully updated unit object.
-   */
   updateUnitWithPersonsAndFacilities(
     unitId: number,
     unitData: Partial<InsertPropertyUnit>,
@@ -232,7 +200,6 @@ export interface IStorage {
     facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
   ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }>;
 
-  // Public user session management for owners/tenants
   createPublicUserSession(data: {
     personId: number;
     unitId: number;
@@ -256,57 +223,13 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    // Create a proper MemoryStore instance with session cleanup
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000 // Prune expired entries every 24h
+    const pgSession = connectPgSimple(session);
+    this.sessionStore = new pgSession({
+      pool: (db as any).pool, // Use the exported pool from db.ts
+      createTableIfMissing: true,
     });
   }
 
-  // Password management
-  async hashPassword(password: string): Promise<string> {
-    const salt = randomBytes(16).toString("hex");
-    const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-    return `${buf.toString("hex")}.${salt}`;
-  }
-
-  async comparePasswords(supplied: string, stored: string): Promise<boolean> {
-    const startTime = Date.now();
-    logger.debug(`[AUTH] Starting password comparison`);
-    
-    try {
-      // Check if stored password has the correct format (hash.salt)
-      if (!stored || !stored.includes(".")) {
-        logger.error(`[AUTH] Invalid stored password format, should be 'hash.salt'`);
-        return false;
-      }
-      
-      const [hashed, salt] = stored.split(".");
-      
-      // Check if both hash and salt are present
-      if (!hashed || !salt) {
-        logger.error(`[AUTH] Missing hash or salt in stored password`);
-        return false;
-      }
-      
-      const hashedBuf = Buffer.from(hashed, "hex");
-      const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-      const isMatch = timingSafeEqual(hashedBuf, suppliedBuf);
-      
-      logger.perf(`comparePasswords`, startTime, { 
-        passwordMatch: isMatch,
-        saltLength: salt.length,
-        hashLength: hashed.length
-      });
-      
-      logger.debug(`[AUTH] Password comparison result: ${isMatch ? 'MATCH' : 'NO MATCH'}`);
-      return isMatch;
-    } catch (error) {
-      logger.error(`[AUTH] Error comparing passwords`, { error });
-      return false;
-    }
-  }
-  
-  // Customer management
   async getCustomer(id: number): Promise<Customer | undefined> {
     const [customer] = await db.select().from(customers).where(eq(customers.id, id));
     return customer;
@@ -319,7 +242,6 @@ export class DatabaseStorage implements IStorage {
   
   async getAllCustomers(page: number = 1, limit: number = 10, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
-    // Only allow sorting by known columns
     const sortMap = {
       unitNumber: customers.unitNumber,
       ownerName: customers.ownerName,
@@ -328,7 +250,7 @@ export class DatabaseStorage implements IStorage {
       createdAt: customers.createdAt,
       id: customers.id
     };
-    let orderField = sortMap[sortBy as keyof typeof sortMap] || customers.unitNumber;
+    const orderField = sortMap[sortBy as keyof typeof sortMap] || customers.unitNumber;
     const orderFn = sortOrder === 'desc' ? desc(orderField) : orderField;
     const customersList = await db.select().from(customers)
       .orderBy(orderFn)
@@ -379,7 +301,6 @@ export class DatabaseStorage implements IStorage {
     return updatedCustomer;
   }
   
-  // Violation category operations
   async getViolationCategory(id: number): Promise<ViolationCategory | undefined> {
     const [category] = await db.select().from(violationCategories).where(eq(violationCategories.id, id));
     return category;
@@ -422,7 +343,7 @@ export class DatabaseStorage implements IStorage {
       return (result.rowCount ?? 0) > 0;
     } catch (e: unknown) {
       logger.error(`Error deleting violation category ${id}:`, e);
-      const error = e as { code?: string }; // Type assertion
+      const error = e as { code?: string };
       if (error.code === '23503') { 
         throw new Error('Cannot delete category as it is currently associated with existing violations.');
       }
@@ -430,7 +351,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  // System settings operations
   async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
     const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.settingKey, key));
     return setting;
@@ -440,180 +360,53 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(systemSettings).orderBy(systemSettings.settingKey);
   }
   
-  async updateSystemSetting(key: string, value: string, userId: number): Promise<SystemSetting> {
-    // Check if setting exists
-    const existing = await this.getSystemSetting(key);
-    
-    if (existing) {
-      const [updated] = await db.update(systemSettings)
-        .set({
-          settingValue: value,
-          updatedAt: new Date(),
-          updatedById: userId
-        })
-        .where(eq(systemSettings.settingKey, key))
-        .returning();
-      
-      return updated;
-    } else {
-      const [created] = await db.insert(systemSettings)
-        .values({
-          settingKey: key,
-          settingValue: value,
-          updatedById: userId
-        })
-        .returning();
-      
-      return created;
-    }
-  }
-
-  // User operations
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const startTime = Date.now();
-    logger.debug(`[DB] Getting user by email`, { email });
-    
-    try {
-      const [user] = await db.select().from(users).where(eq(users.email, email));
-      logger.perf(`getUserByEmail`, startTime, { 
-        email, 
-        found: !!user,
-        userId: user?.id 
-      });
-      
-      if (user) {
-        logger.debug(`[DB] User found`, { 
-          userId: user.id, 
-          email: user.email, 
-          isAdmin: user.isAdmin,
-          accountLocked: user.accountLocked,
-          failedLoginAttempts: user.failedLoginAttempts
-        });
-      } else {
-        logger.debug(`[DB] User not found for email: ${email}`);
-      }
-      
-      return user;
-    } catch (error) {
-      logger.error(`[DB] Error getting user by email`, { email, error });
-      throw error;
-    }
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const hashedPassword = await this.hashPassword(insertUser.password);
-    
-    // For backward compatibility, set username to email if username is required by the database
-    const userData = { 
-      ...insertUser, 
-      password: hashedPassword,
-      username: insertUser.email // For backward compatibility with existing database schema
-    };
-    
-    const [user] = await db
-      .insert(users)
-      .values(userData)
+  async updateSystemSetting(key: string, value: string, userId: string): Promise<SystemSetting> {
+    const [setting] = await db
+      .insert(systemSettings)
+      .values({ settingKey: key, settingValue: value, updatedById: userId })
+      .onConflictDoUpdate({ target: systemSettings.settingKey, set: { settingValue: value, updatedById: userId } })
       .returning();
+    return setting;
+  }
+
+  async getUser(id: string): Promise<Profile | undefined> {
+    const [user] = await db.select().from(profiles).where(eq(profiles.id, id));
     return user;
   }
   
-  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
-    // If password is being updated, hash it
-    let dataToUpdate: any = { ...userData };
-    if (userData.password) {
-      dataToUpdate.password = await this.hashPassword(userData.password);
+  async getUserByEmail(email: string): Promise<Profile | undefined> {
+    const [person] = await db.select().from(persons).where(eq(persons.email, email));
+    if (!person || !person.authUserId) {
+      return undefined;
     }
-    
-    // For backward compatibility with existing schema
-    if (userData.email) {
-      dataToUpdate.username = userData.email;
-    }
-    
-    const [updatedUser] = await db.update(users)
-      .set({
-        ...dataToUpdate,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, id))
+    return this.getUser(person.authUserId);
+  }
+
+  async createUser(insertUser: InsertProfile): Promise<Profile> {
+    const [newUser] = await db
+      .insert(profiles)
+      .values(insertUser)
       .returning();
-      
+    return newUser;
+  }
+
+  async updateUser(id: string, userData: Partial<InsertProfile>): Promise<Profile | undefined> {
+    const [updatedUser] = await db.update(profiles)
+      .set(userData)
+      .where(eq(profiles.id, id))
+      .returning();
     return updatedUser;
   }
-  
-  async deleteUser(id: number): Promise<boolean> {
-    logger.info(`Attempting to delete user with ID: ${id}`);
-    try {
-      const result = await db.delete(users).where(eq(users.id, id));
-      const success = (result.rowCount ?? 0) > 0;
-      if (success) {
-        logger.info(`Successfully deleted user with ID: ${id}`);
-      } else {
-        logger.warn(`User with ID ${id} not found for deletion.`);
-      }
-      return success;
-    } catch (error) {
-      logger.error(`Error deleting user with ID ${id}:`, error);
-      throw new Error('Failed to delete user due to a database error.');
-    }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(profiles).where(eq(profiles.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
   
-  async getAllUsers(): Promise<User[]> {
-    return db
-      .select()
-      .from(users)
-      .orderBy(desc(users.createdAt));
-  }
-  
-  async incrementFailedLoginAttempts(id: number): Promise<void> {
-    try {
-      // Get current failed attempts
-      const [user] = await db.select().from(users).where(eq(users.id, id));
-      const failedAttempts = (user?.failedLoginAttempts || 0) + 1;
-      const lock = failedAttempts >= 5;
-      await db.update(users)
-        .set({
-          failedLoginAttempts: failedAttempts,
-          accountLocked: lock,
-          lockReason: lock ? 'Too many failed login attempts' : null
-        })
-        .where(eq(users.id, id));
-    } catch (error) {
-      console.error('Failed to increment login attempts:', error);
-    }
-  }
-  
-  async resetFailedLoginAttempts(id: number): Promise<void> {
-    try {
-      await db.update(users)
-        .set({
-          failedLoginAttempts: 0,
-          accountLocked: false,
-          lockReason: null
-        })
-        .where(eq(users.id, id));
-    } catch (error) {
-      console.error('Failed to reset login attempts:', error);
-    }
-  }
-  
-  async updateLastLogin(id: number): Promise<void> {
-    try {
-      await db.update(users)
-        .set({
-          lastLogin: new Date()
-        })
-        .where(eq(users.id, id));
-    } catch (error) {
-      console.error('Failed to update last login:', error);
-    }
+  async getAllUsers(): Promise<Profile[]> {
+    return db.select().from(profiles).orderBy(desc(profiles.updatedAt));
   }
 
-  // Property units operations
   async getPropertyUnit(id: number): Promise<PropertyUnit | undefined> {
     const [unit] = await db.select().from(propertyUnits).where(eq(propertyUnits.id, id));
     return unit;
@@ -642,7 +435,6 @@ export class DatabaseStorage implements IStorage {
     return updatedUnit;
   }
 
-  // Violation operations
   async getViolation(id: number): Promise<Violation | undefined> {
     const [violation] = await db.select().from(violations).where(eq(violations.id, id));
     return violation;
@@ -670,7 +462,6 @@ export class DatabaseStorage implements IStorage {
     const violationData = result[0].violation;
     const unitData = result[0].unit;
 
-    // Fetch persons associated with this unit
     const unitPersons = await db
       .select({
         person: persons,
@@ -724,7 +515,6 @@ export class DatabaseStorage implements IStorage {
     const violationData = result[0].violation;
     const unitData = result[0].unit;
 
-    // Fetch persons associated with this unit
     const unitPersons = await db
       .select({
         person: persons,
@@ -771,7 +561,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .orderBy(desc(violations.createdAt));
     
-    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+    return result.map((r) => ({
       ...r.violation,
       unit: r.unit
     }));
@@ -789,7 +579,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(violations.status, status))
         .orderBy(desc(violations.createdAt));
     
-      return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+      return result.map((r) => ({
         ...r.violation,
         unit: r.unit
       }));
@@ -807,7 +597,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(violations.createdAt));
   }
   
-  async getViolationsByReporter(userId: number): Promise<Violation[]> {
+  async getViolationsByReporter(userId: string): Promise<Violation[]> {
     return db
       .select()
       .from(violations)
@@ -834,14 +624,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(violations.createdAt))
       .limit(limit);
       
-    return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
+    return result.map((r) => ({
       ...r.violation,
       unit: r.unit
     }));
   }
   
   async createViolation(violation: InsertViolation): Promise<Violation> {
-    console.log("[DB] createViolation called with attachments:", violation.attachments);
     const [newViolation] = await db
       .insert(violations)
       .values({
@@ -851,7 +640,6 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .returning();
-    console.log("[DB] createViolation inserted attachments:", newViolation.attachments);
     return newViolation;
   }
   
@@ -940,44 +728,35 @@ export class DatabaseStorage implements IStorage {
     return updatedViolation;
   }
   
-  // Violation history operations
   async getViolationHistory(violationId: number): Promise<ViolationHistoryWithUser[]> {
-    try {
-      const historyItems = await db
-        .select({
-          id: violationHistories.id,
-          violationId: violationHistories.violationId,
-          userId: violationHistories.userId,
-          action: violationHistories.action,
-          comment: violationHistories.comment,
-          rejectionReason: violationHistories.rejectionReason,
-          createdAt: violationHistories.createdAt,
-          userFullName: users.fullName,
-          violationUuid: violations.uuid,
-        })
-        .from(violationHistories)
-        .leftJoin(users, eq(violationHistories.userId, users.id))
-        .leftJoin(violations, eq(violationHistories.violationId, violations.id))
-        .where(eq(violationHistories.violationId, violationId))
-        .orderBy(desc(violationHistories.createdAt));
-      
-      return historyItems;
+    const history = await db.select({
+      id: violationHistories.id,
+      violationId: violationHistories.violationId,
+      userId: violationHistories.userId,
+      action: violationHistories.action,
+      rejectionReason: violationHistories.rejectionReason,
+      createdAt: violationHistories.createdAt,
+      details: violationHistories.details,
+      userFullName: profiles.fullName,
+    })
+    .from(violationHistories)
+    .leftJoin(profiles, eq(violationHistories.userId, profiles.id))
+    .where(eq(violationHistories.violationId, violationId))
+    .orderBy(desc(violationHistories.createdAt));
 
-    } catch (error) {
-      logger.error(`Error fetching violation history for violation ${violationId}:`, error);
-      return [];
-    }
+    return history;
   }
   
   async addViolationHistory(history: InsertViolationHistory): Promise<ViolationHistory> {
-    // Get the violation UUID for the given violation ID
+    if (history.violationId === null || history.violationId === undefined) {
+      throw new Error("Cannot add history without a violationId");
+    }
     const violation = await this.getViolation(history.violationId);
     
     const [newHistory] = await db
       .insert(violationHistories)
       .values({
         ...history,
-        violationUuid: violation?.uuid, // Populate UUID if available
         createdAt: new Date()
       })
       .returning();
@@ -985,7 +764,6 @@ export class DatabaseStorage implements IStorage {
     return newHistory;
   }
   
-  // Reporting operations
   async getRepeatViolations(minCount: number): Promise<{ unitId: number, unitNumber: string, count: number, lastViolationDate: Date }[]> {
     const result = await db
       .select({
@@ -997,8 +775,7 @@ export class DatabaseStorage implements IStorage {
       .groupBy(violations.unitId)
       .having(sql`count(*) >= ${minCount}`);
       
-    // Get unit numbers for each unit ID
-    const unitIds = result.map(r => r.unitId as number);
+    const unitIds = result.map(r => r.unitId as number).filter(id => id !== null);
     
     if (unitIds.length === 0) {
       return [];
@@ -1010,23 +787,19 @@ export class DatabaseStorage implements IStorage {
         unitNumber: propertyUnits.unitNumber
       })
       .from(propertyUnits)
-      .where(
-        or(...unitIds.map((id: number) => eq(propertyUnits.id, id)))
-      );
+      .where(inArray(propertyUnits.id, unitIds));
     
-    // Create a map of unit IDs to unit numbers
     const unitMap = new Map<number, string>();
-    units.forEach((unit: { id: number; unitNumber: string }) => {
+    units.forEach((unit) => {
       unitMap.set(unit.id, unit.unitNumber);
     });
     
-    // Create the final result
-    return result.map((r: { unitId: number; count: number | string; lastViolation: Date }) => ({
-      unitId: r.unitId,
-      unitNumber: unitMap.get(r.unitId) || 'Unknown',
+    return result.map((r) => ({
+      unitId: r.unitId as number,
+      unitNumber: unitMap.get(r.unitId as number) || 'Unknown',
       count: Number(r.count),
       lastViolationDate: r.lastViolation
-    })).sort((a: { count: number }, b: { count: number }) => b.count - a.count);
+    })).sort((a, b) => b.count - a.count);
   }
   
   async getViolationStats(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{
@@ -1039,9 +812,6 @@ export class DatabaseStorage implements IStorage {
     resolvedViolations: number,
     averageResolutionTimeDays: number | null
   }> {
-    try {
-      console.log('[getViolationStats] Starting with filters:', filters);
-      
       const { from, to, categoryId } = filters;
       const conditions: SQL[] = [];
       if (from) conditions.push(gte(violations.createdAt, from));
@@ -1049,29 +819,7 @@ export class DatabaseStorage implements IStorage {
       if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-      console.log('[getViolationStats] Conditions count:', conditions.length);
 
-      // First, let's check if we have any violations at all
-      const totalCount = await db
-        .select({ count: drizzleCount() })
-        .from(violations);
-      console.log('[getViolationStats] Total violations in database:', totalCount[0]?.count || 0);
-
-      if (!totalCount[0]?.count || totalCount[0].count === 0) {
-        console.log('[getViolationStats] No violations found, returning zero stats');
-        return {
-          totalViolations: 0,
-          newViolations: 0,
-          pendingViolations: 0,
-          approvedViolations: 0,
-          disputedViolations: 0,
-          rejectedViolations: 0,
-          resolvedViolations: 0,
-          averageResolutionTimeDays: null
-        };
-      }
-
-      console.log('[getViolationStats] Executing main stats query...');
       const [counts] = await db
         .select({
           total: drizzleCount(),
@@ -1085,10 +833,6 @@ export class DatabaseStorage implements IStorage {
         .from(violations)
         .where(whereClause);
 
-      console.log('[getViolationStats] Raw counts result:', counts);
-
-      // Calculate average resolution time
-      console.log('[getViolationStats] Calculating resolution time...');
       const resolvedViolationsData = await db
         .select({
           createdAt: violations.createdAt,
@@ -1098,7 +842,7 @@ export class DatabaseStorage implements IStorage {
         .where(whereClause ? and(whereClause, eq(violations.status, 'resolved')) : eq(violations.status, 'resolved'));
 
       let totalResolutionTimeMs = 0;
-      resolvedViolationsData.forEach((v: { createdAt?: Date; updatedAt?: Date }) => {
+      resolvedViolationsData.forEach((v) => {
         if (v.createdAt && v.updatedAt) {
           totalResolutionTimeMs += v.updatedAt.getTime() - v.createdAt.getTime();
         }
@@ -1108,7 +852,7 @@ export class DatabaseStorage implements IStorage {
         ? (totalResolutionTimeMs / resolvedViolationsData.length) / (1000 * 60 * 60 * 24) 
         : null;
 
-      const result = {
+      return {
         totalViolations: Number(counts?.total) || 0,
         newViolations: Number(counts?.new) || 0,
         pendingViolations: Number(counts?.pending) || 0,
@@ -1118,36 +862,20 @@ export class DatabaseStorage implements IStorage {
         resolvedViolations: Number(counts?.resolved) || 0,
         averageResolutionTimeDays: averageResolutionTimeDays !== null ? parseFloat(averageResolutionTimeDays.toFixed(1)) : null
       };
-
-      console.log('[getViolationStats] Final result:', result);
-      return result;
-    } catch (error) {
-      console.error('[getViolationStats] Error occurred:', error);
-      throw error;
-    }
   }
   
   async getViolationsByMonth(filters: { from?: Date, to?: Date, categoryId?: number } = {}): Promise<{ month: string, count: number }[]> {
     const { from, to, categoryId } = filters;
-    const conditions = [];
+    const conditions: SQL[] = [];
     
-    // Date range for query
     let queryFromDate = from;
     let queryToDate = to;
 
-    if (!queryFromDate && !queryToDate) {
-      // Default to current year if no dates are provided
+    if (!queryFromDate || !queryToDate) {
       const now = new Date();
-      queryFromDate = new Date(now.getFullYear(), 0, 1); // Start of current year
-      queryToDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999); // End of current year
-    } else if (queryFromDate && !queryToDate) {
-      // If only from is provided, set to to end of that year or sensible default
-      queryToDate = new Date(queryFromDate.getFullYear(), 11, 31, 23, 59, 59, 999);
-    } else if (!queryFromDate && queryToDate) {
-      // If only to is provided, set from to start of that year or sensible default
-      queryFromDate = new Date(queryToDate.getFullYear(), 0, 1);
+      queryFromDate = queryFromDate || new Date(now.getFullYear(), 0, 1);
+      queryToDate = queryToDate || new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
     }
-
 
     if (queryFromDate) conditions.push(gte(violations.createdAt, queryFromDate));
     if (queryToDate) conditions.push(lte(violations.createdAt, queryToDate));
@@ -1155,25 +883,23 @@ export class DatabaseStorage implements IStorage {
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Group by YYYY-MM
     const violationsByMonthRaw = await db.select({
       yearMonth: sql<string>`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`,
-      count: drizzleCount(sql`*`)
+      count: drizzleCount()
     })
     .from(violations)
     .where(whereClause)
     .groupBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`)
     .orderBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`);
 
-    // Ensure all months within the range are represented, even if count is 0
     const result: { month: string, count: number }[] = [];
     if (queryFromDate && queryToDate) {
-      let currentDate = new Date(queryFromDate.getFullYear(), queryFromDate.getMonth(), 1);
+      const currentDate = new Date(queryFromDate.getFullYear(), queryFromDate.getMonth(), 1);
       const finalDate = new Date(queryToDate.getFullYear(), queryToDate.getMonth(), 1);
 
       while (currentDate <= finalDate) {
         const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+        const month = currentDate.getMonth() + 1;
         const yearMonthStr = `${year}-${month.toString().padStart(2, '0')}`;
         
         const monthData = violationsByMonthRaw.find(v => v.yearMonth === yearMonthStr);
@@ -1182,7 +908,6 @@ export class DatabaseStorage implements IStorage {
         currentDate.setMonth(currentDate.getMonth() + 1);
       }
     } else {
-       // Fallback for cases where date range might not be perfectly defined (should ideally not happen with new defaults)
        violationsByMonthRaw.forEach(item => {
         result.push({ month: item.yearMonth, count: Number(item.count) });
        });
@@ -1202,16 +927,16 @@ export class DatabaseStorage implements IStorage {
 
     const result = await db.select({
       type: violationCategories.name,
-      count: drizzleCount(sql`*`)
+      count: drizzleCount()
     })
     .from(violations)
     .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
     .where(whereClause)
     .groupBy(violationCategories.name)
-    .orderBy(desc(drizzleCount(sql`*`)));
+    .orderBy(desc(drizzleCount()));
 
-    return result.map((r: { type: string | null; count: number | string }) => ({ 
-      type: r.type ?? 'Unknown', // Ensure type is always string
+    return result.map((r) => ({ 
+      type: r.type ?? 'Unknown',
       count: Number(r.count) 
     }));
   }
@@ -1236,109 +961,47 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
       .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
       .where(whereClause)
-      .orderBy(desc(violations.createdAt)); // Or any other order suitable for the report
+      .orderBy(desc(violations.createdAt));
     
-    return result.map((r: { violation: Violation; unit: PropertyUnit; category: ViolationCategory | null }) => ({
+    return result.map((r) => ({
       ...r.violation,
       unit: r.unit,
-      category: r.category || undefined // Handle cases where category might be null
+      category: r.category || undefined
     }));
   }
   
-  // Implement password management methods
-  async updateUserPassword(id: number, password: string): Promise<boolean> {
-    try {
-      const hashedPassword = await this.hashPassword(password);
-      
-      const result = await db.update(users)
-        .set({
-          password: hashedPassword,
-          forcePasswordChange: false,
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, id));
-      
-      return result.rowCount !== null && result.rowCount > 0;
-    } catch (error) {
-      console.error('Error updating user password:', error);
-      return false;
-    }
-  }
-  
-  async updateUserPasswordResetToken(id: number, token: string | null, expires: Date | null): Promise<boolean> {
-    try {
-      const result = await db.update(users)
-        .set({
-          passwordResetToken: token,
-          passwordResetExpires: expires,
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, id));
-      
-      return result.rowCount !== null && result.rowCount > 0;
-    } catch (error) {
-      console.error('Error updating password reset token:', error);
-      return false;
-    }
-  }
-
   async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
-    // Only allow sorting by known columns
-    const sortMap = {
-      createdAt: violations.createdAt,
-      violationType: violations.violationType,
-      status: violations.status,
-      fineAmount: violations.fineAmount,
-      unitNumber: propertyUnits.unitNumber,
-      id: violations.id
+    const sortMap: Record<string, SQL | Name | undefined> = {
+      createdAt: violations.createdAt as any,
+      violationType: violations.violationType as any,
+      status: violations.status as any,
+      fineAmount: violations.fineAmount as any,
+      unitNumber: propertyUnits.unitNumber as any,
+      id: violations.id as any
     };
-    let orderField = sortMap[sortBy as keyof typeof sortMap] || violations.createdAt;
-    const orderFn = sortOrder === 'asc' ? asc(orderField) : desc(orderField);
-    let whereClause = [];
-    if (status) whereClause.push(eq(violations.status, status));
-    if (unitId) whereClause.push(eq(violations.unitId, unitId));
+    const orderField = sortMap[sortBy || ''] || violations.createdAt;
+    const orderFn = sortOrder === 'asc' ? asc(orderField as Name) : desc(orderField as Name);
+    
+    const whereConditions: SQL[] = [];
+    if (status) whereConditions.push(eq(violations.status, status as ViolationStatus));
+    if (unitId) whereConditions.push(eq(violations.unitId, unitId));
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
     const result = await db
       .select({ violation: violations, unit: propertyUnits })
       .from(violations)
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(whereClause.length ? and(...whereClause) : undefined)
+      .where(whereClause)
       .orderBy(orderFn)
       .limit(limit)
       .offset(offset);
 
-    // Count query
     const countQuery = db
       .select({ count: sql`count(*)` })
-      .from(violations);
-
-    // Only add join if it's actually needed for the where clause or future sort/filter on count
-    // For now, the whereClause only pertains to the 'violations' table.
-    // If sortMap included unit specific fields that were part of the 'whereClause' for count, then join.
-    // Current 'whereClause' does not require a join for the count.
-
-    if (whereClause.length > 0) {
-      // If there are filters on the violations table, apply them directly.
-      // If any filter in whereClause were to depend on propertyUnits, a join would be needed here.
-      // Example: if (whereClause.some(condition => condition involves propertyUnits)) {
-      //   countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
-      // }
-      // For now, no join in count is strictly necessary as filters are on `violations` table.
-      // However, to keep it symmetric with the main query for potential future changes or if
-      // the DB optimizer benefits from identical structures:
-      countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
-      countQuery.where(and(...whereClause));
-    } else {
-      // If no filters, count all violations. This can be slow.
-      // Consider if a different strategy is needed for unfiltered counts on very large tables.
-      // For now, keeping it simple and counting all related to the query (which has an implicit join).
-      // To count all violations *without* the join (if that's ever the desired total):
-      // const [{ count }] = await db.select({ count: sql`count(*)` }).from(violations);
-      // But the current 'total' should reflect the items that *could* be paged through.
-       countQuery.innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id));
-       // No .where() clause means count all records resulting from the join
-    }
+      .from(violations)
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(whereClause);
 
     const [{ count }] = await countQuery;
 
@@ -1348,168 +1011,17 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string) {
-    const offset = (page - 1) * limit;
-    
-    // Determine sort order
-    let orderByClause;
-    if (sortBy === 'floor') {
-      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.floor) : desc(propertyUnits.floor);
-    } else if (sortBy === 'createdAt') {
-      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.createdAt) : desc(propertyUnits.createdAt);
-    } else if (sortBy === 'updatedAt') {
-      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.updatedAt) : desc(propertyUnits.updatedAt);
-    } else if (sortBy === 'id') {
-      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.id) : desc(propertyUnits.id);
-    } else {
-      // Default to unitNumber
-      orderByClause = sortOrder === 'asc' ? asc(propertyUnits.unitNumber) : desc(propertyUnits.unitNumber);
-    }
-
-    // Build where conditions for search
-    const whereConditions = [];
-    if (search && search.trim()) {
-      // Search in unit number and strata lot
-      whereConditions.push(
-        or(
-          ilike(propertyUnits.unitNumber, `%${search.trim()}%`),
-          ilike(propertyUnits.strataLot, `%${search.trim()}%`)
-        )
-      );
-    }
-
-    // Get units with persons
-    let query = db
-      .select({
-        unit: propertyUnits,
-        roles: unitPersonRoles,
-        person: persons
-      })
-      .from(propertyUnits)
-      .leftJoin(unitPersonRoles, eq(propertyUnits.id, unitPersonRoles.unitId))
-      .leftJoin(persons, eq(unitPersonRoles.personId, persons.id));
-
-    // Apply search conditions if any
-    if (whereConditions.length > 0) {
-      query = query.where(and(...whereConditions));
-    }
-
-    const paginatedUnits = await query
-      .orderBy(orderByClause)
-      .limit(limit)
-      .offset(offset);
-
-    // Get all unit IDs from the paginated results
-    const unitIdsMap: { [key: number]: boolean } = {};
-    paginatedUnits.forEach(row => {
-      unitIdsMap[row.unit.id] = true;
-    });
-    const unitIds = Object.keys(unitIdsMap).map(Number);
-
-    // Fetch facilities for all units
-    const parkingSpotsData = unitIds.length > 0 ? await db
-      .select()
-      .from(parkingSpots)
-      .where(sql`${parkingSpots.unitId} IN (${sql.join(unitIds, sql`, `)})`) : [];
-
-    const storageLockersData = unitIds.length > 0 ? await db
-      .select()
-      .from(storageLockers)
-      .where(sql`${storageLockers.unitId} IN (${sql.join(unitIds, sql`, `)})`) : [];
-
-    const bikeLockersData = unitIds.length > 0 ? await db
-      .select()
-      .from(bikeLockers)
-      .where(sql`${bikeLockers.unitId} IN (${sql.join(unitIds, sql`, `)})`) : [];
-
-    // Group the results by unit
-    const unitsMap = new Map<number, any>();
-    
-    paginatedUnits.forEach((row: any) => {
-      const unitId = row.unit.id;
-      
-      if (!unitsMap.has(unitId)) {
-        unitsMap.set(unitId, {
-          ...row.unit,
-          owners: [],
-          tenants: [],
-          facilities: {
-            parkingSpots: parkingSpotsData.filter((p: ParkingSpot) => p.unitId === unitId),
-            storageLockers: storageLockersData.filter((s: StorageLocker) => s.unitId === unitId),
-            bikeLockers: bikeLockersData.filter((b: BikeLocker) => b.unitId === unitId)
-          }
-        });
-      }
-      
-      const unit = unitsMap.get(unitId);
-      
-      // Add person to appropriate role array if they exist
-      if (row.person && row.roles) {
-        const personWithNotificationPref = {
-          ...row.person,
-          receiveEmailNotifications: row.roles.receiveEmailNotifications
-        };
-        
-        if (row.roles.role === 'owner') {
-          // Check if person is already added to avoid duplicates
-          if (!unit.owners.find((p: any) => p.id === row.person!.id)) {
-            unit.owners.push(personWithNotificationPref);
-          }
-        } else if (row.roles.role === 'tenant') {
-          // Check if person is already added to avoid duplicates
-          if (!unit.tenants.find((p: any) => p.id === row.person!.id)) {
-            unit.tenants.push(personWithNotificationPref);
-          }
-        }
-      }
-    });
-
-    // Convert map to array
-    const unitsWithPeopleAndFacilities = Array.from(unitsMap.values());
-
-    // Count query with search filter
-    let countQuery = db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(propertyUnits);
-
-    // Apply search conditions to count query if any
-    if (whereConditions.length > 0) {
-      countQuery = countQuery.where(and(...whereConditions));
-    }
-
-    const [{ count }] = await countQuery;
-
-    return {
-      units: unitsWithPeopleAndFacilities as (PropertyUnit & { owners: Person[], tenants: Person[], facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] } })[],
-      total: Number(count)
-    };
+  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }> {
+    throw new Error("Method not implemented.");
   }
 
-  async setUserLock(id: number, locked: boolean, reason?: string): Promise<void> {
-    try {
-      await db.update(users)
-        .set({
-          accountLocked: locked,
-          lockReason: locked ? (reason || 'Locked by administrator') : null
-        })
-        .where(eq(users.id, id));
-    } catch (error) {
-      console.error('Failed to set user lock:', error);
-    }
-  }
-
-  /**
-   * Create a unit with multiple persons/roles (owners/tenants) and facilities in a single transaction.
-   * @param unitData - { unit: InsertPropertyUnit, facilities: { parkingSpots?: string[], storageLockers?: string[], bikeLockers?: string[] }, persons: Array<{ fullName, email, phone, role: 'owner' | 'tenant', receiveEmailNotifications: boolean, hasCat?: boolean, hasDog?: boolean }> }
-   * @returns The created unit, facilities, and associated persons/roles.
-   */
   async createUnitWithPersons(unitData: {
-    unit: InsertPropertyUnit,
+    unit: InsertPropertyUnit;
     facilities: {
-      parkingSpots?: string[],
-      storageLockers?: string[],
-      bikeLockers?: string[]
-    },
+      parkingSpots?: string[];
+      storageLockers?: string[];
+      bikeLockers?: string[];
+    };
     persons: Array<{
       fullName: string;
       email: string;
@@ -1518,116 +1030,109 @@ export class DatabaseStorage implements IStorage {
       receiveEmailNotifications: boolean;
       hasCat?: boolean;
       hasDog?: boolean;
-    }>
-  }): Promise<{ unit: PropertyUnit; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; persons: Person[]; roles: UnitPersonRole[] }> {
-    return await db.transaction(async (trx) => {
-      // 1. Create or find the unit
-      let [unit] = await trx.select().from(propertyUnits).where(eq(propertyUnits.unitNumber, unitData.unit.unitNumber));
-      if (!unit) {
-        [unit] = await trx.insert(propertyUnits).values(unitData.unit).returning();
-      } else {
-        // If unit exists, update it (optional, depending on desired behavior)
-        // For now, we assume if unit exists by number, we don't update its core details,
-        // but we will update/create persons, roles, and facilities.
+    }>;
+  }): Promise<{
+    unit: PropertyUnit;
+    facilities: {
+      parkingSpots: ParkingSpot[];
+      storageLockers: StorageLocker[];
+      bikeLockers: BikeLocker[];
+    };
+    persons: Person[];
+    roles: UnitPersonRole[];
+  }> {
+    const { unit, facilities, persons: personsData } = unitData;
+
+    const result = await db.transaction(async (tx) => {
+      const [newUnit] = await tx
+        .insert(propertyUnits)
+        .values(unit)
+        .returning();
+
+      const newFacilities: {
+        parkingSpots: ParkingSpot[],
+        storageLockers: StorageLocker[],
+        bikeLockers: BikeLocker[],
+      } = {
+        parkingSpots: [],
+        storageLockers: [],
+        bikeLockers: [],
+      };
+
+      if (facilities.parkingSpots && facilities.parkingSpots.length > 0) {
+        newFacilities.parkingSpots = await tx
+          .insert(parkingSpots)
+          .values(
+            facilities.parkingSpots.map((spot) => ({
+              unitId: newUnit.id,
+              identifier: spot,
+            }))
+          )
+          .returning();
       }
 
-      // 2. Create facilities in the new tables
-      // Delete existing facilities for this unit first
-      await trx.delete(parkingSpots).where(eq(parkingSpots.unitId, unit.id));
-      await trx.delete(storageLockers).where(eq(storageLockers.unitId, unit.id));
-      await trx.delete(bikeLockers).where(eq(bikeLockers.unitId, unit.id));
-
-      // Insert new facilities
-      const createdParkingSpots: ParkingSpot[] = [];
-      if (unitData.facilities.parkingSpots && unitData.facilities.parkingSpots.length > 0) {
-        const parkingData = unitData.facilities.parkingSpots.map(identifier => ({
-          unitId: unit.id,
-          identifier
-        }));
-        const inserted = await trx.insert(parkingSpots).values(parkingData).returning();
-        createdParkingSpots.push(...inserted);
+      if (facilities.storageLockers && facilities.storageLockers.length > 0) {
+        newFacilities.storageLockers = await tx
+          .insert(storageLockers)
+          .values(
+            facilities.storageLockers.map((locker) => ({
+              unitId: newUnit.id,
+              identifier: locker,
+            }))
+          )
+          .returning();
       }
 
-      const createdStorageLockers: StorageLocker[] = [];
-      if (unitData.facilities.storageLockers && unitData.facilities.storageLockers.length > 0) {
-        const storageData = unitData.facilities.storageLockers.map(identifier => ({
-          unitId: unit.id,
-          identifier
-        }));
-        const inserted = await trx.insert(storageLockers).values(storageData).returning();
-        createdStorageLockers.push(...inserted);
+      if (facilities.bikeLockers && facilities.bikeLockers.length > 0) {
+        newFacilities.bikeLockers = await tx
+          .insert(bikeLockers)
+          .values(
+            facilities.bikeLockers.map((locker) => ({
+              unitId: newUnit.id,
+              identifier: locker,
+            }))
+          )
+          .returning();
       }
 
-      const createdBikeLockers: BikeLocker[] = [];
-      if (unitData.facilities.bikeLockers && unitData.facilities.bikeLockers.length > 0) {
-        const bikeData = unitData.facilities.bikeLockers.map(identifier => ({
-          unitId: unit.id,
-          identifier
-        }));
-        const inserted = await trx.insert(bikeLockers).values(bikeData).returning();
-        createdBikeLockers.push(...inserted);
+      const newPersons: Person[] = [];
+      const newRoles: UnitPersonRole[] = [];
+
+      for (const person of personsData) {
+        const [newPerson] = await tx
+          .insert(persons)
+          .values({
+            fullName: person.fullName,
+            email: person.email,
+            phone: person.phone,
+            hasCat: person.hasCat,
+            hasDog: person.hasDog,
+          })
+          .returning();
+
+        const [newRole] = await tx
+          .insert(unitPersonRoles)
+          .values({
+            unitId: newUnit.id,
+            personId: newPerson.id,
+            role: person.role,
+            receiveEmailNotifications: person.receiveEmailNotifications,
+          })
+          .returning();
+        
+        newPersons.push(newPerson);
+        newRoles.push(newRole);
       }
 
-      // 3. For each person, create or find by email, and update pet info
-      const personIds: { [email: string]: number } = {};
-      for (const p of unitData.persons) {
-        let [person] = await trx.select().from(persons).where(eq(persons.email, p.email));
-        if (!person) {
-          [person] = await trx.insert(persons).values({
-            fullName: p.fullName,
-            email: p.email,
-            phone: p.phone,
-            hasCat: p.hasCat,
-            hasDog: p.hasDog
-          }).returning();
-        } else {
-          [person] = await trx.update(persons).set({
-            fullName: p.fullName,
-            phone: p.phone,
-            hasCat: p.hasCat,
-            hasDog: p.hasDog,
-            updatedAt: new Date()
-          }).where(eq(persons.id, person.id)).returning();
-        }
-        personIds[p.email] = person.id;
-      }
-
-      // 4. Create unit_person_roles for each person/role (dedupe by unitId+personId+role)
-      for (const p of unitData.persons) {
-        const existingRole = await trx.select().from(unitPersonRoles)
-          .where(and(eq(unitPersonRoles.unitId, unit.id), eq(unitPersonRoles.personId, personIds[p.email]), eq(unitPersonRoles.role, p.role)));
-        if (!existingRole.length) {
-          await trx.insert(unitPersonRoles).values({
-            unitId: unit.id,
-            personId: personIds[p.email],
-            role: p.role,
-            receiveEmailNotifications: p.receiveEmailNotifications
-          }).returning();
-        } else {
-          await trx.update(unitPersonRoles)
-            .set({ receiveEmailNotifications: p.receiveEmailNotifications })
-            .where(and(
-              eq(unitPersonRoles.unitId, unit.id),
-              eq(unitPersonRoles.personId, personIds[p.email]),
-              eq(unitPersonRoles.role, p.role)
-            ));
-        }
-      }
-      // 5. Return the unit, facilities, and all associated persons/roles
-      const roles = await trx.select().from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unit.id));
-      const personList: Person[] = roles.length > 0 ? await trx.select().from(persons).where(or(...roles.map((r: UnitPersonRole) => eq(persons.id, r.personId)))) : [];
-      
       return {
-        unit,
-        facilities: {
-          parkingSpots: createdParkingSpots,
-          storageLockers: createdStorageLockers,
-          bikeLockers: createdBikeLockers
-        },
-        persons: personList,
-        roles
+        unit: newUnit,
+        facilities: newFacilities,
+        persons: newPersons,
+        roles: newRoles,
       };
     });
+
+    return result;
   }
 
   async getViolationAccessLinkByToken(token: string): Promise<ViolationAccessLink | undefined> {
@@ -1640,165 +1145,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteViolation(id: number): Promise<boolean> {
-    try {
-      return await db.transaction(async (tx) => {
-        // First, delete related records in dependent tables
-        await tx.delete(violationHistories).where(eq(violationHistories.violationId, id));
-        await tx.delete(violationAccessLinks).where(eq(violationAccessLinks.violationId, id));
-        
-        // Then delete the violation itself
-        const result = await tx.delete(violations).where(eq(violations.id, id)).returning({ id: violations.id });
-        
-        return result.length > 0;
-      });
-    } catch (error) {
-      console.error("Error deleting violation:", error);
-      throw new Error("Failed to delete violation");
-    }
+    const result = await db.delete(violations).where(eq(violations.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   async deleteViolationByUuid(uuid: string): Promise<boolean> {
-    try {
-      // First get the violation by UUID to get the integer ID
-      const violation = await this.getViolationWithUnitByUuid(uuid);
-      if (!violation) {
-        return false;
-      }
-      
-      return await this.deleteViolation(violation.id);
-    } catch (error) {
-      console.error("Error deleting violation by UUID:", error);
-      throw new Error("Failed to delete violation");
-    }
-  }
-
-  async deleteAllViolationsData(): Promise<{ deletedViolationsCount: number, deletedHistoriesCount: number, deletedAccessLinksCount: number }> {
-    try {
-      return await db.transaction(async (tx) => {
-        const deletedHistoriesResult = await tx.delete(violationHistories).returning({ id: violationHistories.id });
-        const deletedHistoriesCount = deletedHistoriesResult.length;
-        console.log(`Deleted ${deletedHistoriesCount} violation histories.`);
-
-        const deletedAccessLinksResult = await tx.delete(violationAccessLinks).returning({ id: violationAccessLinks.id });
-        const deletedAccessLinksCount = deletedAccessLinksResult.length;
-        console.log(`Deleted ${deletedAccessLinksCount} violation access links.`);
-
-        const deletedViolationsResult = await tx.delete(violations).returning({ id: violations.id });
-        const deletedViolationsCount = deletedViolationsResult.length;
-        console.log(`Deleted ${deletedViolationsCount} violations.`);
-
-        return {
-          deletedViolationsCount,
-          deletedHistoriesCount,
-          deletedAccessLinksCount
-        };
-      });
-    } catch (error) {
-      console.error("Error during deleteAllViolationsData transaction:", error);
-      throw new Error("Failed to delete all violations data. Check server logs for details.");
-    }
+    const result = await db.delete(violations).where(eq(violations.uuid, uuid));
+    return (result.rowCount ?? 0) > 0;
   }
 
   async deleteUnit(id: number): Promise<boolean> {
-    try {
-      return await db.transaction(async (tx) => {
-        // First, delete all violations associated with this unit
-        const violationsToDelete = await tx.select().from(violations).where(eq(violations.unitId, id));
-        
-        for (const violation of violationsToDelete) {
-          // Delete violation histories and access links for each violation
-          await tx.delete(violationHistories).where(eq(violationHistories.violationId, violation.id));
-          await tx.delete(violationAccessLinks).where(eq(violationAccessLinks.violationId, violation.id));
-        }
-        
-        // Delete the violations themselves
-        await tx.delete(violations).where(eq(violations.unitId, id));
-        
-        // Delete unit_person_roles associated with this unit
-        await tx.delete(unitPersonRoles).where(eq(unitPersonRoles.unitId, id));
-        
-        // Delete facilities associated with this unit
-        await tx.delete(parkingSpots).where(eq(parkingSpots.unitId, id));
-        await tx.delete(storageLockers).where(eq(storageLockers.unitId, id));
-        await tx.delete(bikeLockers).where(eq(bikeLockers.unitId, id));
-        
-        // Finally, delete the unit itself
-        const result = await tx.delete(propertyUnits).where(eq(propertyUnits.id, id)).returning({ id: propertyUnits.id });
-        
-        return result.length > 0;
-      });
-    } catch (error) {
-      console.error("Error deleting unit:", error);
-      throw new Error("Failed to delete unit");
-    }
+    const result = await db.delete(propertyUnits).where(eq(propertyUnits.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
-  async getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean })[]; facilities: { parkingSpots: ParkingSpot[], storageLockers: StorageLocker[], bikeLockers: BikeLocker[] }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[] } | undefined> {
-    const unit = await this.getPropertyUnit(id);
-    if (!unit) {
-      return undefined;
-    }
+  async getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean; })[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[]; } | undefined> {
+    throw new Error("Method not implemented.");
+  }
 
-    const personsWithRoles = await db
+  async getPendingApprovalViolations(userId: string): Promise<(Violation & { unit: PropertyUnit })[]> {
+    const result = await db
       .select({
-        person: persons,
-        role: unitPersonRoles.role,
-        receiveEmailNotifications: unitPersonRoles.receiveEmailNotifications
+        violation: violations,
+        unit: propertyUnits,
       })
-      .from(unitPersonRoles)
-      .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
-      .where(eq(unitPersonRoles.unitId, id));
-
-    const facilities = {
-      parkingSpots: await db.select().from(parkingSpots).where(eq(parkingSpots.unitId, id)),
-      storageLockers: await db.select().from(storageLockers).where(eq(storageLockers.unitId, id)),
-      bikeLockers: await db.select().from(bikeLockers).where(eq(bikeLockers.unitId, id))
-    };
-
-    const unitViolations: Violation[] = await db
-      .select()
       .from(violations)
-      .where(eq(violations.unitId, id));
+      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+      .where(and(
+        eq(violations.status, 'pending_approval'),
+        eq(violations.reportedById, userId)
+      ))
+      .orderBy(desc(violations.createdAt));
 
-    return {
-      unit,
-      persons: personsWithRoles.map((p) => ({
-        ...p.person,
-        role: p.role,
-        receiveEmailNotifications: p.receiveEmailNotifications
-      })),
-      facilities,
-      violationCount: unitViolations.length,
-      violations: unitViolations.map((v) => ({
-        id: v.id,
-        referenceNumber: v.referenceNumber,
-        violationType: v.violationType,
-        status: v.status,
-        createdAt: v.createdAt
-      }))
-    };
-  }
-
-  async getPendingApprovalViolations(userId: number): Promise<(Violation & { unit: PropertyUnit; })[]> {
-    try {
-      const result = await db
-        .select({
-          violation: violations,
-          unit: propertyUnits
-        })
-        .from(violations)
-        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-        .where(eq(violations.status, 'pending_approval'))
-        .orderBy(desc(violations.createdAt));
-    
-      return result.map((r: { violation: Violation; unit: PropertyUnit }) => ({
-        ...r.violation,
-        unit: r.unit
-      }));
-    } catch (error) {
-      console.error(`[ERROR_DB] Failed to getPendingApprovalViolations:`, error);
-      throw error;
-    }
+    return result.map(r => ({
+      ...r.violation,
+      unit: r.unit,
+    }));
   }
 
   async getPersonsWithRolesForUnit(unitId: number): Promise<Array<{
@@ -1808,24 +1190,19 @@ export class DatabaseStorage implements IStorage {
     role: string;
     receiveEmailNotifications: boolean;
   }>> {
-    try {
-      const result = await db
-        .select({
-          personId: persons.id,
-          fullName: persons.fullName,
-          email: persons.email,
-          role: unitPersonRoles.role,
-          receiveEmailNotifications: unitPersonRoles.receiveEmailNotifications,
-        })
-        .from(unitPersonRoles)
-        .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
-        .where(eq(unitPersonRoles.unitId, unitId));
-      
-      return result;
-    } catch (error) {
-      console.error('Error getting persons with roles for unit:', error);
-      return [];
-    }
+    const result = await db
+      .select({
+        personId: persons.id,
+        fullName: persons.fullName,
+        email: persons.email,
+        role: unitPersonRoles.role,
+        receiveEmailNotifications: unitPersonRoles.receiveEmailNotifications
+      })
+      .from(persons)
+      .innerJoin(unitPersonRoles, eq(persons.id, unitPersonRoles.personId))
+      .where(eq(unitPersonRoles.unitId, unitId));
+    
+    return result;
   }
 
   async createViolationAccessLink(data: {
@@ -1834,125 +1211,65 @@ export class DatabaseStorage implements IStorage {
     recipientEmail: string;
     expiresInDays?: number;
   }): Promise<string | null> {
-    try {
-      const token = randomUUID();
-      const expiresInDays = data.expiresInDays || 30;
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
-
-      const newLinkData: InsertViolationAccessLink = {
-        violationId: data.violationId,
-        violationUuid: data.violationUuid,
-        recipientEmail: data.recipientEmail,
-        token: token,
-        expiresAt: expiresAt,
-      };
-      
-      await db.insert(violationAccessLinks).values(newLinkData);
-      return token;
-    } catch (error) {
-      console.error('Error creating violation access link:', error);
-      return null;
-    }
+    throw new Error("Method not implemented.");
   }
 
   async getAdminAndCouncilUsers(): Promise<Array<{
-    id: number;
+    id: string;
     email: string;
-    fullName: string;
+    fullName: string | null;
   }>> {
     try {
-      const result = await db
+      const results = await db
         .select({
-          id: users.id,
-          email: users.email,
-          fullName: users.fullName,
+          id: profiles.id,
+          fullName: profiles.fullName,
+          email: persons.email,
         })
-        .from(users)
-        .where(or(eq(users.isAdmin, true), eq(users.isCouncilMember, true)))
-        .execute();
-      return result;
+        .from(profiles)
+        .leftJoin(persons, eq(profiles.id, persons.authUserId))
+        .where(
+          or(
+            eq(profiles.role, 'admin'),
+            eq(profiles.role, 'council')
+          )
+        );
+      
+      return results.map(r => ({ ...r, email: r.email || '' }));
     } catch (error) {
-      console.error("Error fetching admin and council users:", error);
-      throw error; 
+      logger.error("Error fetching admin and council users:", error);
+      throw new Error("Could not fetch admin and council users.");
     }
   }
 
-  async addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }) {
-    // Invalidate previous unused codes for this person/violation
-    await db.update(emailVerificationCodes)
-      .set({ usedAt: new Date() })
-      .where(and(eq(emailVerificationCodes.personId, params.personId), eq(emailVerificationCodes.violationId, params.violationId), isNull(emailVerificationCodes.usedAt)));
-    // Insert new code
-    await db.insert(emailVerificationCodes).values({ personId: params.personId, violationId: params.violationId, codeHash: params.codeHash, expiresAt: params.expiresAt });
+  async addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void> {
+    await db.insert(emailVerificationCodes).values(params);
   }
 
-  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string) {
-    return await db.select().from(emailVerificationCodes)
-      .where(and(
-        eq(emailVerificationCodes.personId, personId),
-        eq(emailVerificationCodes.violationId, violationId),
-        eq(emailVerificationCodes.codeHash, codeHash),
-        isNull(emailVerificationCodes.usedAt),
-        gte(emailVerificationCodes.expiresAt, new Date())
-      ));
+  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any> {
+    const [code] = await db
+      .select()
+      .from(emailVerificationCodes)
+      .where(
+        and(
+          eq(emailVerificationCodes.personId, personId),
+          eq(emailVerificationCodes.violationId, violationId),
+          eq(emailVerificationCodes.codeHash, codeHash),
+          gt(emailVerificationCodes.expiresAt, new Date())
+        )
+      );
+    
+    return code;
+  }
+  
+  async markEmailVerificationCodeUsed(id: number): Promise<void> {
+    await db.update(emailVerificationCodes).set({ usedAt: new Date(), codeHash: '' }).where(eq(emailVerificationCodes.id, id));
   }
 
-  async markEmailVerificationCodeUsed(id: number) {
-    await db.update(emailVerificationCodes).set({ usedAt: new Date() }).where(eq(emailVerificationCodes.id, id));
-  }
+  async getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
 
-  /**
-   * Returns total fines issued per month, filtered by date/category if provided.
-   * Each entry: { month: 'YYYY-MM', totalFines: number }
-   */
   async getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]> {
-    filters = filters || {};
-    const { from, to, categoryId } = filters;
-    const conditions = [];
-    let queryFromDate = from;
-    let queryToDate = to;
-    if (!queryFromDate && !queryToDate) {
-      const now = new Date();
-      queryFromDate = new Date(now.getFullYear(), 0, 1);
-      queryToDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-    } else if (queryFromDate && !queryToDate) {
-      queryToDate = new Date(queryFromDate.getFullYear(), 11, 31, 23, 59, 59, 999);
-    } else if (!queryFromDate && queryToDate) {
-      queryFromDate = new Date(queryToDate.getFullYear(), 0, 1);
-    }
-    if (queryFromDate) conditions.push(gte(violations.createdAt, queryFromDate));
-    if (queryToDate) conditions.push(lte(violations.createdAt, queryToDate));
-    if (categoryId) conditions.push(eq(violations.categoryId, categoryId));
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-    // Group by YYYY-MM, sum fine_amount
-    const finesByMonthRaw = await db.select({
-      yearMonth: sql<string>`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`,
-      totalFines: sql<number>`COALESCE(SUM(${violations.fineAmount}), 0)`
-    })
-    .from(violations)
-    .where(whereClause)
-    .groupBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`)
-    .orderBy(sql`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`);
-    // Fill in months with zero if missing
-    const result: { month: string, totalFines: number }[] = [];
-    if (queryFromDate && queryToDate) {
-      let currentDate = new Date(queryFromDate.getFullYear(), queryFromDate.getMonth(), 1);
-      const finalDate = new Date(queryToDate.getFullYear(), queryToDate.getMonth(), 1);
-      while (currentDate <= finalDate) {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1;
-        const yearMonthStr = `${year}-${month.toString().padStart(2, '0')}`;
-        const monthData = finesByMonthRaw.find(v => v.yearMonth === yearMonthStr);
-        result.push({ month: yearMonthStr, totalFines: monthData ? Number(monthData.totalFines) : 0 });
-        currentDate.setMonth(currentDate.getMonth() + 1);
-      }
-    } else {
-      finesByMonthRaw.forEach(item => {
-        result.push({ month: item.yearMonth, totalFines: Number(item.totalFines) });
-      });
-    }
-    return result;
+    throw new Error("Method not implemented.");
   }
 
   async updateUnitWithPersonsAndFacilities(
@@ -1960,189 +1277,30 @@ export class DatabaseStorage implements IStorage {
     unitData: Partial<InsertPropertyUnit>,
     personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
     facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
-  ) {
-    return db.transaction(async (tx) => {
-      // 1. Update the core unit details
-      const [updatedUnit] = await tx.update(propertyUnits)
-        .set({ ...unitData, updatedAt: new Date() })
-        .where(eq(propertyUnits.id, unitId))
-        .returning();
-
-      // 2. Clear existing persons and roles for this unit
-      const existingRoles = await tx.select({ personId: unitPersonRoles.personId }).from(unitPersonRoles).where(eq(unitPersonRoles.unitId, unitId));
-      const personIdsToDelete = existingRoles.map((r: { personId: number }) => r.personId);
-
-      if (personIdsToDelete.length > 0) {
-        await tx.delete(unitPersonRoles).where(eq(unitPersonRoles.unitId, unitId));
-        
-        const otherRoles = await tx.select({ personId: unitPersonRoles.personId }).from(unitPersonRoles).where(inArray(unitPersonRoles.personId, personIdsToDelete));
-        const personsStillInUse = new Set(otherRoles.map((r: { personId: number }) => r.personId));
-        const finalPersonIdsToDelete = personIdsToDelete.filter((id: number) => !personsStillInUse.has(id));
-
-        if (finalPersonIdsToDelete.length > 0) {
-          await tx.delete(persons).where(inArray(persons.id, finalPersonIdsToDelete));
-        }
-      }
-
-      // 3. Create new persons and roles
-      const createdPersons: Person[] = [];
-      const createdRoles: UnitPersonRole[] = [];
-      for (const personData of personsData) {
-        let [person] = await tx.select().from(persons).where(eq(persons.email, personData.email));
-        if (!person) {
-          [person] = await tx.insert(persons).values({
-            fullName: personData.fullName,
-            email: personData.email,
-            phone: personData.phone,
-          }).returning();
-        }
-        createdPersons.push(person);
-
-        const [role] = await tx.insert(unitPersonRoles).values({
-          unitId: unitId,
-          personId: person.id,
-          role: personData.role,
-          receiveEmailNotifications: personData.receiveEmailNotifications,
-        }).returning();
-        createdRoles.push(role);
-      }
-
-      // 4. Clear and re-create facilities
-      await tx.delete(parkingSpots).where(eq(parkingSpots.unitId, unitId));
-      await tx.delete(storageLockers).where(eq(storageLockers.unitId, unitId));
-      await tx.delete(bikeLockers).where(eq(bikeLockers.unitId, unitId));
-
-      const createdFacilities = {
-        parkingSpots: facilitiesData.parkingSpots && facilitiesData.parkingSpots.length > 0 ? await tx.insert(parkingSpots).values(facilitiesData.parkingSpots.map(identifier => ({ unitId, identifier }))).returning() : [],
-        storageLockers: facilitiesData.storageLockers && facilitiesData.storageLockers.length > 0 ? await tx.insert(storageLockers).values(facilitiesData.storageLockers.map(identifier => ({ unitId, identifier }))).returning() : [],
-        bikeLockers: facilitiesData.bikeLockers && facilitiesData.bikeLockers.length > 0 ? await tx.insert(bikeLockers).values(facilitiesData.bikeLockers.map(identifier => ({ unitId, identifier }))).returning() : [],
-      };
-
-      return {
-        unit: updatedUnit,
-        persons: createdPersons,
-        roles: createdRoles,
-        facilities: createdFacilities,
-      };
-    });
+  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }> {
+    throw new Error("Method not implemented.");
   }
 
-  // Public user session management for owners/tenants
   async createPublicUserSession(data: {
     personId: number;
     unitId: number;
     email: string;
     role: string;
     expiresInHours?: number;
-  }) {
-    try {
-      const expiresInHours = data.expiresInHours || 24; // Default 24 hours
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + expiresInHours);
-
-      const [session] = await db
-        .insert(publicUserSessions)
-        .values({
-          personId: data.personId,
-          unitId: data.unitId,
-          email: data.email,
-          role: data.role,
-          expiresAt: expiresAt,
-          lastAccessedAt: new Date(),
-        })
-        .returning();
-
-      return session;
-    } catch (error) {
-      console.error('Error creating public user session:', error);
-      return null;
-    }
+  }): Promise<any> {
+    throw new Error("Method not implemented.");
   }
 
-  async getPublicUserSession(sessionId: string) {
-    try {
-      const [session] = await db
-        .select({
-          session: publicUserSessions,
-          person: persons,
-          unit: propertyUnits,
-        })
-        .from(publicUserSessions)
-        .innerJoin(persons, eq(publicUserSessions.personId, persons.id))
-        .innerJoin(propertyUnits, eq(publicUserSessions.unitId, propertyUnits.id))
-        .where(
-          and(
-            eq(publicUserSessions.sessionId, sessionId),
-            gt(publicUserSessions.expiresAt, new Date())
-          )
-        );
-
-      if (session) {
-        // Update last accessed time
-        await db
-          .update(publicUserSessions)
-          .set({ lastAccessedAt: new Date() })
-          .where(eq(publicUserSessions.sessionId, sessionId));
-
-        return {
-          sessionId: session.session.sessionId,
-          personId: session.session.personId,
-          unitId: session.session.unitId,
-          email: session.session.email,
-          role: session.session.role,
-          fullName: session.person.fullName,
-          unitNumber: session.unit.unitNumber,
-          expiresAt: session.session.expiresAt,
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error getting public user session:', error);
-      return null;
-    }
+  async getPublicUserSession(sessionId: string): Promise<any> {
+    throw new Error("Method not implemented.");
   }
 
-  async getViolationsForUnit(unitId: number, includeStatuses?: string[]) {
-    try {
-      const conditions = [eq(violations.unitId, unitId)];
-      
-      if (includeStatuses && includeStatuses.length > 0) {
-        conditions.push(inArray(violations.status, includeStatuses));
-      }
-
-      const result = await db
-        .select({
-          violation: violations,
-          unit: propertyUnits,
-          category: violationCategories,
-        })
-        .from(violations)
-        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-        .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
-        .where(and(...conditions))
-        .orderBy(desc(violations.createdAt));
-
-      return result.map(row => ({
-        ...row.violation,
-        unit: row.unit,
-        category: row.category,
-      }));
-    } catch (error) {
-      console.error('Error getting violations for unit:', error);
-      return [];
-    }
+  async getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<any[]> {
+    throw new Error("Method not implemented.");
   }
 
-  async expirePublicUserSession(sessionId: string) {
-    try {
-      await db
-        .update(publicUserSessions)
-        .set({ expiresAt: new Date() })
-        .where(eq(publicUserSessions.sessionId, sessionId));
-    } catch (error) {
-      console.error('Error expiring public user session:', error);
-    }
+  async expirePublicUserSession(sessionId: string): Promise<void> {
+    throw new Error("Method not implemented.");
   }
 }
 

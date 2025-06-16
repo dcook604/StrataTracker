@@ -13,7 +13,6 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,25 +36,14 @@ import {
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
-  rememberMe: z.boolean().default(false),
 });
 
-// Registration is now admin-only and handled in the users page
-// This schema is kept for reference but not actively used on the auth page
-const registerSchema = z.object({
-  email: z.string().email("Valid email is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  fullName: z.string().min(2, "Full name is required"),
-  isCouncilMember: z.boolean().default(false),
-  isAdmin: z.boolean().default(false),
-});
 
 type LoginFormValues = z.infer<typeof loginSchema>;
-type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const { user, loginMutation } = useAuth();
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +87,7 @@ export default function AuthPage() {
         window.history.replaceState({}, '', '/auth');
       }
     }
-  }, [location, toast]);
+  }, [toast]);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -107,21 +95,9 @@ export default function AuthPage() {
     defaultValues: {
       email: "",
       password: "",
-      rememberMe: false,
     },
   });
 
-  // Register form not actively used on auth page
-  const registerForm = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      fullName: "",
-      isCouncilMember: false,
-      isAdmin: false,
-    },
-  });
 
   // Handle login submission
   const onLoginSubmit = async (values: LoginFormValues) => {
@@ -129,10 +105,9 @@ export default function AuthPage() {
       setIsLoading(true);
       setError(null);
       await loginMutation.mutateAsync({
-      email: values.email,
-      password: values.password,
-      rememberMe: values.rememberMe
-    });
+        email: values.email,
+        password: values.password,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
@@ -140,10 +115,6 @@ export default function AuthPage() {
     }
   };
 
-  // Handle register submission
-  const onRegisterSubmit = (values: RegisterFormValues) => {
-    // Implementation of register submission
-  };
 
   // If user is already set (and useEffect for navigation will run), 
   // we can return null earlier to prevent rendering the login form briefly.
@@ -229,36 +200,12 @@ export default function AuthPage() {
                   )}
                 />
                 
-                  <FormField
-                    control={loginForm.control}
-                    name="rememberMe"
-                    render={({ field }) => (
-              <FormItem className="flex flex-row items-center space-x-2">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value} 
-                            onCheckedChange={field.onChange}
-                    disabled={isLoading}
-                          />
-                        </FormControl>
-                <FormLabel className="text-sm font-normal">Remember me</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                
                 <Button 
                   type="submit" 
-                  className="w-full" 
-          disabled={isLoading}
+                  className="w-full"
+                  disabled={isLoading}
                 >
-                {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        "Sign in"
-                      )}
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
                 </Button>
               </form>
             </Form>

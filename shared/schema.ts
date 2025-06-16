@@ -1,49 +1,20 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 import { relations } from "drizzle-orm";
 import { unique } from "drizzle-orm/pg-core";
 import crypto from "crypto";
 
-// User schema
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  uuid: uuid("uuid").defaultRandom().notNull().unique(),
-  email: text("email").notNull().unique(),
-  username: text("username").notNull(),
-  password: text("password").notNull(),
-  fullName: text("full_name").notNull(),
-  isCouncilMember: boolean("is_council_member").default(false).notNull(),
-  isAdmin: boolean("is_admin").default(false).notNull(),
-  isUser: boolean("is_user").default(true).notNull(),
-  lastLogin: timestamp("last_login"),
-  failedLoginAttempts: integer("failed_login_attempts").default(0),
-  accountLocked: boolean("account_locked").default(false),
-  lockReason: text("lock_reason"),
-  passwordResetToken: text("password_reset_token"),
-  passwordResetExpires: timestamp("password_reset_expires"),
-  forcePasswordChange: boolean("force_password_change").default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+// Profiles table, linked to Supabase auth.users
+export const profiles = pgTable("profiles", {
+  id: uuid("id").primaryKey(), // This will be the user's ID from Supabase Auth
+  fullName: text("full_name"),
+  role: text("role").notNull().default('user'), // e.g., 'admin', 'council', 'user'
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Add type augmentation for snake_case compatibility
-export type User = typeof users.$inferSelect & {
-  is_admin?: boolean;
-  is_council_member?: boolean;
-  is_user?: boolean;
-};
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-  username: true,
-  password: true,
-  fullName: true,
-  isCouncilMember: true,
-  isAdmin: true,
-  isUser: true,
-  forcePasswordChange: true,
-});
+export const insertProfileSchema = createInsertSchema(profiles);
+export type Profile = typeof profiles.$inferSelect;
+export type InsertProfile = typeof profiles.$inferInsert;
 
 // Customer records schema (enhanced property units)
 export const customers = pgTable("customers", {
@@ -59,6 +30,7 @@ export const customers = pgTable("customers", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  active: boolean("active").default(true).notNull(),
 });
 
 // For backward compatibility, property units now references customers
@@ -208,7 +180,7 @@ export const systemSettings = pgTable("system_settings", {
   settingValue: text("setting_value"),
   description: text("description"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedById: integer("updated_by_id").references(() => users.id),
+  updatedById: uuid("updated_by_id").references(() => profiles.id),
 });
 
 export const insertSystemSettingSchema = createInsertSchema(systemSettings).pick({
@@ -226,7 +198,7 @@ export const violations = pgTable("violations", {
   uuid: uuid("uuid").$defaultFn(() => crypto.randomUUID()).notNull().unique(),
   referenceNumber: uuid("reference_number").defaultRandom().notNull().unique(),
   unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
-  reportedById: integer("reported_by_id").notNull().references(() => users.id),
+  reportedById: uuid("reported_by_id").notNull().references(() => profiles.id),
   categoryId: integer("category_id").references(() => violationCategories.id),
   violationType: text("violation_type").notNull(),
   violationDate: timestamp("violation_date").notNull(),
@@ -256,9 +228,9 @@ export const violationsRelations = relations(violations, ({ one }) => ({
     fields: [violations.unitId],
     references: [propertyUnits.id],
   }),
-  reportedBy: one(users, {
+  reportedBy: one(profiles, {
     fields: [violations.reportedById],
-    references: [users.id],
+    references: [profiles.id],
   }),
   category: one(violationCategories, {
     fields: [violations.categoryId],
@@ -290,11 +262,10 @@ export const insertViolationSchema = createInsertSchema(violations).pick({
 // Violation history/comments schema
 export const violationHistories = pgTable("violation_histories", {
   id: serial("id").primaryKey(),
-  violationId: integer("violation_id").notNull().references(() => violations.id, { onDelete: 'cascade' }),
-  violationUuid: uuid("violation_uuid").references(() => violations.uuid),
-  userId: integer("user_id").references(() => users.id), // Can be null if action is by system/occupant
+  violationId: integer("violation_id").references(() => violations.id, { onDelete: 'cascade' }),
+  userId: uuid("user_id").references(() => profiles.id),
   action: text("action").notNull(),
-  comment: text("comment"),
+  details: jsonb("details"),
   rejectionReason: text("rejection_reason"), // New field for rejection reason
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -306,9 +277,9 @@ export const violationHistoriesRelations = relations(violationHistories, ({ one 
     fields: [violationHistories.violationId],
     references: [violations.id],
   }),
-  user: one(users, {
+  user: one(profiles, {
     fields: [violationHistories.userId],
-    references: [users.id],
+    references: [profiles.id],
   }),
 }));
 
@@ -357,9 +328,9 @@ export const bikeLockersRelations = relations(bikeLockers, ({ one }) => ({
 
 // Define relationships for system settings
 export const systemSettingsRelations = relations(systemSettings, ({ one }) => ({
-  updatedBy: one(users, {
+  updatedBy: one(profiles, {
     fields: [systemSettings.updatedById],
-    references: [users.id],
+    references: [profiles.id],
   }),
 }));
 
@@ -405,7 +376,7 @@ export const insertUnitPersonRoleSchema = createInsertSchema(unitPersonRoles).pi
   role: true,
 });
 
-export type InsertUser = typeof users.$inferInsert;
+export type InsertUser = typeof profiles.$inferInsert;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = typeof customers.$inferInsert;
 export type ViolationCategory = typeof violationCategories.$inferSelect;
@@ -481,7 +452,7 @@ export const communicationCampaigns = pgTable("communication_campaigns", {
   plainTextContent: text("plain_text_content"), // Plain text version
   scheduledAt: timestamp("scheduled_at"),
   sentAt: timestamp("sent_at"),
-  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdById: integer("created_by_id").notNull().references(() => profiles.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -509,16 +480,16 @@ export const communicationTemplates = pgTable("communication_templates", {
   subject: text("subject").notNull(),
   content: text("content").notNull(),
   isDefault: boolean("is_default").default(false).notNull(),
-  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdById: integer("created_by_id").notNull().references(() => profiles.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Relations
 export const communicationCampaignsRelations = relations(communicationCampaigns, ({ one, many }) => ({
-  createdBy: one(users, {
+  createdBy: one(profiles, {
     fields: [communicationCampaigns.createdById],
-    references: [users.id],
+    references: [profiles.id],
   }),
   recipients: many(communicationRecipients),
 }));
@@ -539,9 +510,9 @@ export const communicationRecipientsRelations = relations(communicationRecipient
 }));
 
 export const communicationTemplatesRelations = relations(communicationTemplates, ({ one }) => ({
-  createdBy: one(users, {
+  createdBy: one(profiles, {
     fields: [communicationTemplates.createdById],
-    references: [users.id],
+    references: [profiles.id],
   }),
 }));
 
@@ -605,8 +576,8 @@ export const bylaws = pgTable("bylaws", {
   effectiveDate: date("effective_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  createdById: integer("created_by_id").notNull().references(() => users.id),
-  updatedById: integer("updated_by_id").references(() => users.id),
+  createdById: integer("created_by_id").notNull().references(() => profiles.id),
+  updatedById: integer("updated_by_id").references(() => profiles.id),
 });
 
 export const bylawCategoryLinks = pgTable("bylaw_category_links", {
@@ -625,7 +596,7 @@ export const bylawRevisions = pgTable("bylaw_revisions", {
   revisionNotes: text("revision_notes"),
   effectiveDate: date("effective_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdById: integer("created_by_id").notNull().references(() => profiles.id),
 });
 
 // Insert schemas for bylaws
@@ -658,13 +629,13 @@ export const insertBylawRevisionSchema = createInsertSchema(bylawRevisions).pick
 
 // Relations
 export const bylawsRelations = relations(bylaws, ({ one, many }) => ({
-  createdBy: one(users, {
+  createdBy: one(profiles, {
     fields: [bylaws.createdById],
-    references: [users.id],
+    references: [profiles.id],
   }),
-  updatedBy: one(users, {
+  updatedBy: one(profiles, {
     fields: [bylaws.updatedById],
-    references: [users.id],
+    references: [profiles.id],
   }),
   parentSection: one(bylaws, {
     fields: [bylaws.parentSectionId],
@@ -695,9 +666,9 @@ export const bylawRevisionsRelations = relations(bylawRevisions, ({ one }) => ({
     fields: [bylawRevisions.bylawId],
     references: [bylaws.id],
   }),
-  createdBy: one(users, {
+  createdBy: one(profiles, {
     fields: [bylawRevisions.createdById],
-    references: [users.id],
+    references: [profiles.id],
   }),
 }));
 
@@ -833,7 +804,7 @@ export type EmailVerificationCode = typeof emailVerificationCodes.$inferSelect;
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
-  userId: integer("user_id").references(() => users.id, { onDelete: 'set null' }),
+  userId: integer("user_id").references(() => profiles.id, { onDelete: 'set null' }),
   userName: text("user_name"),
   userEmail: text("user_email"),
   action: text("action").notNull(),
@@ -855,23 +826,25 @@ export const adminAnnouncements = pgTable("admin_announcements", {
   priority: integer("priority").default(0).notNull(), // For ordering multiple announcements
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  createdBy: integer("created_by").references(() => users.id, { onDelete: 'set null' }),
-  updatedBy: integer("updated_by").references(() => users.id, { onDelete: 'set null' }),
+  createdBy: integer("created_by").references(() => profiles.id, { onDelete: 'set null' }),
+  updatedBy: integer("updated_by").references(() => profiles.id, { onDelete: 'set null' }),
 });
 
 export type AdminAnnouncement = typeof adminAnnouncements.$inferSelect;
 export type InsertAdminAnnouncement = typeof adminAnnouncements.$inferInsert;
 
-// Public user sessions for owners/tenants accessing violations via email verification
+// Public user sessions table (for authenticated owner/tenant sessions)
 export const publicUserSessions = pgTable("public_user_sessions", {
   id: serial("id").primaryKey(),
   sessionId: uuid("session_id").defaultRandom().notNull().unique(),
-  personId: integer("person_id").notNull().references(() => persons.id),
-  unitId: integer("unit_id").notNull().references(() => propertyUnits.id),
+  personId: integer("person_id").notNull().references(() => persons.id, { onDelete: "cascade" }),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
   role: text("role").notNull(), // 'owner' or 'tenant'
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastAccessedAt: timestamp("last_accessed_at"),
 });
+
+export type User = Profile; // Add alias for compatibility
 

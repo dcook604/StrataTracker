@@ -30,8 +30,6 @@ import {
   XCircle,
   Clock,
   BarChart3,
-  MousePointer,
-  ExternalLink,
   X
 } from "lucide-react";
 import { format } from "date-fns";

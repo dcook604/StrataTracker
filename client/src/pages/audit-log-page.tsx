@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Layout } from '@/components/layout';
 import { 
-  Calendar, 
   Download, 
   Filter, 
   Search, 
@@ -182,7 +181,7 @@ export default function AuditLogPage() {
           description: 'Audit logs have been exported to CSV.',
         });
       }
-    } catch (error) {
+    } catch {
       toast({
         title: 'Export Failed',
         description: 'Failed to export audit logs. Please try again.',

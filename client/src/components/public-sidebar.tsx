@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { usePublicAuth } from "@/hooks/use-public-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { 
   FileText, 
   LogOut, 
@@ -22,7 +22,7 @@ interface NavItem {
 
 export function PublicSidebar({ className }: { className?: string }) {
   const [location, navigate] = useLocation();
-  const { publicUser, logout } = usePublicAuth();
+  const { user, logoutMutation } = useAuth();
   const [violationsOpen, setViolationsOpen] = useState(true);
 
   const isActive = (path: string) => {
@@ -30,8 +30,7 @@ export function PublicSidebar({ className }: { className?: string }) {
   };
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    logoutMutation.mutate();
   };
 
   const navItems: NavItem[] = [
@@ -58,14 +57,14 @@ export function PublicSidebar({ className }: { className?: string }) {
       </div>
 
       {/* User Info */}
-      {publicUser && (
+      {user && (
         <div className="p-4 border-b bg-muted/50">
           <div className="flex items-center gap-2 mb-2">
             <User className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{publicUser.fullName}</span>
+            <span className="text-sm font-medium">{user.email}</span>
           </div>
           <div className="text-xs text-muted-foreground">
-            Unit {publicUser.unitNumber} • {publicUser.role === 'owner' ? 'Owner' : 'Tenant'}
+            Public User
           </div>
         </div>
       )}

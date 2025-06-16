@@ -18,10 +18,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -30,12 +28,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIcon, LockIcon, UnlockIcon, Settings, Users as UsersIconLucide, Loader2 } from "lucide-react";
+import { PencilIcon, Trash2Icon, UserIcon, UserPlusIcon, ShieldIcon, UserCheckIcon, LockIcon, UnlockIcon, Users as UsersIconLucide, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import zxcvbn from "zxcvbn";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * UserManagementTabContent - User Management
@@ -92,10 +89,11 @@ type InviteFormValues = {
 };
 
 export function UserManagementTabContent() {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC OR EARLY RETURNS
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const { toast } = useToast();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isLockDialogOpen, setIsLockDialogOpen] = useState(false);
   const [lockUserId, setLockUserId] = useState<number | null>(null);
@@ -106,19 +104,7 @@ export function UserManagementTabContent() {
   const [passwordLabel, setPasswordLabel] = useState("");
   const editLockStatusRef = useRef<{ locked: boolean; reason: string }>({ locked: false, reason: "" });
 
-  const isCurrentUserAdminOrCouncil = user && (user.isAdmin || user.isCouncilMember);
-  if (user && !isCurrentUserAdminOrCouncil) {
-    return (
-      <div className="container mx-auto py-8">
-        <EmptyState
-          icon={<ShieldIcon className="h-10 w-10" />}
-          title="Access Denied"
-          description="You don't have permission to manage users."
-        />
-      </div>
-    );
-  }
-
+  // All hooks must be called before any conditional returns
   const { data: usersData, isLoading, error } = useQuery<User[]>({
     queryKey: ['users', 'list'],
     queryFn: async () => {
@@ -164,7 +150,7 @@ export function UserManagementTabContent() {
         isCouncilMember: data.role === "council",
         isUser: data.role === "user",
       };
-      delete (apiData as any).role;
+      delete (apiData as typeof apiData & { role?: string }).role;
 
       const res = await apiRequest("POST", "/api/register", apiData);
       if (!res.ok) {
@@ -197,7 +183,7 @@ export function UserManagementTabContent() {
   const updateMutation = useMutation({
     mutationFn: async (data: UserFormValues & { id: number }) => {
       const { id, ...userData } = data;
-      const apiData: any = {
+      const apiData: typeof userData & { isAdmin: boolean; isCouncilMember: boolean; isUser: boolean; accountLocked?: boolean; lockReason?: string | null; password?: string } = {
         ...userData,
         isAdmin: userData.role === "admin",
         isCouncilMember: userData.role === "council", 
@@ -300,7 +286,7 @@ export function UserManagementTabContent() {
         isCouncilMember: data.role === "council",
         isUser: data.role === "user",
       };
-      delete (apiData as any).role;
+      delete (apiData as typeof apiData & { role?: string }).role;
 
       const res = await apiRequest("POST", "/api/users/invite", apiData);
       if (!res.ok) {
@@ -411,8 +397,8 @@ export function UserManagementTabContent() {
       accessorKey: "role",
       header: "Role",
       cell: ({ row }) => {
-        const user = row.original;
-        const role = getUserRole(user);
+        const rowUser = row.original;
+        const role = getUserRole(rowUser);
         
         const roleConfig = {
           admin: { name: "Administrator", icon: <ShieldIcon className="w-4 h-4 text-red-600" />, color: "text-red-600" },
@@ -436,9 +422,9 @@ export function UserManagementTabContent() {
       accessorKey: "accountLocked",
       header: "Status",
       cell: ({ row }) => {
-        const user = row.original;
-        return user.accountLocked ? (
-          <span className="flex items-center text-orange-600" title={user.lockReason || 'Account Locked'}>
+        const rowUser = row.original;
+        return rowUser.accountLocked ? (
+          <span className="flex items-center text-orange-600" title={rowUser.lockReason || 'Account Locked'}>
             <LockIcon className="w-4 h-4 mr-1" /> Locked
           </span>
         ) : (
@@ -452,24 +438,25 @@ export function UserManagementTabContent() {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => {
-        const user = row.original;
-        const currentLoggedInUser = useAuth().user;
+        const rowUser = row.original;
+        // Use the current user from the component's scope instead of calling useAuth() here
+        const currentLoggedInUser = user;
 
         return (
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
+            <Button variant="outline" size="sm" onClick={() => handleEdit(rowUser)}>
               <PencilIcon className="w-4 h-4" />
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleOpenLockDialog(user.id, !!user.accountLocked, user.lockReason || undefined)}
-              title={user.accountLocked ? "Unlock User" : "Lock User"}
+              onClick={() => handleOpenLockDialog(rowUser.id, !!rowUser.accountLocked, rowUser.lockReason || undefined)}
+              title={rowUser.accountLocked ? "Unlock User" : "Lock User"}
             >
-              {user.accountLocked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
+              {rowUser.accountLocked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
             </Button>
-            {currentLoggedInUser?.id !== user.id && (
-              <Button variant="destructive" size="sm" onClick={() => handleDelete(user.id)}>
+            {currentLoggedInUser?.id !== rowUser.id && (
+              <Button variant="destructive" size="sm" onClick={() => handleDelete(rowUser.id)}>
                 <Trash2Icon className="w-4 h-4" />
               </Button>
             )}
