@@ -5,7 +5,6 @@ import {
   isUUID,
   getViolationByIdOrUuid
 } from '../middleware/auth-helpers';
-import { requireAdminOrCouncil } from '../middleware/supabase-auth-middleware';
 import { createSecureUpload, cleanupUploadedFiles } from '../middleware/fileUploadSecurity';
 import { 
   sendNewViolationToOccupantsNotification,
@@ -161,7 +160,7 @@ router.post("/",
                     unitId: unit.id,
                     unitNumber: unit.unitNumber,
                     violationType: violation.violationType,
-                    reporterName: reporterUser.fullName,
+                    reporterName: reporterUser.fullName ?? 'System',
                     personsToNotify: personsToNotifyForEmail,
                   });
                   logger.info(`[Violation Upload] Sent new violation notifications for violation ${violation.uuid}`);
@@ -186,7 +185,7 @@ router.post("/",
                       unitNumber: unit?.unitNumber,
                     },
                     adminUser: { id: adminUser.id, fullName: adminUser.fullName, email: adminUser.email },
-                    reporterName: reporterUser.fullName,
+                    reporterName: reporterUser.fullName ?? 'System',
                     appUrl: appUrl,
                   })
                 );
@@ -252,15 +251,12 @@ router.patch("/:id/status", async (req, res) => {
       }
 
       // Add a history entry for the status change, including any comments or rejection reasons.
-      if (comment || rejectionReason) {
-        await dbStorage.addViolationHistory({
-          violationId: violationId,
-          userId,
-          action: `Status changed to ${status}`,
-          comment: comment,
-          rejectionReason: status === 'rejected' ? rejectionReason : undefined,
-        });
-      }
+      await dbStorage.addViolationHistory({
+        violationId: violationId,
+        userId: userId,
+        action: `Status changed to ${status}`,
+        rejectionReason,
+      });
 
       // Log audit event for status change
       const auditAction = status === 'approved' ? AuditAction.VIOLATION_APPROVED :

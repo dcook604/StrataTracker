@@ -16,19 +16,18 @@ import {
   RecipientType,
   emailDeduplicationLog
 } from '@shared/schema';
-import { eq, desc, and, inArray, or, sql, count, avg } from 'drizzle-orm';
+import { eq, desc, and, inArray, or, sql, count, avg, gte } from 'drizzle-orm';
 import { sendEmail } from '../email-service';
 import { sendEmailWithDeduplication } from '../email-deduplication';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { EmailDeduplicationService } from '../email-deduplication';
-import { gte } from 'drizzle-orm';
 
 const router = Router();
 
 // Middleware to ensure user is admin or council member
-const ensureCouncilOrAdmin = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated() && req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
+const ensureCouncilOrAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
     return next();
   }
   res.status(403).json({ message: "Forbidden - Admin or Council access required" });
@@ -53,11 +52,12 @@ router.get('/campaigns', async (req, res) => {
         createdAt: communicationCampaigns.createdAt,
         createdBy: {
           fullName: profiles.fullName,
-          email: users.email
+          email: persons.email
         }
       })
       .from(communicationCampaigns)
-      .leftJoin(users, eq(communicationCampaigns.createdById, users.id))
+      .leftJoin(profiles, eq(communicationCampaigns.createdById, profiles.id))
+      .leftJoin(persons, eq(profiles.id, persons.authUserId))
       .orderBy(desc(communicationCampaigns.createdAt));
 
     const campaignIds = campaigns.map(c => c.id);
@@ -164,7 +164,6 @@ router.post('/campaigns', async (req, res) => {
       .insert(communicationCampaigns)
       .values({
         ...data,
-        createdById: req.user!.id
       })
       .returning();
 
@@ -313,12 +312,13 @@ router.get('/templates', async (req, res) => {
         isDefault: communicationTemplates.isDefault,
         createdAt: communicationTemplates.createdAt,
         createdBy: {
-          fullName: users.fullName,
-          email: users.email
+          fullName: profiles.fullName,
+          email: persons.email
         }
       })
       .from(communicationTemplates)
-      .leftJoin(users, eq(communicationTemplates.createdById, users.id))
+      .leftJoin(profiles, eq(communicationTemplates.createdById, profiles.id))
+      .leftJoin(persons, eq(profiles.id, persons.authUserId))
       .orderBy(desc(communicationTemplates.createdAt));
 
     res.json(templates);
@@ -337,7 +337,6 @@ router.post('/templates', async (req, res) => {
       .insert(communicationTemplates)
       .values({
         ...data,
-        createdById: req.user!.id
       })
       .returning();
 
@@ -658,7 +657,7 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
   const generateTrackingId = () => crypto.randomBytes(16).toString('hex');
 
   switch (recipientType) {
-    case 'all':
+    case 'all': {
       const allPersons = await db
         .select({
           id: persons.id,
@@ -685,8 +684,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         trackingId: generateTrackingId()
       })));
       break;
-
-    case 'owners':
+    }
+    case 'owners': {
       const owners = await db
         .select({
           id: persons.id,
@@ -714,8 +713,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         trackingId: generateTrackingId()
       })));
       break;
-
-    case 'tenants':
+    }
+    case 'tenants': {
       const tenants = await db
         .select({
           id: persons.id,
@@ -743,8 +742,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         trackingId: generateTrackingId()
       })));
       break;
-
-    case 'units':
+    }
+    case 'units': {
       if (unitIds && unitIds.length > 0) {
         const unitPersons = await db
           .select({
@@ -774,8 +773,8 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         })));
       }
       break;
-
-    case 'individual':
+    }
+    case 'individual': {
       if (personIds && personIds.length > 0) {
         const selectedPersons = await db
           .select({
@@ -799,6 +798,7 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
         })));
       }
       break;
+    }
   }
 
   return recipients;

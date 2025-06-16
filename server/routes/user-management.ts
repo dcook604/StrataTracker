@@ -26,7 +26,7 @@ function generatePassword(length = 12) {
 
 // Check if user is authenticated and has admin privileges
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
+  if (!req.user) {
     return res.status(401).json({ message: "Authentication required" });
   }
 

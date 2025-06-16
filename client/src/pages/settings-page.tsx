@@ -26,17 +26,14 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Settings, MailIcon, CheckCircle2, AlertCircle, Users as UsersIconLucide, Trash2 } from "lucide-react";
+import { Loader2, Settings, AlertCircle, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useLoading, useAsyncLoading } from "@/contexts/loading-context";
+import { useAsyncLoading } from "@/contexts/loading-context";
 import { ButtonLoading } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
 import { Layout } from "@/components/layout";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { UserManagementTabContent } from "@/components/user-management-tab";
-import { FileUpload } from "@/components/file-upload";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -182,9 +179,6 @@ export default function SettingsPage() {
   };
 
   const [activeTab, setActiveTab] = useState<string>(() => getActiveTabFromUrl(location));
-  const [testEmailAddress, setTestEmailAddress] = useState<string>("");
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const systemForm = useForm<z.infer<typeof systemSettingsSchema>>({
     resolver: zodResolver(systemSettingsSchema),
@@ -233,11 +227,6 @@ export default function SettingsPage() {
   const systemSaveLoading = useAsyncLoading('settings-system-save');
   const testEmailLoading = useAsyncLoading('settings-test-email');
 
-  // State for SMTP Test
-  const [isSmtpTestDialogOpen, setIsSmtpTestDialogOpen] = useState(false);
-  const [smtpTestStatus, setSmtpTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [smtpTestMessage, setSmtpTestMessage] = useState('');
-
   const { data: settingsResponse, isLoading: isLoadingEmailNotificationSettings } = useQuery<{settings: SystemSetting[], logoUrl?: string}>({
     queryKey: ["/api/settings"],
     queryFn: async () => {
@@ -277,11 +266,11 @@ export default function SettingsPage() {
   // Update logoUrl when settings or the logo value in the form change
   useEffect(() => {
     if (settingsResponse?.logoUrl) {
-      setLogoUrl(settingsResponse.logoUrl);
+      systemForm.setValue('strataLogo', settingsResponse.logoUrl);
     } else if (strataLogoValue) {
-      setLogoUrl(strataLogoValue.startsWith('http') || strataLogoValue.startsWith('/') ? strataLogoValue : `/api/uploads/${strataLogoValue}`);
+      systemForm.setValue('strataLogo', strataLogoValue.startsWith('http') || strataLogoValue.startsWith('/') ? strataLogoValue : `/api/uploads/${strataLogoValue}`);
     } else {
-      setLogoUrl(null);
+      systemForm.setValue('strataLogo', null);
     }
   }, [settingsResponse, strataLogoValue]);
 
@@ -451,49 +440,6 @@ export default function SettingsPage() {
     }
   });
 
-  // Mutation for testing SMTP email configuration
-  const testSmtpEmailMutation = useMutation({
-    mutationFn: async (data: { testEmail: string; config: SmtpConfigFormData }) => {
-      setSmtpTestStatus('loading');
-      setSmtpTestMessage('');
-
-      // Construct payload, ensuring authPass is only included if provided
-      const payload: any = {
-        host: data.config.host,
-        port: data.config.port,
-        secure: data.config.secure,
-        from: data.config.from,
-        auth: {
-          user: data.config.authUser,
-        },
-        testEmail: data.testEmail,
-      };
-      if (data.config.authPass && data.config.authPass !== '********') { // only send if not placeholder
-        payload.auth.pass = data.config.authPass;
-      } else {
-         // If password is placeholder or empty, try to use existing stored password logic (if BE supports it)
-         // For now, we rely on the user re-entering it if they want to test with a password change.
-         // Or, the backend could use the currently stored password if an empty one is sent for test.
-      }
-
-
-      const response = await apiRequest('POST', '/api/email-config/test', payload);
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to send test email');
-      }
-      return result;
-    },
-    onSuccess: () => {
-      setSmtpTestStatus('success');
-      setSmtpTestMessage('Test email sent successfully! Please check your inbox.');
-    },
-    onError: (error: Error) => {
-      setSmtpTestStatus('error');
-      setSmtpTestMessage(error.message || 'Failed to send test email');
-    }
-  });
-
   const onEmailFormSubmit = async (data: EmailSettingsFormValues) => {
     await emailSaveLoading.executeWithLoading(
       () => updateSettingsMutation.mutateAsync(data),
@@ -521,19 +467,10 @@ export default function SettingsPage() {
     );
   };
 
-  const onSmtpTestSubmit = async (data: SmtpTestEmailFormData) => {
-    const configData = smtpForm.getValues(); // Get current SMTP form values
-    await testEmailLoading.executeWithLoading(
-      () => testSmtpEmailMutation.mutateAsync({ testEmail: data.testEmail, config: configData }),
-      "Sending test email..."
-    );
-  };
-
   // Add handler for logo upload
   const handleLogoUpload = async (files: File[]) => {
     const file = files[0];
     if (file) {
-      setLogoFile(file);
       const formData = new FormData();
       formData.append('logo', file);
       
@@ -712,12 +649,6 @@ export default function SettingsPage() {
                   </div>
                   
                   <CardFooter className="flex flex-col md:flex-row md:justify-between gap-4 border-t pt-6 px-0">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
-                      <Input className="w-full sm:w-64" placeholder="Enter email for test" value={testEmailAddress} onChange={(e) => setTestEmailAddress(e.target.value)} />
-                      <Button type="button" variant="outline" onClick={() => setIsSmtpTestDialogOpen(true)} disabled={testEmailLoading.isLoading} className="w-full sm:w-auto">
-                        {testEmailLoading.isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : "Test Email"}
-                      </Button>
-                    </div>
                     <Button type="submit" disabled={emailSaveLoading.isLoading} className="w-full md:w-auto">
                       {emailSaveLoading.isLoading ? (
                         <ButtonLoading message="Saving Settings" showMessage={true} />
@@ -969,7 +900,6 @@ export default function SettingsPage() {
                     <div>
                       <label className="font-medium">Strata Logo</label>
                       <FileUpload maxFiles={1} acceptedTypes={["image/png", "image/jpeg", "image/svg+xml"]} onChange={handleLogoUpload} />
-                      {logoUrl && <img src={logoUrl} alt="Strata Logo" className="mt-2 h-24" />}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>

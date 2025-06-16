@@ -38,7 +38,7 @@ const upload = multer({
 
 // Middleware to ensure user is admin or council member
 const ensureCouncilOrAdmin = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated() && req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
+  if (req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
     return next();
   }
   res.status(403).json({ message: "Forbidden - Admin or Council access required" });
