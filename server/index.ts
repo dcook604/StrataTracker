@@ -1,5 +1,8 @@
+import express from "express";
+import { createServer } from "http";
 import { sql } from "drizzle-orm";
 import fs from "fs";
+import path from "path";
 
 // Ensure log directory exists
 function ensureLogDirectoryExists() {
@@ -15,7 +18,9 @@ function ensureLogDirectoryExists() {
 // Ensure log directory exists
 ensureLogDirectoryExists();
 
-console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
+console.log('Starting StrataTracker server...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set');
 
 (async () => {
   try {
@@ -23,31 +28,100 @@ console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
     const dotenv = await import('dotenv');
     dotenv.config();
 
-    // Dynamically import the rest of your application
-    // to ensure dotenv is configured before any other code runs.
-    const { db } = await import('./db');
-    
     // Test database connection
+    const { db } = await import('./db');
     await db.execute(sql`SELECT 1`);
     console.log("Database connected successfully");
 
-    // Import and start the main application
-    const appBootstrap = await import('./app-bootstrap');
-    const bootstrap = appBootstrap.createAppBootstrap();
-    await bootstrap.startServer();
+    // Create Express app
+    const app = express();
+    const port = Number(process.env.PORT) || 3000;
 
-    // Start email cleanup scheduler
-    const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler');
-    startEmailCleanupScheduler();
-    console.log("Email cleanup scheduler started");
+    // Basic middleware
+    app.use(express.json());
 
-    // Start Supabase keep-alive service
-    const { supabaseKeepAlive } = await import('./services/supabase-keepalive');
-    supabaseKeepAlive.start();
-    console.log("Supabase keep-alive service started");
+    // Health check endpoint
+    app.get('/api/health', (req, res) => {
+      res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV 
+      });
+    });
+
+    // Register routes
+    try {
+      const { registerRoutes } = await import('./routes');
+      await registerRoutes(app);
+      console.log("Routes registered successfully");
+    } catch (error) {
+      console.error("Failed to register routes:", error);
+    }
+
+    // Serve static files in production
+    if (process.env.NODE_ENV === 'production') {
+      const publicPath = path.join(process.cwd(), 'dist', 'public');
+      if (fs.existsSync(publicPath)) {
+        app.use(express.static(publicPath));
+        
+        // Serve index.html for SPA routes
+        app.get('*', (req, res) => {
+          res.sendFile(path.join(publicPath, 'index.html'));
+        });
+        console.log("Static files configured");
+      } else {
+        console.warn("Public directory not found:", publicPath);
+      }
+    } else {
+      // Development mode - setup Vite
+      try {
+        const { setupVite } = await import('./vite');
+        const server = createServer(app);
+        await setupVite(app, server);
+        console.log("Vite development server configured");
+      } catch (error) {
+        console.error("Failed to setup Vite:", error);
+      }
+    }
+
+    // Start server
+    const server = createServer(app);
+    server.listen(port, "0.0.0.0", () => {
+      console.log(`Server running on port ${port}`);
+      console.log(`Health check: http://localhost:${port}/api/health`);
+    });
+
+    // Graceful shutdown
+    const shutdown = () => {
+      console.log('Shutting down gracefully...');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+
+    // Start background services (if they exist)
+    try {
+      const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler');
+      startEmailCleanupScheduler();
+      console.log("Email cleanup scheduler started");
+    } catch (error) {
+      console.log("Email cleanup scheduler not available:", error.message);
+    }
+
+    try {
+      const { supabaseKeepAlive } = await import('./services/supabase-keepalive');
+      supabaseKeepAlive.start();
+      console.log("Supabase keep-alive service started");
+    } catch (error) {
+      console.log("Supabase keep-alive service not available:", error.message);
+    }
 
   } catch (error) {
-    console.error('Failed to initialize environment or app:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 })();
