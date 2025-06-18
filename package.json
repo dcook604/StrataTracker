@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "NODE_ENV=development vite",
     "dev:backend": "NODE_ENV=development nodemon --watch 'server/**/*.ts' --exec 'npx tsx' server/index.ts",
-    "build": "vite build && (tsc -p tsconfig.server.json || true)",
+    "build": "vite build && tsc -p tsconfig.server.json --noEmitOnError false --skipLibCheck",
     "preview": "NODE_ENV=production node dist/server/index.js",
     "start": "node dist/server/index.js",
     "db:push": "drizzle-kit push",
