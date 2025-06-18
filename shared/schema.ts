@@ -804,7 +804,7 @@ export type EmailVerificationCode = typeof emailVerificationCodes.$inferSelect;
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
-  userId: integer("user_id").references(() => profiles.id, { onDelete: 'set null' }),
+  userId: uuid("user_id_new").references(() => profiles.id, { onDelete: 'set null' }),
   userName: text("user_name"),
   userEmail: text("user_email"),
   action: text("action").notNull(),
