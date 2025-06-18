@@ -2,6 +2,9 @@ import express from 'express';
 import { storage as dbStorage } from '../storage';
 import { getVirusScanner } from '../services/virusScanner';
 import logger from '../utils/logger';
+import { sql } from 'drizzle-orm';
+import { db } from '../db';
+import { supabaseKeepAlive } from '../services/supabase-keepalive';
 
 const router = express.Router();
 
@@ -261,5 +264,57 @@ function getCPUMetrics(): CPUMetrics {
     systemTime: cpuUsage.system / 1000000
   };
 }
+
+router.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    await db.execute(sql`SELECT 1`);
+    
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: (error as Error).message,
+    });
+  }
+});
+
+// Supabase keep-alive status endpoint
+router.get('/supabase-keepalive', async (req, res) => {
+  try {
+    const stats = supabaseKeepAlive.getStats();
+    res.status(200).json({
+      status: 'success',
+      data: stats,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: (error as Error).message,
+    });
+  }
+});
+
+// Manual Supabase ping endpoint
+router.post('/supabase-ping', async (req, res) => {
+  try {
+    const result = await supabaseKeepAlive.ping();
+    res.status(200).json({
+      status: 'success',
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: (error as Error).message,
+    });
+  }
+});
 
 export default router; 

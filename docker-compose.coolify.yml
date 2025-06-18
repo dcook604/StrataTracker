@@ -8,7 +8,7 @@ services:
     image: postgres:15-alpine
     restart: unless-stopped
     ports:
-      - "5435:5432"
+      - "5438:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-spectrum4}
       POSTGRES_USER: ${POSTGRES_USER:-spectrum4}
@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile.coolify
     restart: unless-stopped
     ports:
-      - "3361:3000"
+      - "3365:3000"
     environment:
       # Core Configuration
       NODE_ENV: production
