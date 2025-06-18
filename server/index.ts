@@ -31,6 +31,11 @@ console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
     startEmailCleanupScheduler();
     console.log("Email cleanup scheduler started");
 
+    // Start Supabase keep-alive service
+    const { supabaseKeepAlive } = await import('./services/supabase-keepalive');
+    supabaseKeepAlive.start();
+    console.log("Supabase keep-alive service started");
+
   } catch (error) {
     console.error('Failed to initialize environment or app:', error);
     process.exit(1);
