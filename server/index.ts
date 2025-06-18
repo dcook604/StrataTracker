@@ -55,7 +55,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
       await registerRoutes(app);
       console.log("Routes registered successfully");
     } catch (error) {
-      console.error("Failed to register routes:", error);
+      console.error("Failed to register routes:", error instanceof Error ? error.message : String(error));
     }
 
     // Serve static files in production
@@ -109,7 +109,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
       startEmailCleanupScheduler();
       console.log("Email cleanup scheduler started");
     } catch (error) {
-      console.log("Email cleanup scheduler not available:", error.message);
+      console.log("Email cleanup scheduler not available:", error instanceof Error ? error.message : String(error));
     }
 
     try {
@@ -117,7 +117,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
       supabaseKeepAlive.start();
       console.log("Supabase keep-alive service started");
     } catch (error) {
-      console.log("Supabase keep-alive service not available:", error.message);
+      console.log("Supabase keep-alive service not available:", error instanceof Error ? error.message : String(error));
     }
 
   } catch (error) {
