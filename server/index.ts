@@ -1,12 +1,20 @@
 import { sql } from "drizzle-orm";
-import { db } from "./db";
-import { startEmailCleanupScheduler } from "./email-cleanup-scheduler";
-import { ensureLogDirectoryExists, createAppBootstrap } from "./app-bootstrap";
+import fs from "fs";
+
+// Ensure log directory exists
+function ensureLogDirectoryExists() {
+  try {
+    if (!fs.existsSync("./logs")) {
+      fs.mkdirSync("./logs", { recursive: true });
+    }
+  } catch (error) {
+    console.error("Failed to create logs directory:", error);
+  }
+}
 
 // Ensure log directory exists
 ensureLogDirectoryExists();
 
-// Create the app bootstrap
 console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
 
 (async () => {
@@ -24,7 +32,9 @@ console.log('DEBUG (IIFE): DATABASE_URL from .env =', process.env.DATABASE_URL);
     console.log("Database connected successfully");
 
     // Import and start the main application
-    await import('./app-bootstrap');
+    const appBootstrap = await import('./app-bootstrap');
+    const bootstrap = appBootstrap.createAppBootstrap();
+    await bootstrap.startServer();
 
     // Start email cleanup scheduler
     const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler');
