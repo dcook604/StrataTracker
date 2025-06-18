@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A comprehensive strata violation tracking and management system.",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/server/index.js",
   "scripts": {
     "dev": "NODE_ENV=development vite",
     "dev:backend": "NODE_ENV=development nodemon --watch 'server/**/*.ts' --exec 'npx tsx' server/index.ts",
