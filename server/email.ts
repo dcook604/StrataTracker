@@ -49,14 +49,14 @@ interface ViolationApprovedParams {
 
 export interface ViolationPendingApprovalAdminNotificationParams {
   violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string }; // Key violation details
-  adminUser: Pick<AdminUserType, 'id' | 'fullName' | 'email'>; // Added 'id' to the Pick
+  adminUser: Pick<AdminUserType, 'id' | 'fullName'> & { email: string };
   reporterName: string;
   appUrl: string; // Base URL of the application
 }
 
 export interface ViolationDisputedAdminNotificationParams {
   violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string };
-  adminUser: Pick<AdminUserType, 'id' | 'fullName' | 'email'>;
+  adminUser: Pick<AdminUserType, 'id' | 'fullName'> & { email: string };
   disputedBy: string; // Name of person who disputed (from commenterName or person record)
   appUrl: string;
 }
@@ -165,7 +165,7 @@ export const sendNewViolationToOccupantsNotification = async (params: NewViolati
         continue; // Skip this person
       }
       
-      const magicLink = data.properties?.action_link;
+      const magicLink = (data as any).properties?.action_link;
 
       if (!magicLink) {
         console.error(`[VIOLATION_EMAIL] Could not retrieve magic link for ${person.email}.`);

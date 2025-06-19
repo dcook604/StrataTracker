@@ -7,6 +7,11 @@ MAX_PORT_SEARCH_ATTEMPTS=10 # How many ports to try after the default one
 # Database connection string
 DATABASE_URL="postgres://spectrum4:spectrum4password@localhost:5432/spectrum4"
 
+# Supabase configuration
+VITE_SUPABASE_URL="https://bmtydjmymvvsqudonfiz.supabase.co"
+VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtdHlkam15bXZ2c3F1ZG9uZml6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzODc5OTEsImV4cCI6MjA2NDk2Mzk5MX0.cpP8aVilbKFNEXmEzBbfe6WVEW0yEnPdOZV6P4SAzsc"
+SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtdHlkam15bXZ2c3F1ZG9uZml6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTM4Nzk5MSwiZXhwIjoyMDY0OTYzOTkxfQ.WagAVdRjL59U5t52ZBO5EHoiSP8g_QNdjaw_aXHdAhM"
+
 # Check if database is running in Docker
 check_database_status() {
     echo "[INFO] Checking PostgreSQL database status..."
@@ -153,6 +158,9 @@ echo ""
 export VITE_API_URL="http://localhost:$BACKEND_PORT"
 export DATABASE_URL="$DATABASE_URL"
 export PORT="$BACKEND_PORT"
+export VITE_SUPABASE_URL="$VITE_SUPABASE_URL"
+export VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY"
+export SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
 
 echo "[INFO] Starting backend development server..."
 echo "[INFO] Backend will connect to database at: $DATABASE_URL"

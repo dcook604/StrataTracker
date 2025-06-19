@@ -1,5 +1,5 @@
 import { db } from './db';
-import { auditLogs, type InsertAuditLog } from '@shared/schema';
+import { auditLogs, type InsertAuditLog, type Profile } from '@shared/schema';
 import logger from './utils/logger';
 import type { Request } from 'express';
 
@@ -69,8 +69,8 @@ interface AuditLogData {
   targetType?: TargetType;
   targetId?: string | number;
   details?: Record<string, any>;
-  userId?: number;
-  userName?: string;
+  userId?: string | number;
+  userName?: string | null;
   userEmail?: string;
   ipAddress?: string;
 }
@@ -81,17 +81,22 @@ export class AuditLogger {
    */
   static async log(data: AuditLogData): Promise<void> {
     try {
-      const auditEntry: InsertAuditLog = {
+      const auditEntry: Partial<InsertAuditLog> = {
         action: data.action,
         targetType: data.targetType,
         targetId: data.targetId?.toString(),
-        details: data.details ? JSON.stringify(data.details) : null,
-        userId: data.userId || null,
-        userName: data.userName || null,
-        userEmail: data.userEmail || null,
-        ipAddress: data.ipAddress || null,
+        details: data.details,
+        userName: data.userName,
+        userEmail: data.userEmail,
+        ipAddress: data.ipAddress,
         timestamp: new Date(),
       };
+
+      if (typeof data.userId === 'string') {
+        auditEntry.userIdNew = data.userId;
+      } else if (typeof data.userId === 'number') {
+        auditEntry.userId = data.userId;
+      }
 
       await db.insert(auditLogs).values(auditEntry);
       
@@ -118,7 +123,7 @@ export class AuditLogger {
     targetId?: string | number;
     details?: Record<string, any>;
   } = {}): Promise<void> {
-    const user = req.user;
+    const user = req.user as (Profile & { email?: string });
     const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] as string;
 
     await this.log({
