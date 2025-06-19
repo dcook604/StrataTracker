@@ -1,6 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DataTable } from "@/components/ui/data-table";
+import {
+  Unit,
+  Person,
+  UnitPersonRole,
+  insertUnitSchema,
+  insertPersonSchema,
+  facilities,
+  unitFacilities,
+} from "@shared/schema";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +25,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -19,17 +37,32 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useForm, useFieldArray } from "react-hook-form";
+import { apiRequest } from "@/lib/queryClient";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, BuildingIcon, Trash2, EyeIcon, PlusIcon, Loader2 } from "lucide-react";
+import {
+  PencilIcon,
+  BuildingIcon,
+  Trash2,
+  EyeIcon,
+  PlusIcon,
+  Loader2,
+  FilterX,
+} from "lucide-react";
 import { Layout } from "@/components/layout";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
+import { DataTable } from "@/components/ui/data-table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +73,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/hooks/use-auth";
+import { useAsyncLoading } from "@/contexts/loading-context";
+import { ButtonLoading } from "@/components/ui/loading-spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 // START: Temporary Local Type Definitions (Mirror these in @shared/schema.ts)
 interface FacilityItem {
@@ -194,6 +247,9 @@ export default function UnitsPage() {
     name: "tenants"
   });
 
+  const { reset } = form;
+  const { setValue } = form;
+
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
@@ -215,7 +271,7 @@ export default function UnitsPage() {
         tenants: [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
         phone: "", notes: "",
       };
-      form.reset(resetData);
+      reset(resetData);
       setIsFormReady(true);
     } else if (editingUnit) {
       // Editing existing unit
@@ -261,13 +317,35 @@ export default function UnitsPage() {
           : [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
       };
       
-      form.reset(resetData);
+      reset(resetData);
       // Small delay to ensure form is fully reset before enabling editing
       setTimeout(() => {
         setIsFormReady(true);
       }, 100);
     }
-  }, [editingUnit, isAddDialogOpen, form]);
+  }, [editingUnit, isAddDialogOpen, reset]);
+
+  useEffect(() => {
+    if (defaultPerson) {
+      reset({
+        owners: [
+          {
+            ...defaultPerson,
+            role: "owner",
+            isPrimaryContact: true,
+          },
+        ],
+        tenants: [],
+        facilities: [],
+      });
+    }
+  }, [defaultPerson, reset]);
+
+  useEffect(() => {
+    if (editingUnit && form.formState.isDirty) {
+      // Logic for handling form state...
+    }
+  }, [editingUnit, form.formState.isDirty, reset, setValue]);
 
   const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeopleAndFacilities[], total: number }>({
     queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder, search }],
@@ -602,7 +680,7 @@ export default function UnitsPage() {
   ) => {
     // Limit to 10 characters and allow alphanumeric
     const cleanValue = value.slice(0, 10);
-    form.setValue(`${fieldName}.${index}.identifier` as any, cleanValue);
+    setValue(`${fieldName}.${index}.identifier` as any, cleanValue);
   };
 
   return (

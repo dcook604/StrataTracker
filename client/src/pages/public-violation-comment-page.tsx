@@ -20,7 +20,7 @@ interface ViolationDetails {
 }
 
 export default function PublicViolationCommentPage() {
-  const [match, params] = useRoute("/violation/comment/:token");
+  const [, params] = useRoute("/violation/comment/:token");
   const token = params?.token;
   const { toast } = useToast();
   const [commenterName, setCommenterName] = useState("");

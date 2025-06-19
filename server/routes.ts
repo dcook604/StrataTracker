@@ -100,9 +100,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(desc(adminAnnouncements.priority), desc(adminAnnouncements.createdAt));
       
       res.json(announcements);
-    } catch (error) {
-      console.error('Error fetching admin announcements:', error);
-      res.status(500).json({ message: 'Failed to fetch announcements' });
+    } catch {
+      logger.error("Error fetching admin announcements:", "No details available.");
     }
   });
 

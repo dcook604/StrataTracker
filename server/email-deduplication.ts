@@ -4,12 +4,12 @@ import {
   emailIdempotencyKeys, 
   emailSendAttempts, 
   emailDeduplicationLog,
-  type InsertEmailIdempotencyKey,
-  type InsertEmailSendAttempt,
-  type InsertEmailDeduplicationLog
 } from '@shared/schema';
 import { eq, and, gte, sql } from 'drizzle-orm';
 import { sendEmail } from './email-service';
+import { logger } from './utils/logger';
+import { createClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface EmailRequest {
   to: string;

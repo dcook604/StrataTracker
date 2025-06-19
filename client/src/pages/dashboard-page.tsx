@@ -1,23 +1,23 @@
-import { Layout } from "@/components/layout";
 import { DashboardStats } from "@/components/dashboard-stats";
 import { DashboardTabs } from "@/components/dashboard-tabs";
-import { ViolationSummaryCard } from "@/components/violation-summary-card";
-import { RepeatViolations } from "@/components/repeat-violations";
+import { Layout } from "@/components/layout";
+import { useAuth } from "@/hooks/use-auth";
 import { AdminAnnouncementWidget } from "@/components/admin-announcement-widget";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/ui/card";
 
-export default function DashboardPage() {
+export function DashboardPage() {
+  const { user } = useAuth();
+
   return (
     <Layout title="Dashboard">
-      <div className="space-y-6">
-          <AdminAnnouncementWidget />
-          <DashboardStats />
-          <DashboardTabs />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ViolationSummaryCard />
-            <RepeatViolations />
-          </div>
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Hi, Welcome back {user?.user_metadata?.fullName} 👋
+          </h2>
+        </div>
+        <AdminAnnouncementWidget />
+        <DashboardStats />
+        <DashboardTabs />
       </div>
     </Layout>
   );

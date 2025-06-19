@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Eye, AlertCircle, Calendar, FileText } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
-import { supabase } from "@/lib/supabase";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Violation {
@@ -29,29 +28,14 @@ interface Violation {
 
 export default function PublicViolationsPage() {
   const [, navigate] = useLocation();
-  const { session, user, isLoading: authIsLoading } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // The AuthProvider now handles auth state, so we just need to wait for it.
-  useEffect(() => {
-    if (!authIsLoading && !user) {
-      navigate('/auth'); // Redirect to main login page if not authenticated
-      return;
-    }
-  }, [authIsLoading, user, navigate]);
-
-  // Fetch violations for the user's unit
-  useEffect(() => {
-    if (user) {
-      loadViolations();
-    }
-  }, [user]);
-
-  const loadViolations = async () => {
+  const loadViolations = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -70,7 +54,13 @@ export default function PublicViolationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (user) {
+      loadViolations();
+    }
+  }, [user, loadViolations]);
 
   const handleViewDetails = (violationId: number) => {
     navigate(`/public/violations/${violationId}`);
@@ -97,7 +87,7 @@ export default function PublicViolationsPage() {
     return diffDays;
   };
 
-  if (authIsLoading || !user) {
+  if (!user) {
     return (
         <div className="flex items-center justify-center min-h-screen">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { User } from "@supabase/supabase-js";
 
 const navigationItems = [
   { href: "/", label: "Dashboard", icon: Home, adminOnly: false },
@@ -29,10 +30,9 @@ const navigationItems = [
   { href: "/settings", label: "Settings", icon: Settings, adminOrCouncil: true },
 ];
 
-export function MobileNavigation() {
+export function MobileNavigation({ user }: { user: User | null }) {
   const [location, navigate] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const { user } = useAuth();
 
   const filteredItems = navigationItems.filter(item => {
     if (item.adminOnly && !user?.isAdmin) return false;

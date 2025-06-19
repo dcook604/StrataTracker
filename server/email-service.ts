@@ -3,7 +3,7 @@ import { db } from './db';
 import { systemSettings } from '@shared/schema';
 import { eq, inArray } from 'drizzle-orm';
 import logger from './utils/logger';
-import { z } from 'zod';
+import { RateLimiter } from "limiter";
 
 // Email configuration types
 export interface EmailConfig {
@@ -296,12 +296,7 @@ export async function getEmailNotificationSubjects(): Promise<{
       violationDisputed: map['violation_disputed_subject'] || defaultSubjects.violationDisputed,
       violationRejected: map['violation_rejected_subject'] || defaultSubjects.violationRejected,
     };
-  } catch (e) {
+  } catch {
     return defaultSubjects;
   }
 }
-
-// Initialize email settings
-loadEmailSettings().catch(error => {
-  logger.error('Failed to load initial email settings:', error);
-});

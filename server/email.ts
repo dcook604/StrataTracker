@@ -2,9 +2,10 @@ import nodemailer from 'nodemailer';
 import { loadEmailSettings, getEmailNotificationSubjects } from './email-service';
 import { sendEmailWithDeduplication, EmailDeduplicationService, type EmailRequest } from './email-deduplication';
 import { db } from './db';
-import { unitPersonRoles, persons as PersonsSchema, type User as AdminUserType, type Violation } from '../shared/schema';
+import { unitPersonRoles, type User as AdminUserType, type Violation } from '../shared/schema';
 import { and, eq } from 'drizzle-orm';
 import { supabaseAdmin } from './supabase-client';
+import { systemSettings, Person } from "@shared/schema";
 
 // Initialize with default local configuration
 let transporter = nodemailer.createTransport({

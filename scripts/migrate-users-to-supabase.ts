@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 import { profiles } from '../shared/schema';
 
@@ -12,10 +12,7 @@ if (!DATABASE_URL || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error('Database URL, Supabase URL, and Supabase Service Role Key are required.');
 }
 
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-const client = postgres(DATABASE_URL);
-const db = drizzle(client);
+const client = new Pool({ connectionString: DATABASE_URL });
 
 interface OldUser {
   id: number;
@@ -34,15 +31,8 @@ async function migrateUsers() {
   try {
     // 1. Fetch all users from the old 'users' table using a raw query
     console.log('Fetching users from the local database...');
-    const result = await client`SELECT id, uuid, email, full_name as "fullName", is_admin as "isAdmin", is_council_member as "isCouncilMember" FROM users`;
-    const oldUsers: OldUser[] = result.map(row => ({
-      id: row.id as number,
-      uuid: row.uuid as string,
-      email: row.email as string,
-      fullName: row.fullName as string,
-      isAdmin: row.isAdmin as boolean,
-      isCouncilMember: row.isCouncilMember as boolean,
-    }));
+    const result = await client.query('SELECT id, uuid, email, full_name as "fullName", is_admin as "isAdmin", is_council_member as "isCouncilMember" FROM users');
+    const oldUsers: OldUser[] = result.rows;
     console.log(`Found ${oldUsers.length} users to migrate.`);
 
     // 2. Create users in Supabase and profiles table
@@ -50,6 +40,7 @@ async function migrateUsers() {
       console.log(`Migrating user: ${user.email}`);
 
       // Create user in Supabase Auth
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: user.email,
         email_confirm: true, // Mark email as confirmed since they are existing users
@@ -90,11 +81,7 @@ async function migrateUsers() {
       }
 
       try {
-        await client`
-          INSERT INTO profiles (id, full_name, role, updated_at)
-          VALUES (${newUserId}, ${user.fullName}, ${role}, NOW())
-          ON CONFLICT (id) DO NOTHING
-        `;
+        await client.query('INSERT INTO profiles (id, full_name, role, updated_at) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [newUserId, user.fullName, role, new Date()]);
         console.log(`Successfully migrated user ${user.email} with role ${role}.`);
       } catch (profileError) {
         console.error(`Error creating profile for ${user.email}:`, profileError);
@@ -109,33 +96,33 @@ async function migrateUsers() {
       
       try {
         // Update system_settings
-        await client`UPDATE system_settings SET updated_by_id_new = ${newId} WHERE updated_by_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE system_settings SET updated_by_id_new = $1 WHERE updated_by_id = $2', [newId, parseInt(oldId)]);
         
         // Update violations
-        await client`UPDATE violations SET reported_by_id_new = ${newId} WHERE reported_by_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE violations SET reported_by_id_new = $1 WHERE reported_by_id = $2', [newId, parseInt(oldId)]);
         
         // Update violation_histories
-        await client`UPDATE violation_histories SET user_id_new = ${newId} WHERE user_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE violation_histories SET user_id_new = $1 WHERE user_id = $2', [newId, parseInt(oldId)]);
         
         // Update communication_campaigns
-        await client`UPDATE communication_campaigns SET created_by_id_new = ${newId} WHERE created_by_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE communication_campaigns SET created_by_id_new = $1 WHERE created_by_id = $2', [newId, parseInt(oldId)]);
         
         // Update communication_templates
-        await client`UPDATE communication_templates SET created_by_id_new = ${newId} WHERE created_by_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE communication_templates SET created_by_id_new = $1 WHERE created_by_id = $2', [newId, parseInt(oldId)]);
         
         // Update bylaws
-        await client`UPDATE bylaws SET created_by_id_new = ${newId} WHERE created_by_id = ${parseInt(oldId)}`;
-        await client`UPDATE bylaws SET updated_by_id_new = ${newId} WHERE updated_by_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE bylaws SET created_by_id_new = $1 WHERE created_by_id = $2', [newId, parseInt(oldId)]);
+        await client.query('UPDATE bylaws SET updated_by_id_new = $1 WHERE updated_by_id = $2', [newId, parseInt(oldId)]);
         
         // Update bylaw_revisions
-        await client`UPDATE bylaw_revisions SET created_by_id_new = ${newId} WHERE created_by_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE bylaw_revisions SET created_by_id_new = $1 WHERE created_by_id = $2', [newId, parseInt(oldId)]);
         
         // Update audit_logs
-        await client`UPDATE audit_logs SET user_id_new = ${newId} WHERE user_id = ${parseInt(oldId)}`;
+        await client.query('UPDATE audit_logs SET user_id_new = $1 WHERE user_id = $2', [newId, parseInt(oldId)]);
         
         // Update admin_announcements
-        await client`UPDATE admin_announcements SET created_by_new = ${newId} WHERE created_by = ${parseInt(oldId)}`;
-        await client`UPDATE admin_announcements SET updated_by_new = ${newId} WHERE updated_by = ${parseInt(oldId)}`;
+        await client.query('UPDATE admin_announcements SET created_by_new = $1 WHERE created_by = $2', [newId, parseInt(oldId)]);
+        await client.query('UPDATE admin_announcements SET updated_by_new = $1 WHERE updated_by = $2', [newId, parseInt(oldId)]);
         
       } catch (updateError) {
         console.error(`Error updating references for user ${oldId}:`, updateError);
@@ -154,6 +141,12 @@ async function migrateUsers() {
     await client.end();
     console.log('Database connection closed.');
   }
+}
+
+async function updateForeignKeys() {
+  const mappingResult = await client.query('SELECT old_id, new_id FROM user_id_mapping');
+  const idMapping = new Map(mappingResult.rows.map(r => [r.old_id.toString(), r.new_id]));
+  // ... (rest of the update logic using raw SQL)
 }
 
 migrateUsers(); 

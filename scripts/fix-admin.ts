@@ -1,6 +1,6 @@
 import { db } from "../server/db";
 import { users } from "../shared/schema";
-import { scrypt, randomBytes } from "crypto";
+import { scrypt } from "crypto";
 import { promisify } from "util";
 
 const scryptAsync = promisify(scrypt);

@@ -1,8 +1,8 @@
-import { Router } from 'express';
-import { db } from '../db';
-import { 
-  bylaws, 
-  bylawCategories, 
+import express from "express";
+import { db } from "../db";
+import {
+  bylaws,
+  bylawCategories,
   bylawCategoryLinks,
   bylawRevisions,
   profiles,
@@ -11,24 +11,26 @@ import {
   insertBylawRevisionSchema,
   Bylaw,
   BylawCategory
-} from '@shared/schema';
-import { eq, desc, and, like, or, sql, asc, inArray } from 'drizzle-orm';
-import { Request, Response } from 'express';
-import { importSpectrumBylaws, parseXMLBylaws } from '../utils/bylawsImporter';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs/promises';
+} from "@shared/schema";
+import { eq, desc, and, like, or, sql, asc, inArray } from "drizzle-orm";
+import { Request, Response } from "express";
+import { importSpectrumBylaws, parseXMLBylaws } from "../utils/bylawsImporter";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
+import { requireAdmin } from "../middleware/supabase-auth-middleware";
+import { AuditLogger, AuditAction, TargetType } from "../audit-logger";
 
-const router = Router();
+const router = express.Router();
 
 // Configure multer for XML file uploads
 const upload = multer({
-  dest: 'uploads/temp/',
+  dest: "uploads/temp/",
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/xml' || file.mimetype === 'application/xml' || file.originalname.endsWith('.xml')) {
+    if (file.mimetype === "text/xml" || file.mimetype === "application/xml" || file.originalname.endsWith(".xml")) {
       cb(null, true);
     } else {
-      cb(new Error('Only XML files are allowed'));
+      cb(new Error("Only XML files are allowed"));
     }
   },
   limits: {

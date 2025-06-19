@@ -1,9 +1,9 @@
 import express from 'express';
 import { db } from '../db';
-import { auditLogs, profiles, type AuditLog } from '@shared/schema';
+import { auditLogs, profiles } from '@shared/schema';
 import { eq, desc, and, gte, lte, like, or, inArray, sql } from 'drizzle-orm';
-import { requireAdmin } from '../middleware/supabase-auth-middleware';
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
+import { requireAdmin } from '../middleware/supabase-auth-middleware';
 
 const router = express.Router();
 
@@ -49,7 +49,7 @@ router.get('/', async (req, res) => {
 
     // User filter
     if (userId) {
-      conditions.push(eq(auditLogs.userId, parseInt(userId as string)));
+      conditions.push(eq(auditLogs.userId, String(userId)));
     }
 
     // Action filter
@@ -252,7 +252,7 @@ router.get('/export', async (req, res) => {
       endOfDay.setUTCHours(23, 59, 59, 999);
       conditions.push(lte(auditLogs.timestamp, endOfDay));
     }
-    if (userId) conditions.push(eq(auditLogs.userId, parseInt(userId as string)));
+    if (userId) conditions.push(eq(auditLogs.userId, String(userId)));
     if (action) {
       if (Array.isArray(action)) {
         conditions.push(inArray(auditLogs.action, action as string[]));
@@ -314,6 +314,22 @@ router.get('/export', async (req, res) => {
   } catch (error) {
     console.error('Error exporting audit logs:', error);
     res.status(500).json({ message: 'Failed to export audit logs' });
+  }
+});
+
+router.get('/users', async (req, res) => {
+  try {
+    const userList = await db
+      .select({
+        id: profiles.id,
+        fullName: profiles.fullName,
+      })
+      .from(profiles)
+      .orderBy(desc(profiles.fullName));
+    res.json(userList);
+  } catch (error) {
+    console.error('Error fetching users for audit log filter:', error);
+    res.status(500).json({ message: 'Failed to fetch users' });
   }
 });
 

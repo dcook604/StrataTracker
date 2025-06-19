@@ -1,4 +1,4 @@
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import TextStyle from '@tiptap/extension-text-style';
@@ -20,6 +20,7 @@ import {
   AlignRight,
 } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
+import { Toolbar } from "./tiptap-toolbar";
 
 interface TiptapEditorProps {
   content: string;
@@ -243,4 +244,34 @@ export function TiptapEditor({
       </div>
     </Card>
   );
-} 
+}
+
+interface TiptapProps {
+  content: string;
+  onUpdate: (content: string) => void;
+}
+
+const Tiptap = ({
+  content,
+  onUpdate,
+}: {
+  content: string;
+  onUpdate: (content: string) => void;
+}) => {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: content,
+    onUpdate: ({ editor }) => {
+      onUpdate(editor.getHTML());
+    },
+  });
+
+  return (
+    <div className="flex flex-col justify-stretch min-h-[250px] border rounded-md">
+      <Toolbar editor={editor} />
+      <EditorContent editor={editor} />
+    </div>
+  );
+};
+
+export default Tiptap; 

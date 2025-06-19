@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
+import { User } from "@supabase/supabase-js";
 
 interface LayoutProps {
   children: React.ReactNode;

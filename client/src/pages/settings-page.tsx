@@ -21,19 +21,21 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Settings, AlertCircle, Trash2 } from "lucide-react";
+import { Settings, AlertCircle, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAsyncLoading } from "@/contexts/loading-context";
 import { ButtonLoading } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
 import { Layout } from "@/components/layout";
-import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { FileUpload } from "@/components/file-upload";
+import { UserManagementTabContent } from "@/components/user-management-tab";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -483,6 +485,10 @@ export default function SettingsPage() {
         systemForm.setValue('strataLogo', data.filename);
       }
     }
+  };
+
+  const handleTestEmail = async () => {
+    // ...
   };
 
   // Check if user is admin or council member

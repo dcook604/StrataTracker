@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { PublicSidebar } from "@/components/public-sidebar";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ViolationDetails {
   id: number;
@@ -25,11 +27,12 @@ interface ViolationDetails {
 }
 
 export default function EnhancedPublicViolationPage() {
-  const [match, params] = useRoute("/violation/comment/:token");
-  const [, navigate] = useLocation();
+  const [, params] = useRoute("/violation/comment/:token");
+  const [, setLocation] = useLocation();
   const token = params?.token;
   const { toast } = useToast();
   const { user, session } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
   // Pre-authentication state
   const [loading, setLoading] = useState(true);
@@ -150,7 +153,7 @@ export default function EnhancedPublicViolationPage() {
       });
 
       // Navigate to violations overview
-      navigate("/public/violations");
+      setLocation("/public/violations");
     } catch (err: any) {
       setCodeError(err.message || "Invalid code");
     } finally {
@@ -251,7 +254,7 @@ export default function EnhancedPublicViolationPage() {
                 <div className="text-center">
                   <h3 className="text-lg font-semibold text-green-600 mb-2">Dispute Submitted!</h3>
                   <p>Your dispute has been submitted successfully and will be reviewed by the strata council.</p>
-                  <Button className="mt-4" onClick={() => navigate("/public/violations")}>
+                  <Button className="mt-4" onClick={() => setLocation("/public/violations")}>
                     View All Violations
                   </Button>
                 </div>

@@ -1,29 +1,24 @@
-import { Router } from 'express';
-import { db } from '../db';
-import { 
-  communicationCampaigns, 
-  communicationRecipients, 
+import express from "express";
+import { db } from "../db";
+import {
+  communicationCampaigns,
+  communicationRecipients,
   communicationTemplates,
-  emailTrackingEvents,
-  manualEmailRecipients,
-  propertyUnits,
   persons,
-  unitPersonRoles,
-  profiles,
+  propertyUnits,
   insertCommunicationCampaignSchema,
   insertCommunicationTemplateSchema,
-  CommunicationType,
-  RecipientType,
-  emailDeduplicationLog
-} from '@shared/schema';
-import { eq, desc, and, inArray, or, sql, count, avg, gte } from 'drizzle-orm';
-import { sendEmail } from '../email-service';
-import { sendEmailWithDeduplication } from '../email-deduplication';
+  RecipientType
+} from "@shared/schema";
+import { eq, desc, asc, and, ilike, sql } from "drizzle-orm";
+import { requireAdminOrCouncil } from "../middleware/auth-helpers";
+import { sendEmailWithDeduplication } from "../email-deduplication";
+import { AuditLogger, AuditAction, TargetType } from "../audit-logger";
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { EmailDeduplicationService } from '../email-deduplication';
 
-const router = Router();
+const router = express.Router();
 
 // Middleware to ensure user is admin or council member
 const ensureCouncilOrAdmin = (req: Request, res: Response, next: NextFunction) => {

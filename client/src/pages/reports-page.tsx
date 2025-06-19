@@ -9,11 +9,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  DownloadCloud, 
-  FileSpreadsheet,
-  File,
-  Loader2,
-  Eye
+  Eye,
+  Loader2
 } from "lucide-react";
 import {
   PieChart,
@@ -33,6 +30,7 @@ import { Layout } from "@/components/layout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { ViolationCategory } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 // Custom DateRangePicker component
 const DateRangePicker = ({ from, to, onFromChange, onToChange }: {
@@ -100,6 +98,7 @@ type MonthlyFines = { month: string; totalFines: number }[];
 
 export default function ReportsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   // Default to the last 30 days
   const today = new Date();
   const priorDate = new Date(new Date().setDate(today.getDate() - 30));
@@ -230,7 +229,7 @@ export default function ReportsPage() {
   const isLoading = reportDataLoading || categoriesLoading; // Overall loading state
 
   // Fetch monthly fines data
-  const { data: monthlyFinesData, isLoading: monthlyFinesLoading, error: monthlyFinesError, refetch: refetchMonthlyFines } = useQuery<MonthlyFines>({
+  const { data: monthlyFinesData, isLoading: monthlyFinesLoading, error: monthlyFinesError } = useQuery<MonthlyFines>({
     queryKey: ['reports', 'monthlyFines', selectedMonth, selectedCategoryId],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -253,6 +252,50 @@ export default function ReportsPage() {
 
   // Find the total for the selected month
   const selectedMonthTotal = monthlyFinesData?.find(m => m.month === selectedMonth)?.totalFines ?? 0;
+
+  const renderFinesByBylawChart = (data: any[]) => {
+    const chartData = Object.entries(
+      data.reduce((acc, fine) => {
+        if (!acc[fine.bylaw]) acc[fine.bylaw] = 0;
+        acc[fine.bylaw] += fine.totalFines;
+        return acc;
+      }, {})
+    ).map(([bylaw, totalFines]) => ({ bylaw, totalFines }));
+
+    return (
+      <ResponsiveContainer width="100%" height={350}>
+        <RechartsBarChart data={chartData}>
+          <XAxis dataKey="bylaw" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="totalFines" fill="#82ca9d" name="Total Fines" />
+        </RechartsBarChart>
+      </ResponsiveContainer>
+    );
+  };
+  
+  const renderViolationsByUnitChart = (data: any[]) => {
+    const chartData = Object.entries(
+      data.reduce((acc, v) => {
+        if (!acc[v.unitNumber]) acc[v.unitNumber] = 0;
+        acc[v.unitNumber] += v.violationCount;
+        return acc;
+      }, {})
+    ).map(([unit, violationCount]) => ({ unit, violationCount }));
+
+    return (
+      <ResponsiveContainer width="100%" height={350}>
+        <RechartsBarChart data={chartData}>
+          <XAxis dataKey="unit" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="violationCount" fill="#8884d8" name="Violations" />
+        </RechartsBarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   return (
     <Layout title="Reports & Analytics">

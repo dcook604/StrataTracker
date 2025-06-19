@@ -31,68 +31,79 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
+import { insertViolationSchema, PropertyUnit, ViolationCategory } from "@shared/schema";
+
+interface UnitUpdateDialogState {
+  existing: PropertyUnit;
+  newUnit: Partial<PropertyUnit>;
+  changedFields: { field: string; oldValue: any; newValue: any }[];
+}
+
+interface PendingUnitUpdatePayload extends Partial<PropertyUnit> {
+  id: number;
+}
 
 const violationFormSchema = z.object({
-  unitId: z.string().or(z.number()).refine(val => Number(val) > 0, {
-    message: "Please select a unit",
-  }),
-  categoryId: z.string().or(z.number()).refine(val => Number(val) > 0, {
-    message: "Please select a category",
-  }),
-  violationType: z.string().min(1, { message: "Violation type is required" }),
-  violationDate: z.string().min(1, "Date is required"),
-  violationTime: z.string().optional(),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  bylawReference: z.string().optional(),
-  status: z.string().default("pending_approval"),
-  attachments: z.array(z.any()).optional(),
-  unitNumber: z.string().optional(),
-  floor: z.string().optional(),
-  incidentArea: z.string().optional(),
-  conciergeName: z.string().optional(),
-  peopleInvolved: z.string().optional(),
-  noticedBy: z.string().optional(),
-  damageToProperty: z.enum(["yes", "no", ""]).optional(),
-  damageDetails: z.string().optional(),
-  policeInvolved: z.enum(["yes", "no", ""]).optional(),
-  policeDetails: z.string().optional(),
+  unitId: z.string().or(z.number()).refine(val => Number(val) > 0, { message: "Please select a unit" }),
+  categoryId: z.string().or(z.number()).refine(val => Number(val) > 0, { message: "Please select a category" }),
+  violationType: z.string(),
+  violationDate: z.string(),
+  violationTime: z.string(),
+  description: z.string(),
+  bylawReference: z.string(),
+  status: z.string(),
+  attachments: z.array(z.instanceof(File)).optional(),
+  unitNumber: z.string(),
+  floor: z.string(),
+  incidentArea: z.string(),
+  conciergeName: z.string(),
+  peopleInvolved: z.string(),
+  noticedBy: z.string(),
+  damageToProperty: z.string(),
+  damageDetails: z.string(),
+  policeInvolved: z.string(),
+  policeDetails: z.string(),
 });
+
+type ViolationFormData = z.infer<typeof violationFormSchema>;
 
 export function ViolationForm() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   useAuth(); // Keep auth context active
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [unitUpdateDialog, setUnitUpdateDialog] = useState<null | { existing: any; newUnit: any; changedFields: { field: string; oldValue: any; newValue: any }[] }>(null);
-  const [pendingUnitUpdatePayload, setPendingUnitUpdatePayload] = useState<any>(null);
+  const [unitUpdateDialog, setUnitUpdateDialog] = useState<UnitUpdateDialogState | null>(null);
+  const [pendingUnitUpdatePayload, setPendingUnitUpdatePayload] = useState<PendingUnitUpdatePayload | null>(null);
   const [unitSearchTerm, setUnitSearchTerm] = useState("");
   
   // Load property units
-  const { data: units, isLoading: unitsLoading } = useQuery({
+  const { data: units, isLoading: unitsLoading } = useQuery<PropertyUnit[]>({
     queryKey: ["/api/property-units"],
+    queryFn: () => apiRequest("GET", "/api/property-units").then(res => res.json()),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Load categories
-  const { data: categories, isLoading: categoriesLoading } = useQuery({
+  const { data: categories, isLoading: categoriesLoading } = useQuery<ViolationCategory[]>({
     queryKey: ["/api/violation-categories"],
+    queryFn: () => apiRequest("GET", "/api/violation-categories").then(res => res.json()),
     staleTime: 1000 * 60 * 5,
   });
 
   // Fix linter errors for .map on units and categories
-  const safeUnits = Array.isArray(units) ? units : [];
-  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeUnits: PropertyUnit[] = Array.isArray(units) ? units : [];
+  const safeCategories: ViolationCategory[] = Array.isArray(categories) ? categories : [];
 
   // Filtered units based on search term
   const filteredUnits = useMemo(() => {
     if (!unitSearchTerm) return safeUnits;
-    return safeUnits.filter((unit: any) =>
+    return safeUnits.filter((unit: PropertyUnit) =>
       unit.unitNumber.toLowerCase().includes(unitSearchTerm.toLowerCase())
     );
   }, [safeUnits, unitSearchTerm]);
 
   // Auto-select unit if search term leads to a single partial match
-  const form = useForm<z.infer<typeof violationFormSchema>>({
+  const form = useForm<ViolationFormData>({
     resolver: zodResolver(violationFormSchema),
     defaultValues: {
       unitId: "",
@@ -134,7 +145,7 @@ export function ViolationForm() {
   // Effect to update violationType when categoryId changes
   useEffect(() => {
     if (watchCategoryId) {
-      const selectedCategory = safeCategories.find((cat: any) => String(cat.id) === String(watchCategoryId));
+      const selectedCategory = safeCategories.find((cat: ViolationCategory) => String(cat.id) === String(watchCategoryId));
       if (selectedCategory && selectedCategory.name) {
         form.setValue("violationType", selectedCategory.name);
       } else {
@@ -145,13 +156,10 @@ export function ViolationForm() {
 
   // Submit violation mutation
   const submitViolationMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof violationFormSchema>) => {
-      // Create FormData object for file upload
+    mutationFn: async (data: ViolationFormData) => {
       const formData = new FormData();
-      
-      // Add regular fields
-      formData.append("unitId", Number(data.unitId).toString());
-      formData.append("categoryId", Number(data.categoryId).toString());
+      formData.append("unitId", String(data.unitId));
+      formData.append("categoryId", String(data.categoryId));
       formData.append("violationType", data.violationType);
       formData.append("violationDate", data.violationDate);
       formData.append("violationTime", data.violationTime || "");
@@ -159,7 +167,6 @@ export function ViolationForm() {
       formData.append("bylawReference", data.bylawReference || "");
       formData.append("status", data.status);
       
-      // Add new violation details fields
       if (data.incidentArea) formData.append("incidentArea", data.incidentArea);
       if (data.conciergeName) formData.append("conciergeName", data.conciergeName);
       if (data.peopleInvolved) formData.append("peopleInvolved", data.peopleInvolved);
@@ -207,8 +214,7 @@ export function ViolationForm() {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof violationFormSchema>) => {
-    // Submit the violation directly
+  const onSubmit = (values: ViolationFormData) => {
     submitViolationMutation.mutate(values);
   };
 

@@ -9,6 +9,11 @@ const IS_DEVELOPMENT = import.meta.env.DEV;
 
 let isInitialized = false;
 
+interface UserData {
+  id: string;
+  email?: string;
+}
+
 export const initializeLogRocket = () => {
   // Only initialize in browser environment
   if (typeof window === 'undefined') {
@@ -77,29 +82,14 @@ export const initializeLogRocket = () => {
 };
 
 // User identification helper
-export const identifyUser = (user: {
-  id: number | string;
-  email?: string;
-  fullName?: string;
-  isAdmin?: boolean;
-  isCouncilMember?: boolean;
-  isUser?: boolean;
-}) => {
+export const identifyUser = (user: UserData) => {
   if (!isInitialized) {
     return;
   }
 
   try {
-    LogRocket.identify(String(user.id), {
-      name: user.fullName || '',
-      email: user.email || '',
-      // Add user traits for better session organization
-      isAdmin: user.isAdmin || false,
-      isCouncilMember: user.isCouncilMember || false,
-      isUser: user.isUser || false,
-      // Add app-specific context
-      appVersion: import.meta.env.VITE_APP_VERSION || 'unknown',
-      environment: IS_PRODUCTION ? 'production' : 'development'
+    LogRocket.identify(user.id, {
+      email: user.email,
     });
 
     if (IS_DEVELOPMENT) {

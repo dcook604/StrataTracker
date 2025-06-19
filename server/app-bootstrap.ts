@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { requestLogger, errorLogger } from "./middleware/logging-middleware";
@@ -9,6 +9,13 @@ import { pool } from "./db";
 import { createServer } from "http";
 import fs from "fs";
 import path from "path";
+import session from "express-session";
+import helmet from "helmet";
+import { SupabaseAuthClient } from "@supabase/supabase-js/dist/module/lib/SupabaseAuthClient";
+import { errorHandler } from "./utils/error-handler";
+import { logger } from "./utils/logger";
+import { initializeVite } from "./vite";
+import { applyApiRoutes } from "./routes";
 
 // Initialize global error handlers
 setupGlobalErrorHandlers();
