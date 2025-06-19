@@ -7,6 +7,27 @@ import { getVirusScanner } from '../services/virusScanner.js';
 import logger from '../utils/logger.js';
 import { fileTypeFromBuffer } from 'file-type';
 
+// Helper to normalize req.files and req.file into a single array
+function getFilesFromRequest(req: ExpressRequest): Express.Multer.File[] {
+  if (!req.files && !req.file) {
+    return [];
+  }
+
+  if (Array.isArray(req.files)) {
+    return req.files;
+  }
+
+  if (typeof req.files === 'object' && req.files !== null) {
+    return Object.values(req.files).flat();
+  }
+
+  if (req.file) {
+    return [req.file];
+  }
+
+  return [];
+}
+
 interface SecurityValidationOptions {
   allowedMimeTypes: string[];
   allowedExtensions: string[];
@@ -199,9 +220,9 @@ const virusScanMiddleware = async (req: ExpressRequest, res: express.Response, n
   }
 
   try {
-    const files = req.files || (req.file ? [req.file] : []);
+    const filesToScan = getFilesFromRequest(req);
     
-    for (const file of files) {
+    for (const file of filesToScan) {
       if (file.path) {
         // Scan file on disk
         const scanResult = await scanner.scanFile(file.path);
@@ -227,7 +248,7 @@ const virusScanMiddleware = async (req: ExpressRequest, res: express.Response, n
       }
     }
 
-    logger.debug(`[FileUpload] Virus scan completed for ${files.length} file(s)`);
+    logger.debug(`[FileUpload] Virus scan completed for ${filesToScan.length} file(s)`);
     next();
   } catch (error: unknown) {
     logger.error('[FileUpload] Virus scanning error:', error);
@@ -241,9 +262,9 @@ const virusScanMiddleware = async (req: ExpressRequest, res: express.Response, n
 // Content validation middleware
 const contentValidationMiddleware = async (req: ExpressRequest, res: express.Response, next: express.NextFunction) => {
   try {
-    const files = req.files || (req.file ? [req.file] : []);
+    const filesToValidate = getFilesFromRequest(req);
     
-    for (const file of files) {
+    for (const file of filesToValidate) {
       if (file.buffer) {
         await validateFileContent(file.buffer, file.originalname, file.mimetype);
       } else if (file.path) {
@@ -253,13 +274,14 @@ const contentValidationMiddleware = async (req: ExpressRequest, res: express.Res
       }
     }
 
-    logger.debug(`[FileUpload] Content validation completed for ${files.length} file(s)`);
+    logger.debug(`[FileUpload] Content validation completed for ${filesToValidate.length} file(s)`);
     next();
   } catch (error: unknown) {
-    logger.warn('[FileUpload] Content validation failed:', error instanceof Error ? error.message : 'Unknown error');
+    const message = error instanceof Error ? error.message : 'An unknown validation error occurred.';
+    logger.warn('[FileUpload] Content validation failed:', message);
     return res.status(400).json({
       error: 'Invalid file content',
-      message: error.message
+      message: message
     });
   }
 };

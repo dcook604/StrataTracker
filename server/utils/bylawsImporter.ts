@@ -213,7 +213,7 @@ export function parseSpectrumBylaws(): BylawData[] {
 //     ...
 //   </section>
 // </bylaws>
-export async function parseXMLBylaws(filePath: string, createdById: number): Promise<void> {
+export async function parseXMLBylaws(filePath: string, createdById: string): Promise<void> {
   try {
     const xmlContent = await fs.readFile(filePath, 'utf-8');
     
@@ -264,7 +264,7 @@ export async function parseXMLBylaws(filePath: string, createdById: number): Pro
 }
 
 // Import bylaws function
-export async function importSpectrumBylaws(createdById: number): Promise<void> {
+export async function importSpectrumBylaws(createdById: string): Promise<void> {
   try {
     const bylawsData = parseSpectrumBylaws();
     
