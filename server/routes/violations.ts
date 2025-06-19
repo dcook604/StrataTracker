@@ -49,7 +49,8 @@ router.get("/", async (req, res) => {
         sortOrder as 'asc' | 'desc' | undefined
       );
       res.json(result);
-    } catch (error) {
+    } catch (error: unknown) {
+      logger.error('Error fetching violations:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to fetch violations" });
     }
 });
@@ -60,8 +61,8 @@ router.get("/recent", async (req, res) => {
       const limit = parseInt(req.query.limit as string) || 5;
       const violations = await dbStorage.getRecentViolations(limit);
       res.json(violations);
-    } catch (error) {
-      console.error("Recent violations fetch error:", error);
+    } catch (error: unknown) {
+      logger.error("Recent violations fetch error:", error instanceof Error ? error.message : 'Unknown error');
       res.json([]);
     }
 });
@@ -73,8 +74,8 @@ router.get("/pending-approval", async (req, res) => {
       if (userId === undefined) return;
       const pendingViolations = await dbStorage.getPendingApprovalViolations(userId);
       res.json(pendingViolations);
-    } catch (error) {
-      logger.error('[API] Error fetching pending violations:', error);
+    } catch (error: unknown) {
+      logger.error('[API] Error fetching pending violations:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to fetch pending violations" });
     }
 });
@@ -165,8 +166,8 @@ router.post("/",
                   });
                   logger.info(`[Violation Upload] Sent new violation notifications for violation ${violation.uuid}`);
                 }
-              } catch (emailError) {
-                logger.error(`[Violation Upload] Failed to send occupant notifications for violation ${violation.uuid}:`, emailError);
+              } catch (emailError: unknown) {
+                logger.error(`[Violation Upload] Failed to send occupant notifications for violation ${violation.uuid}:`, emailError instanceof Error ? emailError.message : 'Unknown error');
               }
             }
 
@@ -191,24 +192,24 @@ router.post("/",
                 );
                 await Promise.allSettled(adminEmailPromises);
                 logger.info(`[Violation Upload] Sent pending approval notifications to admins/council for violation ${violation.uuid}`);
-              } catch (adminEmailError) {
-                logger.error(`[Violation Upload] Failed to send admin notifications for violation ${violation.uuid}:`, adminEmailError);
+              } catch (adminEmailError: unknown) {
+                logger.error(`[Violation Upload] Failed to send admin notifications for violation ${violation.uuid}:`, adminEmailError instanceof Error ? adminEmailError.message : 'Unknown error');
               }
             }
-          } catch (backgroundError) {
-            logger.error(`[Violation Upload] Background email processing failed for violation ${violation.uuid}:`, backgroundError);
+          } catch (backgroundError: unknown) {
+            logger.error(`[Violation Upload] Background email processing failed for violation ${violation.uuid}:`, backgroundError instanceof Error ? backgroundError.message : 'Unknown error');
           }
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (files && files.length > 0) { await cleanupUploadedFiles(files); }
         if (error instanceof z.ZodError) {
           logger.error("[Validation Error] POST /api/violations:", error.errors);
           return res.status(400).json({ errors: error.errors });
         }
-        logger.error("Error creating violation:", error);
-        if (error.code === 'LIMIT_FILE_SIZE') { return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' }); }
-        if (error.message?.includes("Only images and PDF files are allowed")) { return res.status(400).json({ message: error.message }); }
-        if (error.message?.includes("Malware detected")) { return res.status(403).json({ message: 'File rejected due to security concerns.' }); }
+        logger.error("Error creating violation:", error instanceof Error ? error.message : 'Unknown error');
+        if (error instanceof Error && 'code' in error && error.code === 'LIMIT_FILE_SIZE') { return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' }); }
+        if (error instanceof Error && error.message?.includes("Only images and PDF files are allowed")) { return res.status(400).json({ message: error.message }); }
+        if (error instanceof Error && error.message?.includes("Malware detected")) { return res.status(403).json({ message: 'File rejected due to security concerns.' }); }
         res.status(500).json({ message: "Failed to create violation" });
       }
     }
@@ -222,7 +223,8 @@ router.get("/:id", async (req, res) => {
         return res.status(404).json({ message: "Violation not found" });
       }
       res.json(violation);
-    } catch (error) {
+    } catch (error: unknown) {
+      logger.error('Error fetching violation:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to fetch violation" });
     }
 });
@@ -276,8 +278,8 @@ router.patch("/:id/status", async (req, res) => {
       });
 
       res.json(violation);
-    } catch (error) {
-      logger.error(`Failed to update violation status for ID ${req.params.id}:`, error);
+    } catch (error: unknown) {
+      logger.error(`Failed to update violation status for ID ${req.params.id}:`, error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to update violation status" });
     }
 });
@@ -287,7 +289,8 @@ router.get("/:id/history", async (req, res) => {
     try {
         const history = await dbStorage.getViolationHistory(parseInt(req.params.id));
         res.json(history);
-    } catch (error) {
+    } catch (error: unknown) {
+        logger.error('Error fetching violation history:', error instanceof Error ? error.message : 'Unknown error');
         res.status(500).json({ message: "Failed to fetch violation history" });
     }
 });
@@ -332,7 +335,8 @@ router.delete("/:id", async (req, res) => {
         });
         
         res.status(204).send();
-    } catch (error) {
+    } catch (error: unknown) {
+        logger.error('Error deleting violation:', error instanceof Error ? error.message : 'Unknown error');
         res.status(500).json({ message: "Failed to delete violation" });
     }
 });
@@ -346,7 +350,8 @@ router.get("/categories", async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
       res.json(categories);
-    } catch (error) {
+    } catch (error: unknown) {
+      logger.error('Error fetching categories:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to fetch categories" });
     }
 });
@@ -356,7 +361,8 @@ router.get("/categories", async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
       res.json(categories);
-    } catch (error) {
+    } catch (error: unknown) {
+      logger.error('Error fetching categories:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to fetch categories" });
     }
 });
@@ -366,7 +372,8 @@ router.post("/categories", async (req, res) => {
     try {
       const category = await dbStorage.createViolationCategory({ name: req.body.name });
       res.status(201).json(category);
-    } catch (error) {
+    } catch (error: unknown) {
+      logger.error('Error creating category:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to create category" });
     }
 });
@@ -376,7 +383,8 @@ router.put("/categories/:id", async (req, res) => {
     try {
       const category = await dbStorage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
       res.json(category);
-    } catch (error) {
+    } catch (error: unknown) {
+      logger.error('Error updating category:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to update category" });
     }
 });
@@ -386,7 +394,8 @@ router.delete("/categories/:id", async (req, res) => {
     try {
       await dbStorage.deleteViolationCategory(parseInt(req.params.id));
       res.status(204).send();
-    } catch (error) {
+    } catch (error: unknown) {
+      logger.error('Error deleting category:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ message: "Failed to delete category" });
     }
 });

@@ -69,7 +69,7 @@ export function SupabaseKeepAliveMonitor() {
     },
   });
 
-  const stats: KeepAliveStats | null = (statsData as any)?.data || null;
+  const stats: KeepAliveStats | null = (statsData as { data?: KeepAliveStats })?.data || null;
 
   if (isLoading) {
     return (

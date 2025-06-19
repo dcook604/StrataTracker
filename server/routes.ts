@@ -1,5 +1,5 @@
 import express from 'express';
-import type { Express, Request, Response } from "express";
+import type { Express } from "express";
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -18,11 +18,11 @@ import path from "path";
 import fs from "fs/promises";
 import logger from "./utils/logger";
 import { getVirusScanner } from "./services/virusScanner";
-import { adminAnnouncements, type AdminAnnouncement, type InsertAdminAnnouncement } from '@shared/schema';
+import { adminAnnouncements } from '@shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { AuditLogger, AuditAction, TargetType } from './audit-logger';
 import { db } from './db';
-import { authenticateUser, requireAdmin, requireAdminOrCouncil, optionalAuth, AuthenticatedRequest } from './middleware/supabase-auth-middleware';
+import { authenticateUser, requireAdmin, AuthenticatedRequest } from './middleware/supabase-auth-middleware';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Public health endpoint for Docker health checks (no authentication required)
@@ -33,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString(),
         service: "StrataTracker API"
       });
-    } catch (error) {
+    } catch {
       res.status(503).json({ 
         status: "unhealthy", 
         timestamp: new Date().toISOString(),
@@ -100,9 +100,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(desc(adminAnnouncements.priority), desc(adminAnnouncements.createdAt));
       
       res.json(announcements);
-    } catch (error) {
-      console.error('Error fetching admin announcements:', error);
-      res.status(500).json({ message: 'Failed to fetch announcements' });
+    } catch {
+      logger.error("Error fetching admin announcements:", "No details available.");
     }
   });
 

@@ -26,9 +26,9 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<any, Error, LoginData>;
+  loginMutation: UseMutationResult<{ user: User; session: Session }, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<any, Error, InsertUser>;
+  registerMutation: UseMutationResult<{ user: User; session: Session }, Error, InsertUser>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -157,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

@@ -1,6 +1,5 @@
 import { createRequire } from 'module';
 import { promises as fs } from 'fs';
-import path from 'path';
 import logger from '../utils/logger.js';
 
 const require = createRequire(import.meta.url);
@@ -21,7 +20,7 @@ export interface ScannerConfig {
 }
 
 class VirusScannerService {
-  private clamscan: any = null;
+  private clamscan: unknown = null;
   private isInitialized: boolean = false;
   private config: ScannerConfig;
 
@@ -69,7 +68,7 @@ class VirusScannerService {
       
       this.isInitialized = true;
       logger.info('[VirusScanner] ClamAV scanner initialized successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.message?.includes('virus database is empty')) {
         logger.error('[VirusScanner] ClamAV database not initialized. Run: sudo freshclam');
       } else if (error.code === 'ENOENT') {
@@ -90,8 +89,6 @@ class VirusScannerService {
       throw new Error('Virus scanner not initialized');
     }
 
-    const startTime = Date.now();
-    
     try {
       // Check if file exists and get stats
       const stats = await fs.stat(filePath);
@@ -101,12 +98,10 @@ class VirusScannerService {
       }
 
       const { isInfected, viruses } = await this.clamscan.scanFile(filePath);
-      const scanDuration = Date.now() - startTime;
 
       const result: ScanResult = {
         isClean: !isInfected,
         threats: isInfected ? viruses : undefined,
-        scanDuration,
         fileSize: stats.size
       };
 
@@ -119,12 +114,11 @@ class VirusScannerService {
           logger.info(`[VirusScanner] Removed infected file: ${filePath}`);
         }
       } else {
-        logger.debug(`[VirusScanner] File ${filePath} is clean (${scanDuration}ms)`);
+        logger.debug(`[VirusScanner] File ${filePath} is clean`);
       }
 
       return result;
-    } catch (error: any) {
-      const scanDuration = Date.now() - startTime;
+    } catch (error: unknown) {
       
       if (error.code === 'ENOENT') {
         throw new Error('File not found or ClamAV socket connection failed');
@@ -148,28 +142,23 @@ class VirusScannerService {
       throw new Error(`Buffer size (${buffer.length} bytes) exceeds maximum allowed (${this.config.maxFileSize} bytes)`);
     }
 
-    const startTime = Date.now();
-    
     try {
       const { isInfected, viruses } = await this.clamscan.scanBuffer(buffer);
-      const scanDuration = Date.now() - startTime;
 
       const result: ScanResult = {
         isClean: !isInfected,
         threats: isInfected ? viruses : undefined,
-        scanDuration,
         fileSize: buffer.length
       };
 
       if (isInfected) {
         logger.warn(`[VirusScanner] Malware detected in buffer${filename ? ` (${filename})` : ''}:`, viruses);
       } else {
-        logger.debug(`[VirusScanner] Buffer${filename ? ` (${filename})` : ''} is clean (${scanDuration}ms)`);
+        logger.debug(`[VirusScanner] Buffer${filename ? ` (${filename})` : ''} is clean`);
       }
 
       return result;
-    } catch (error: any) {
-      const scanDuration = Date.now() - startTime;
+    } catch (error: unknown) {
       logger.error(`[VirusScanner] Buffer scan error${filename ? ` (${filename})` : ''}:`, error);
       throw new Error(`Virus scan failed: ${error.message}`);
     }

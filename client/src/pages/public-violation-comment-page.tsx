@@ -20,7 +20,7 @@ interface ViolationDetails {
 }
 
 export default function PublicViolationCommentPage() {
-  const [match, params] = useRoute("/violation/comment/:token");
+  const [, params] = useRoute("/violation/comment/:token");
   const token = params?.token;
   const { toast } = useToast();
   const [commenterName, setCommenterName] = useState("");
@@ -33,7 +33,6 @@ export default function PublicViolationCommentPage() {
   const [linkStatus, setLinkStatus] = useState<"valid" | "expired" | "used" | "invalid">("valid");
   const [violation, setViolation] = useState<ViolationDetails | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
-  const [codeSent, setCodeSent] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -81,7 +80,6 @@ export default function PublicViolationCommentPage() {
             setSelectedPersonId(null);
             return;
           }
-          setCodeSent(true);
         })
         .catch(() => {
           setSendingCode(false);
@@ -119,9 +117,10 @@ export default function PublicViolationCommentPage() {
       }
       setSuccess(true);
       toast({ title: "Submitted", description: "Your comment and evidence have been submitted." });
-    } catch (err: any) {
-      setError(err.message || "Failed to submit");
-      toast({ title: "Error", description: err.message || "Failed to submit", variant: "destructive" });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to submit";
+      setError(errorMessage);
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -234,8 +233,8 @@ export default function PublicViolationCommentPage() {
               }
               setCodeVerified(true);
               toast({ title: "Verified", description: "Email code verified. You may now submit your dispute." });
-            } catch (err: any) {
-              setCodeError(err.message || "Invalid code");
+            } catch (err: unknown) {
+              setCodeError(err instanceof Error ? err.message : "Invalid code");
             } finally {
               setVerifying(false);
             }

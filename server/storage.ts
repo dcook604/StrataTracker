@@ -16,7 +16,6 @@ import {
   type ViolationCategory,
   type InsertViolationCategory,
   type SystemSetting,
-  type InsertSystemSetting,
   type Violation,
   type InsertViolation,
   type ViolationHistory,
@@ -25,14 +24,8 @@ import {
   unitPersonRoles,
   type Person,
   type UnitPersonRole,
-  type InsertPerson,
-  type InsertUnitPersonRole,
   violationAccessLinks,
   type ViolationAccessLink,
-  type InsertViolationAccessLink,
-  unitFacilities,
-  type InsertUnitFacility,
-  type UnitFacility,
   parkingSpots,
   storageLockers,
   bikeLockers,
@@ -40,23 +33,15 @@ import {
   type StorageLocker,
   type BikeLocker,
   emailVerificationCodes,
-  publicUserSessions
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, ilike, or, not, gte, lte, asc, SQL, Name, inArray, isNull, gt } from "drizzle-orm";
-import { randomBytes, randomUUID } from "crypto";
-import session from "express-session";
-import memorystore from "memorystore";
-import { relations, sql as drizzleSql, InferModel, count as drizzleCount } from 'drizzle-orm';
-import { pgTable, serial, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, PgTransaction } from 'drizzle-orm/pg-core';
-import { drizzle, NodePgQueryResultHKT, NodePgDatabase, NodePgClient } from 'drizzle-orm/node-postgres';
+import { eq, and, desc, sql, like, or, gte, lte, asc, SQL, Name, inArray, gt, count } from "drizzle-orm";
 import logger from './utils/logger';
-import { Buffer } from 'buffer';
+import session from 'express-session';
 
-// @ts-expect-error
+// @ts-expect-error connect-pg-simple package lacks proper TypeScript definitions
 import connectPgSimple from 'connect-pg-simple';
 
-const MemoryStore = memorystore(session);
 
 export interface IStorage {
   // User operations
@@ -188,7 +173,7 @@ export interface IStorage {
   }>>;
 
   addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void>;
-  getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any>;
+  getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date } | null>;
   markEmailVerificationCodeUsed(id: number): Promise<void>;
 
   getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
@@ -198,7 +183,7 @@ export interface IStorage {
     unitData: Partial<InsertPropertyUnit>,
     personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
     facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
-  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }>;
+  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; } }>;
 
   createPublicUserSession(data: {
     personId: number;
@@ -206,11 +191,11 @@ export interface IStorage {
     email: string;
     role: string;
     expiresInHours?: number;
-  }): Promise<any>;
+  }): Promise<{ sessionId: string; expiresAt: Date }>;
 
-  getPublicUserSession(sessionId: string): Promise<any>;
+  getPublicUserSession(sessionId: string): Promise<{ unitId: number; expiresAt: Date } | null>;
 
-  getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<any[]>;
+  getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<Violation[]>;
 
   expirePublicUserSession(sessionId: string): Promise<void>;
 }
@@ -225,7 +210,7 @@ export class DatabaseStorage implements IStorage {
   constructor() {
     const pgSession = connectPgSimple(session);
     this.sessionStore = new pgSession({
-      pool: (db as any).pool, // Use the exported pool from db.ts
+      pool: (db as { pool?: unknown }).pool, // Use the exported pool from db.ts
       createTableIfMissing: true,
     });
   }
@@ -751,7 +736,6 @@ export class DatabaseStorage implements IStorage {
     if (history.violationId === null || history.violationId === undefined) {
       throw new Error("Cannot add history without a violationId");
     }
-    const violation = await this.getViolation(history.violationId);
     
     const [newHistory] = await db
       .insert(violationHistories)
@@ -822,7 +806,7 @@ export class DatabaseStorage implements IStorage {
 
       const [counts] = await db
         .select({
-          total: drizzleCount(),
+          total: count(),
           new: sql<number>`SUM(CASE WHEN ${violations.status} = 'new' THEN 1 ELSE 0 END)`,
           pending: sql<number>`SUM(CASE WHEN ${violations.status} = 'pending_approval' THEN 1 ELSE 0 END)`,
           approved: sql<number>`SUM(CASE WHEN ${violations.status} = 'approved' THEN 1 ELSE 0 END)`,
@@ -885,7 +869,7 @@ export class DatabaseStorage implements IStorage {
 
     const violationsByMonthRaw = await db.select({
       yearMonth: sql<string>`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`,
-      count: drizzleCount()
+      count: count()
     })
     .from(violations)
     .where(whereClause)
@@ -927,13 +911,13 @@ export class DatabaseStorage implements IStorage {
 
     const result = await db.select({
       type: violationCategories.name,
-      count: drizzleCount()
+      count: count()
     })
     .from(violations)
     .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
     .where(whereClause)
     .groupBy(violationCategories.name)
-    .orderBy(desc(drizzleCount()));
+    .orderBy(desc(count()));
 
     return result.map((r) => ({ 
       type: r.type ?? 'Unknown',
@@ -973,12 +957,12 @@ export class DatabaseStorage implements IStorage {
   async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
     const sortMap: Record<string, SQL | Name | undefined> = {
-      createdAt: violations.createdAt as any,
-      violationType: violations.violationType as any,
-      status: violations.status as any,
-      fineAmount: violations.fineAmount as any,
-      unitNumber: propertyUnits.unitNumber as any,
-      id: violations.id as any
+      createdAt: violations.createdAt,
+      violationType: violations.violationType,
+      status: violations.status,
+      fineAmount: violations.fineAmount,
+      unitNumber: propertyUnits.unitNumber,
+      id: violations.id
     };
     const orderField = sortMap[sortBy || ''] || violations.createdAt;
     const orderFn = sortOrder === 'asc' ? asc(orderField as Name) : desc(orderField as Name);
@@ -1011,7 +995,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }> {
+  async getAllUnitsPaginated(_page: number = 1, _limit: number = 20, _sortBy?: string, _sortOrder?: 'asc' | 'desc', _search?: string): Promise<{ units: PropertyUnit[], total: number }> {
     throw new Error("Method not implemented.");
   }
 
@@ -1159,7 +1143,7 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean; })[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[]; } | undefined> {
+  async getUnitWithPersonsAndFacilities(_id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean; })[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[]; } | undefined> {
     throw new Error("Method not implemented.");
   }
 
@@ -1205,7 +1189,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async createViolationAccessLink(data: {
+  async createViolationAccessLink(_data: {
     violationId: number;
     violationUuid: string;
     recipientEmail: string;
@@ -1246,7 +1230,7 @@ export class DatabaseStorage implements IStorage {
     await db.insert(emailVerificationCodes).values(params);
   }
 
-  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any> {
+  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date } | null> {
     const [code] = await db
       .select()
       .from(emailVerificationCodes)
@@ -1259,7 +1243,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
     
-    return code;
+    return code || null;
   }
   
   async markEmailVerificationCodeUsed(id: number): Promise<void> {
@@ -1268,38 +1252,38 @@ export class DatabaseStorage implements IStorage {
 
   async getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
 
-  async getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]> {
+  async getMonthlyFines(_filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]> {
     throw new Error("Method not implemented.");
   }
 
   async updateUnitWithPersonsAndFacilities(
-    unitId: number,
-    unitData: Partial<InsertPropertyUnit>,
-    personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
-    facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
-  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }> {
+    _unitId: number,
+    _unitData: Partial<InsertPropertyUnit>,
+    _personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
+    _facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
+  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; } }> {
     throw new Error("Method not implemented.");
   }
 
-  async createPublicUserSession(data: {
+  async createPublicUserSession(_data: {
     personId: number;
     unitId: number;
     email: string;
     role: string;
     expiresInHours?: number;
-  }): Promise<any> {
+  }): Promise<{ sessionId: string; expiresAt: Date }> {
     throw new Error("Method not implemented.");
   }
 
-  async getPublicUserSession(sessionId: string): Promise<any> {
+  async getPublicUserSession(_sessionId: string): Promise<{ unitId: number; expiresAt: Date } | null> {
     throw new Error("Method not implemented.");
   }
 
-  async getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<any[]> {
+  async getViolationsForUnit(_unitId: number, _includeStatuses?: string[]): Promise<Violation[]> {
     throw new Error("Method not implemented.");
   }
 
-  async expirePublicUserSession(sessionId: string): Promise<void> {
+  async expirePublicUserSession(_sessionId: string): Promise<void> {
     throw new Error("Method not implemented.");
   }
 }

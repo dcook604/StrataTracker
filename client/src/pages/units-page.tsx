@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,17 +18,32 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, BuildingIcon, Trash2, EyeIcon, PlusIcon, Loader2 } from "lucide-react";
+import {
+  PencilIcon,
+  BuildingIcon,
+  Trash2,
+  EyeIcon,
+  PlusIcon,
+  Loader2,
+  FilterX,
+} from "lucide-react";
 import { Layout } from "@/components/layout";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
+import { DataTable } from "@/components/ui/data-table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +54,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // START: Temporary Local Type Definitions (Mirror these in @shared/schema.ts)
 interface FacilityItem {
@@ -133,9 +161,11 @@ type UnitWithPeopleAndFacilities = PatchedPropertyUnit & {
   townhouse?: boolean;
 };
 
+type PersonWithRole = PersonForm & { role: string };
+
 type UnitDetailsForDelete = {
   unit: PatchedPropertyUnit;
-  persons: (PersonForm & { role: string })[];
+  persons: PersonWithRole[];
   facilities: PatchedUnitFacility;
   violationCount: number;
   violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[];
@@ -156,7 +186,7 @@ export default function UnitsPage() {
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
   const [search, setSearch] = useState(() => localStorage.getItem(SEARCH_KEY) || "");
-  const defaultPerson = { fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false };
+  const defaultPerson = useMemo(() => ({ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }), []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -194,6 +224,9 @@ export default function UnitsPage() {
     name: "tenants"
   });
 
+  const { reset } = form;
+  const { setValue } = form;
+
   useEffect(() => { localStorage.setItem(PAGE_KEY, String(page)); }, [page]);
   useEffect(() => { localStorage.setItem(PAGE_SIZE_KEY, String(pageSize)); }, [pageSize]);
   useEffect(() => { localStorage.setItem(SORT_KEY, JSON.stringify(sortBy)); localStorage.setItem(SORT_ORDER_KEY, JSON.stringify(sortOrder)); }, [sortBy, sortOrder]);
@@ -215,7 +248,7 @@ export default function UnitsPage() {
         tenants: [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
         phone: "", notes: "",
       };
-      form.reset(resetData);
+      reset(resetData);
       setIsFormReady(true);
     } else if (editingUnit) {
       // Editing existing unit
@@ -261,13 +294,35 @@ export default function UnitsPage() {
           : [{ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }],
       };
       
-      form.reset(resetData);
+      reset(resetData);
       // Small delay to ensure form is fully reset before enabling editing
       setTimeout(() => {
         setIsFormReady(true);
       }, 100);
     }
-  }, [editingUnit, isAddDialogOpen, form]);
+  }, [editingUnit, isAddDialogOpen, reset, defaultPerson]);
+
+  useEffect(() => {
+    if (defaultPerson) {
+      reset({
+        owners: [
+          {
+            ...defaultPerson,
+            role: "owner",
+            isPrimaryContact: true,
+          },
+        ],
+        tenants: [],
+        facilities: [],
+      });
+    }
+  }, [defaultPerson, reset]);
+
+  useEffect(() => {
+    if (editingUnit && form.formState.isDirty) {
+      // Logic for handling form state...
+    }
+  }, [editingUnit, form.formState.isDirty, reset, setValue]);
 
   const { data: unitData, isLoading: unitsLoading } = useQuery<{ units: UnitWithPeopleAndFacilities[], total: number }>({
     queryKey: ["/api/units", { page, limit: pageSize, sortBy, sortOrder, search }],
@@ -286,7 +341,7 @@ export default function UnitsPage() {
   });
 
   // Use PatchedPropertyUnit for the type here for consistency within this file's current state
-  const { data: propertyUnitsData, isLoading: isPropertyUnitsLoading } = useQuery<PatchedPropertyUnit[]>({ 
+  const { isLoading: isPropertyUnitsLoading } = useQuery<PatchedPropertyUnit[]>({ 
     queryKey: ["/api/property-units"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/property-units");
@@ -296,7 +351,7 @@ export default function UnitsPage() {
   });
   
   const createMutation = useMutation({
-    mutationFn: async (data: { unit: any; facilities: any; persons: PersonFormWithRole[] }) => {
+    mutationFn: async (data: { unit: Partial<PatchedPropertyUnit>; facilities: Record<string, unknown>; persons: PersonFormWithRole[] }) => {
       return apiRequest("POST", "/api/units-with-persons", data);
     },
     onSuccess: () => {
@@ -311,7 +366,7 @@ export default function UnitsPage() {
   });
   
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: number; unit: any; facilities: any; persons: PersonFormWithRole[] }) => {
+    mutationFn: async (data: { id: number; unit: Partial<PatchedPropertyUnit>; facilities: Record<string, unknown>; persons: PersonFormWithRole[] }) => {
       const { id, ...rest } = data;
       return apiRequest("PATCH", `/api/units/${id}`, rest);
     },
@@ -360,7 +415,7 @@ export default function UnitsPage() {
     try {
       setDeletingUnit(unit);
       await fetchUnitDetails(unit.id);
-    } catch (error) {
+    } catch {
       toast({ title: "Error", description: "Failed to fetch unit details", variant: "destructive" });
       setDeletingUnit(null);
     }
@@ -602,7 +657,8 @@ export default function UnitsPage() {
   ) => {
     // Limit to 10 characters and allow alphanumeric
     const cleanValue = value.slice(0, 10);
-    form.setValue(`${fieldName}.${index}.identifier` as any, cleanValue);
+    const fieldPath = `${fieldName}.${index}.identifier` as const;
+    setValue(fieldPath as keyof FormValues, cleanValue);
   };
 
   return (
@@ -1609,7 +1665,7 @@ export default function UnitsPage() {
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <h4 className="font-semibold text-orange-800 mb-2">Associated People ({unitToDelete.persons.length})</h4>
                   <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
-                    {unitToDelete.persons.map((person: any, idx: number) => (
+                    {unitToDelete.persons.map((person: PersonWithRole, idx: number) => (
                       <div key={idx} className="flex justify-between">
                         <span>{person.fullName} ({person.role})</span>
                         <span className="text-gray-600">{person.email}</span>
@@ -1626,13 +1682,13 @@ export default function UnitsPage() {
                   <h4 className="font-semibold text-blue-800 mb-2">Facilities</h4>
                   <div className="text-sm">
                     {(unitToDelete.facilities?.parkingSpots?.length ?? 0) > 0 && (
-                      <div>Parking Spots: {unitToDelete.facilities?.parkingSpots?.map((p: any) => p.identifier).join(", ")}</div>
+                      <div>Parking Spots: {unitToDelete.facilities?.parkingSpots?.map((p: FacilityItem) => p.identifier).join(", ")}</div>
                     )}
                     {(unitToDelete.facilities?.storageLockers?.length ?? 0) > 0 && (
-                      <div>Storage Lockers: {unitToDelete.facilities?.storageLockers?.map((s: any) => s.identifier).join(", ")}</div>
+                      <div>Storage Lockers: {unitToDelete.facilities?.storageLockers?.map((s: FacilityItem) => s.identifier).join(", ")}</div>
                     )}
                     {(unitToDelete.facilities?.bikeLockers?.length ?? 0) > 0 && (
-                      <div>Bike Lockers: {unitToDelete.facilities?.bikeLockers?.map((b: any) => b.identifier).join(", ")}</div>
+                      <div>Bike Lockers: {unitToDelete.facilities?.bikeLockers?.map((b: FacilityItem) => b.identifier).join(", ")}</div>
                     )}
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { SystemSetting } from "@shared/schema";
 import {
   Card,
@@ -21,19 +22,20 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Settings, AlertCircle, Trash2 } from "lucide-react";
+import { Settings, AlertCircle, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAsyncLoading } from "@/contexts/loading-context";
 import { ButtonLoading } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
 import { Layout } from "@/components/layout";
-import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { FileUpload } from "@/components/file-upload";
+import { UserManagementTabContent } from "@/components/user-management-tab";
 
 const emailSettingsSchema = z.object({
   emailSenderName: z.string().min(1, "Sender name is required"),
@@ -57,14 +59,8 @@ const smtpConfigSchema = z.object({
   from: z.string().email("From address must be a valid email")
 });
 
-// Test Email Schema for SMTP
-const smtpTestEmailSchema = z.object({
-  testEmail: z.string().email("Please enter a valid email address")
-});
-
 type EmailSettingsFormValues = z.infer<typeof emailSettingsSchema>;
 type SmtpConfigFormData = z.infer<typeof smtpConfigSchema>;
-type SmtpTestEmailFormData = z.infer<typeof smtpTestEmailSchema>;
 
 const mapSettingsToForm = (settings: SystemSetting[]): EmailSettingsFormValues => {
   const getValue = (key: string, defaultValue: string = "") => {
@@ -91,13 +87,13 @@ const mapSettingsToForm = (settings: SystemSetting[]): EmailSettingsFormValues =
 };
 
 const mapSystemSettingsToForm = (settings: SystemSetting[]) => {
-  const getValue = (key: string, defaultValue: any = "") => {
+  const getValue = (key: string, defaultValue: unknown = "") => {
     const setting = Array.isArray(settings) ? settings.find(s => s.settingKey === key) : undefined;
     if (!setting || !setting.settingValue) return defaultValue;
     try {
       // Attempt to parse JSON for complex objects (like propertyManagers)
       return JSON.parse(setting.settingValue);
-    } catch (e) {
+    } catch {
       // Return string value if not JSON
       return setting.settingValue;
     }
@@ -166,7 +162,7 @@ const systemSettingsSchema = z.object({
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const queryClientHook = useQueryClient();
 
   // Determine active tab based on URL
@@ -225,9 +221,8 @@ export default function SettingsPage() {
   const emailSaveLoading = useAsyncLoading('settings-email-save');
   const smtpSaveLoading = useAsyncLoading('settings-smtp-save');
   const systemSaveLoading = useAsyncLoading('settings-system-save');
-  const testEmailLoading = useAsyncLoading('settings-test-email');
 
-  const { data: settingsResponse, isLoading: isLoadingEmailNotificationSettings } = useQuery<{settings: SystemSetting[], logoUrl?: string}>({
+  const { data: settingsResponse } = useQuery<{settings: SystemSetting[], logoUrl?: string}>({
     queryKey: ["/api/settings"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/settings");
@@ -272,10 +267,10 @@ export default function SettingsPage() {
     } else {
       systemForm.setValue('strataLogo', null);
     }
-  }, [settingsResponse, strataLogoValue]);
+  }, [settingsResponse, strataLogoValue, systemForm]);
 
   // Fetch SMTP configuration
-  const { data: smtpConfig, isLoading: isLoadingSmtpConfig, error: smtpConfigError } = useQuery({
+  const { data: smtpConfig, error: smtpConfigError } = useQuery({
     queryKey: ['/api/email-config'],
     queryFn: async () => {
       const response = await apiRequest("GET", '/api/email-config');
@@ -313,12 +308,6 @@ export default function SettingsPage() {
     }
   }, [smtpConfig, smtpForm]);
   
-  const smtpTestForm = useForm<SmtpTestEmailFormData>({
-    resolver: zodResolver(smtpTestEmailSchema),
-    defaultValues: {
-      testEmail: user?.email || ''
-    }
-  });
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: EmailSettingsFormValues) => {
@@ -404,7 +393,7 @@ export default function SettingsPage() {
   const saveSmtpConfigMutation = useMutation({
     mutationFn: async (data: SmtpConfigFormData) => {
       // Construct payload, ensuring authPass is only included if provided
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         host: data.host,
         port: data.port,
         secure: data.secure,
@@ -484,6 +473,7 @@ export default function SettingsPage() {
       }
     }
   };
+
 
   // Check if user is admin or council member
   if (user && !user.isAdmin && !user.isCouncilMember) {

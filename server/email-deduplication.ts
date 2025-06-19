@@ -4,9 +4,6 @@ import {
   emailIdempotencyKeys, 
   emailSendAttempts, 
   emailDeduplicationLog,
-  type InsertEmailIdempotencyKey,
-  type InsertEmailSendAttempt,
-  type InsertEmailDeduplicationLog
 } from '@shared/schema';
 import { eq, and, gte, sql } from 'drizzle-orm';
 import { sendEmail } from './email-service';
@@ -18,7 +15,7 @@ export interface EmailRequest {
   text?: string;
   from?: string;
   emailType: 'violation_notification' | 'violation_approved' | 'campaign' | 'system';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   idempotencyKey?: string; // Optional - will be generated if not provided
 }
 

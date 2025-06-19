@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
@@ -676,7 +676,7 @@ function CampaignDialog({
   onSubmit, 
   isLoading, 
   units, 
-  templates,
+  _templates,
   isEdit,
   recipientType,
   selectedUnits,
@@ -689,7 +689,7 @@ function CampaignDialog({
   newName,
   setNewName
 }: { 
-  form: any; 
+  form: UseFormReturn<CampaignFormData>; 
   onSubmit: (data: CampaignFormData) => void; 
   isLoading: boolean;
   units: Unit[];
@@ -911,7 +911,7 @@ function TemplateDialog({
   isLoading,
   isEdit
 }: { 
-  form: any; 
+  form: UseFormReturn<TemplateFormData>; 
   onSubmit: (data: TemplateFormData) => void; 
   isLoading: boolean;
   isEdit: boolean;

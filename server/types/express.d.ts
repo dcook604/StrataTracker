@@ -3,6 +3,7 @@ import { Profile } from '../../shared/schema';
 declare global {
   namespace Express {
     interface Request {
+      id?: string;
       user?: Profile & {
         isAdmin?: boolean;
         isCouncilMember?: boolean; 

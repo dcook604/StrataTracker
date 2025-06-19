@@ -8,21 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertCircle, CheckCircle, Clock, Mail, Shield, Trash2 } from 'lucide-react';
 import { Layout } from '@/components/layout';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from "@/lib/queryClient";
 
-interface EmailStats {
-  totalSent: number;
-  totalFailed: number;
-  duplicatesPrevented: number;
-  retryAttempts: number;
-  uniqueRecipients: number;
-}
 
 interface DeduplicationLog {
   id: number;
   recipientEmail: string;
   emailType: string;
   preventedAt: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 const EMAIL_TYPES = {
@@ -38,23 +32,12 @@ export default function EmailMonitoring() {
   const queryClient = useQueryClient();
 
   // Fetch email statistics
-  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery<{
-    success: boolean;
-    timeframe: string;
-    stats: EmailStats;
-  }>({
-    queryKey: ['email-stats', timeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/communications/email-stats?hours=${timeframe}`, {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch email statistics');
-      }
-      return response.json();
-    },
-    refetchInterval: 30000 // Refresh every 30 seconds
-  });
+  const {
+    data: stats,
+    isLoading: isLoadingStats,
+  } = useQuery(["email-stats", timeframe], () =>
+    apiRequest("GET", `/api/communications/email-stats?hours=${timeframe}`)
+  );
 
   // Fetch deduplication logs
   const { data: logs, isLoading: logsLoading } = useQuery<{
@@ -161,7 +144,7 @@ export default function EmailMonitoring() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {statsLoading ? '...' : stats?.stats.totalSent ?? 0}
+                {isLoadingStats ? '...' : stats?.stats.totalSent ?? 0}
               </div>
             </CardContent>
           </Card>
@@ -173,7 +156,7 @@ export default function EmailMonitoring() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {statsLoading ? '...' : stats?.stats.totalFailed ?? 0}
+                {isLoadingStats ? '...' : stats?.stats.totalFailed ?? 0}
               </div>
             </CardContent>
           </Card>
@@ -185,7 +168,7 @@ export default function EmailMonitoring() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {statsLoading ? '...' : stats?.stats.duplicatesPrevented ?? 0}
+                {isLoadingStats ? '...' : stats?.stats.duplicatesPrevented ?? 0}
               </div>
             </CardContent>
           </Card>
@@ -197,7 +180,7 @@ export default function EmailMonitoring() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
-                {statsLoading ? '...' : stats?.stats.retryAttempts ?? 0}
+                {isLoadingStats ? '...' : stats?.stats.retryAttempts ?? 0}
               </div>
             </CardContent>
           </Card>
@@ -209,7 +192,7 @@ export default function EmailMonitoring() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                {statsLoading ? '...' : stats?.stats.uniqueRecipients ?? 0}
+                {isLoadingStats ? '...' : stats?.stats.uniqueRecipients ?? 0}
               </div>
             </CardContent>
           </Card>

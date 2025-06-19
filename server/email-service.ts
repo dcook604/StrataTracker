@@ -1,9 +1,9 @@
 import nodemailer from 'nodemailer';
+import { Request as ExpressRequest } from 'express';
 import { db } from './db';
 import { systemSettings } from '@shared/schema';
 import { eq, inArray } from 'drizzle-orm';
 import logger from './utils/logger';
-import { z } from 'zod';
 
 // Email configuration types
 export interface EmailConfig {
@@ -119,7 +119,7 @@ export interface EmailOptions {
   subject: string;
   text?: string;
   html?: string;
-  attachments?: any[];
+  attachments?: Array<{ filename: string; content: Buffer | string; contentType?: string }>;
 }
 
 // Send email function
@@ -205,7 +205,7 @@ export async function sendWelcomeEmail(email: string, password: string, fullName
 }
 
 // Send password reset email
-export async function sendPasswordResetEmail(email: string, resetToken: string, req?: any): Promise<boolean> {
+export async function sendPasswordResetEmail(email: string, resetToken: string, req?: ExpressRequest): Promise<boolean> {
   let baseUrl = process.env.APP_URL;
   if (!baseUrl && req) {
     // Try to build from request headers
@@ -236,7 +236,7 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
 }
 
 // Send invitation email
-export async function sendInvitationEmail(email: string, inviteToken: string, fullName: string, req?: any): Promise<boolean> {
+export async function sendInvitationEmail(email: string, inviteToken: string, fullName: string, req?: ExpressRequest): Promise<boolean> {
   let baseUrl = process.env.APP_URL;
   if (!baseUrl && req) {
     const protocol = req.protocol || 'http';
@@ -296,12 +296,7 @@ export async function getEmailNotificationSubjects(): Promise<{
       violationDisputed: map['violation_disputed_subject'] || defaultSubjects.violationDisputed,
       violationRejected: map['violation_rejected_subject'] || defaultSubjects.violationRejected,
     };
-  } catch (e) {
+  } catch {
     return defaultSubjects;
   }
 }
-
-// Initialize email settings
-loadEmailSettings().catch(error => {
-  logger.error('Failed to load initial email settings:', error);
-});

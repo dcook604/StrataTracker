@@ -1,29 +1,27 @@
-import { Router } from 'express';
-import { db } from '../db';
-import { 
-  communicationCampaigns, 
-  communicationRecipients, 
+import express from "express";
+import { db } from "../db";
+import {
+  communicationCampaigns,
+  communicationRecipients,
   communicationTemplates,
-  emailTrackingEvents,
-  manualEmailRecipients,
-  propertyUnits,
   persons,
-  unitPersonRoles,
-  profiles,
+  propertyUnits,
   insertCommunicationCampaignSchema,
   insertCommunicationTemplateSchema,
-  CommunicationType,
   RecipientType,
+  profiles,
+  unitPersonRoles,
+  emailTrackingEvents,
+  manualEmailRecipients,
   emailDeduplicationLog
-} from '@shared/schema';
-import { eq, desc, and, inArray, or, sql, count, avg, gte } from 'drizzle-orm';
-import { sendEmail } from '../email-service';
-import { sendEmailWithDeduplication } from '../email-deduplication';
+} from "@shared/schema";
+import { eq, desc, and, sql, inArray, gte } from "drizzle-orm";
+import { sendEmailWithDeduplication } from "../email-deduplication";
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { EmailDeduplicationService } from '../email-deduplication';
 
-const router = Router();
+const router = express.Router();
 
 // Middleware to ensure user is admin or council member
 const ensureCouncilOrAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -120,8 +118,8 @@ router.get('/campaigns', async (req, res) => {
       uniqueOpens: 0,
       openRate: '0'
     })));
-  } catch (error) {
-    console.error('Error fetching campaigns:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching campaigns:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch campaigns' });
   }
 });
@@ -148,8 +146,8 @@ router.get('/campaigns/:id', async (req, res) => {
       .orderBy(communicationRecipients.recipientName);
 
     res.json({ ...campaign, recipients });
-  } catch (error) {
-    console.error('Error fetching campaign:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching campaign:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch campaign' });
   }
 });
@@ -175,14 +173,14 @@ router.post('/campaigns', async (req, res) => {
       // Add manual email recipients
       await db
         .insert(manualEmailRecipients)
-        .values(manualEmails.map((emailEntry: any) => ({
+        .values(manualEmails.map((emailEntry: { email: string; name?: string }) => ({
           campaignId: campaign.id,
           email: emailEntry.email,
           name: emailEntry.name || emailEntry.email
         })));
 
       // Add to recipients list
-      recipients.push(...manualEmails.map((emailEntry: any) => ({
+      recipients.push(...manualEmails.map((emailEntry: { email: string; name?: string }) => ({
         recipientType: 'manual',
         email: emailEntry.email,
         recipientName: emailEntry.name || emailEntry.email,
@@ -201,8 +199,8 @@ router.post('/campaigns', async (req, res) => {
     }
 
     res.status(201).json(campaign);
-  } catch (error) {
-    console.error('Error creating campaign:', error);
+  } catch (error: unknown) {
+    console.error('Error creating campaign:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to create campaign' });
   }
 });
@@ -243,8 +241,8 @@ router.post('/campaigns/:id/send', async (req, res) => {
     });
 
     res.json({ message: 'Campaign sending started' });
-  } catch (error) {
-    console.error('Error starting campaign send:', error);
+  } catch (error: unknown) {
+    console.error('Error starting campaign send:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to start sending campaign' });
   }
 });
@@ -269,8 +267,8 @@ router.put('/campaigns/:id', async (req, res) => {
     }
 
     res.json(updatedCampaign);
-  } catch (error) {
-    console.error('Error updating campaign:', error);
+  } catch (error: unknown) {
+    console.error('Error updating campaign:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to update campaign' });
   }
 });
@@ -290,8 +288,8 @@ router.delete('/campaigns/:id', async (req, res) => {
     }
 
     res.json({ message: 'Campaign deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting campaign:', error);
+  } catch (error: unknown) {
+    console.error('Error deleting campaign:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to delete campaign' });
   }
 });
@@ -322,8 +320,8 @@ router.get('/templates', async (req, res) => {
       .orderBy(desc(communicationTemplates.createdAt));
 
     res.json(templates);
-  } catch (error) {
-    console.error('Error fetching templates:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching templates:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch templates' });
   }
 });
@@ -341,8 +339,8 @@ router.post('/templates', async (req, res) => {
       .returning();
 
     res.status(201).json(template);
-  } catch (error) {
-    console.error('Error creating template:', error);
+  } catch (error: unknown) {
+    console.error('Error creating template:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to create template' });
   }
 });
@@ -367,8 +365,8 @@ router.put('/templates/:id', async (req, res) => {
     }
 
     res.json(updatedTemplate);
-  } catch (error) {
-    console.error('Error updating template:', error);
+  } catch (error: unknown) {
+    console.error('Error updating template:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to update template' });
   }
 });
@@ -388,8 +386,8 @@ router.delete('/templates/:id', async (req, res) => {
     }
 
     res.json({ message: 'Template deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting template:', error);
+  } catch (error: unknown) {
+    console.error('Error deleting template:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to delete template' });
   }
 });
@@ -441,8 +439,8 @@ router.get('/track/open/:trackingId', async (req, res) => {
       'Expires': '0'
     });
     res.send(pixel);
-  } catch (error) {
-    console.error('Error tracking email open:', error);
+  } catch (error: unknown) {
+    console.error('Error tracking email open:', error instanceof Error ? error.message : 'Unknown error');
     // Still return pixel even on error
     const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
     res.set('Content-Type', 'image/gif');
@@ -488,8 +486,8 @@ router.get('/track/click/:trackingId', async (req, res) => {
     } else {
       res.status(400).json({ message: 'Invalid URL' });
     }
-  } catch (error) {
-    console.error('Error tracking email click:', error);
+  } catch (error: unknown) {
+    console.error('Error tracking email click:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to track click' });
   }
 });
@@ -566,8 +564,8 @@ router.get('/campaigns/:id/analytics', async (req, res) => {
     };
 
     res.json(analytics);
-  } catch (error) {
-    console.error('Error fetching campaign analytics:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching campaign analytics:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch analytics' });
   }
 });
@@ -604,8 +602,8 @@ router.get('/campaigns/:id/recipients', async (req, res) => {
       .orderBy(communicationRecipients.recipientName);
 
     res.json(recipients);
-  } catch (error) {
-    console.error('Error fetching recipients:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching recipients:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch recipients' });
   }
 });
@@ -623,8 +621,8 @@ router.post('/recipients/preview', async (req, res) => {
       recipients: recipients.slice(0, 10), // Preview first 10
       totalCount: recipients.length
     });
-  } catch (error) {
-    console.error('Error generating recipient preview:', error);
+  } catch (error: unknown) {
+    console.error('Error generating recipient preview:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to generate recipient preview' });
   }
 });
@@ -642,8 +640,8 @@ router.get('/units', async (req, res) => {
       .orderBy(propertyUnits.unitNumber);
 
     res.json(units);
-  } catch (error) {
-    console.error('Error fetching units:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching units:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch units' });
   }
 });
@@ -651,7 +649,14 @@ router.get('/units', async (req, res) => {
 // HELPER FUNCTIONS
 
 async function generateRecipients(recipientType: RecipientType, unitIds?: number[], personIds?: number[]) {
-  const recipients: any[] = [];
+  const recipients: Array<{
+    recipientType: string;
+    unitId?: number;
+    personId?: number;
+    email: string;
+    recipientName: string;
+    trackingId: string;
+  }> = [];
 
   // Generate tracking ID for each recipient
   const generateTrackingId = () => crypto.randomBytes(16).toString('hex');
@@ -804,10 +809,16 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
   return recipients;
 }
 
-async function sendCampaignEmails(campaign: any, recipients: any[]) {
+async function sendCampaignEmails(campaign: { id: number; subject: string; content: string; recipientType: string }, recipients: Array<{ id: number; email: string; trackingId: string }>) {
   console.log(`Starting to send ${recipients.length} emails for campaign: ${campaign.subject}`);
   
-  const results: any[] = [];
+  const results: Array<{
+    email: string;
+    success: boolean;
+    isDuplicate: boolean;
+    message: string;
+    idempotencyKey?: string;
+  }> = [];
   
   for (const recipient of recipients) {
     try {
@@ -887,8 +898,8 @@ async function sendCampaignEmails(campaign: any, recipients: any[]) {
       // Rate limiting - wait 100ms between emails
       await new Promise(resolve => setTimeout(resolve, 100));
       
-    } catch (error) {
-      console.error(`Error sending email to ${recipient.email}:`, error);
+    } catch (error: unknown) {
+      console.error(`Error sending email to ${recipient.email}:`, error instanceof Error ? error.message : 'Unknown error');
       
       // Mark as failed in database
       await db.update(communicationRecipients)
@@ -941,8 +952,8 @@ router.get('/email-stats', ensureCouncilOrAdmin, async (req, res) => {
       timeframe: `${hours} hours`,
       stats
     });
-  } catch (error) {
-    console.error('Error fetching email stats:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching email stats:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch email statistics' 
@@ -960,8 +971,8 @@ router.post('/email-cleanup', ensureCouncilOrAdmin, async (req, res) => {
       message: 'Email cleanup completed successfully',
       result
     });
-  } catch (error) {
-    console.error('Error during email cleanup:', error);
+  } catch (error: unknown) {
+    console.error('Error during email cleanup:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ 
       success: false, 
       message: 'Failed to cleanup email records' 
@@ -997,8 +1008,8 @@ router.get('/email-deduplication-logs', ensureCouncilOrAdmin, async (req, res) =
       count: logs.length,
       timeframe: `${hours} hours`
     });
-  } catch (error) {
-    console.error('Error fetching deduplication logs:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching deduplication logs:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch deduplication logs' 

@@ -5,6 +5,28 @@ import { promisify } from 'util';
 // Define log levels and colors
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
+// Define interfaces for HTTP request/response objects
+interface RequestLike {
+  method?: string;
+  originalUrl?: string;
+  url?: string;
+  query?: Record<string, unknown>;
+  params?: Record<string, unknown>;
+  ip?: string;
+  connection?: {
+    remoteAddress?: string;
+  };
+  headers?: Record<string, string | string[] | undefined>;
+}
+
+interface ResponseLike {
+  statusCode?: number;
+  body?: unknown;
+  locals?: {
+    responseBody?: unknown;
+  };
+}
+
 // Define color codes for console output
 const colors = {
   reset: '\x1b[0m',
@@ -53,7 +75,7 @@ const unlink = promisify(fs.unlink);
 /**
  * Format a log message for output
  */
-function formatLogMessage(level: LogLevel, message: string, data?: any): string {
+function formatLogMessage(level: LogLevel, message: string, data?: unknown): string {
   const timestamp = new Date().toISOString();
   let logMessage = `[${timestamp}] [${level}] ${message}`;
   
@@ -75,7 +97,7 @@ function formatLogMessage(level: LogLevel, message: string, data?: any): string 
       } else {
         logMessage += `: ${data}`;
       }
-    } catch (err) {
+    } catch {
       logMessage += `: [Object cannot be stringified]`;
     }
   }
@@ -86,7 +108,7 @@ function formatLogMessage(level: LogLevel, message: string, data?: any): string 
 /**
  * Custom JSON replacer to handle circular references and non-serializable values
  */
-function replacer(key: string, value: any): any {
+function replacer(key: string, value: unknown): unknown {
   if (value instanceof Error) {
     return {
       message: value.message,
@@ -208,7 +230,7 @@ class Logger {
   /**
    * Log a message with production optimizations and EIO error prevention
    */
-  private log(level: LogLevel, message: string, data?: any): void {
+  private log(level: LogLevel, message: string, data?: unknown): void {
     if (!this.shouldLog(level)) return;
     
     const formattedMessage = formatLogMessage(level, message, data);
@@ -245,7 +267,7 @@ class Logger {
   /**
    * Debug level log (lowest priority) - disabled in production
    */
-  debug(message: string, data?: any): void {
+  debug(message: string, data?: unknown): void {
     // Skip debug logs in production entirely for performance
     if (this.isProduction) return;
     this.log('DEBUG', message, data);
@@ -254,7 +276,7 @@ class Logger {
   /**
    * Trace level logging for very detailed debugging - disabled in production
    */
-  trace(message: string, data?: any): void {
+  trace(message: string, data?: unknown): void {
     // Skip trace logs in production entirely for performance
     if (this.isProduction) return;
     
@@ -262,14 +284,14 @@ class Logger {
     
     // Include stack trace for trace-level logging
     const stack = new Error().stack?.split('\n').slice(2, 5).join('\n') || 'No stack available';
-    const traceData = data ? { ...data, stack } : { stack };
+    const traceData = data ? { ...(data as Record<string, unknown>), stack } : { stack };
     this.log('DEBUG', `[TRACE] ${message}`, traceData);
   }
   
   /**
    * Performance logging - disabled in production to reduce noise
    */
-  perf(operation: string, startTime: number, data?: any): void {
+  perf(operation: string, startTime: number, data?: unknown): void {
     // Skip performance logs in production
     if (this.isProduction) return;
     
@@ -280,28 +302,28 @@ class Logger {
   /**
    * Info level log (normal operation) - limited in production
    */
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     this.log('INFO', message, data);
   }
   
   /**
    * Warning level log (potential issues)
    */
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     this.log('WARN', message, data);
   }
   
   /**
    * Error level log (runtime errors) - always logged
    */
-  error(message: string, data?: any): void {
+  error(message: string, data?: unknown): void {
     this.log('ERROR', message, data);
   }
   
   /**
    * Log HTTP request details - simplified for production
    */
-  logRequest(req: any): void {
+  logRequest(req: RequestLike): void {
     // In production, only log failed requests or skip entirely
     if (this.isProduction) return;
     
@@ -322,7 +344,7 @@ class Logger {
   /**
    * Log HTTP response details - production optimized
    */
-  logResponse(req: any, res: any, responseTime: number): void {
+  logResponse(req: RequestLike, res: ResponseLike, responseTime: number): void {
     const method = req.method;
     const url = req.originalUrl || req.url;
     const status = res.statusCode;
@@ -349,7 +371,7 @@ class Logger {
   /**
    * Log database query for debugging - disabled in production
    */
-  logQuery(query: string, params?: any[], duration?: number): void {
+  logQuery(query: string, params?: unknown[], duration?: number): void {
     // Skip database query logging in production for security and performance
     if (this.isProduction) return;
     
@@ -367,7 +389,7 @@ class Logger {
   /**
    * Security-focused logging for audit trails
    */
-  security(event: string, data?: any): void {
+  security(event: string, data?: unknown): void {
     // Security events should always be logged regardless of level
     const securityMessage = `[SECURITY] ${event}`;
     const formattedMessage = formatLogMessage('ERROR', securityMessage, data);

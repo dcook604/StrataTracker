@@ -14,7 +14,7 @@ const isAdmin = (req: express.Request, res: express.Response, next: express.Next
   // Check admin status using both camelCase and snake_case formats
   const isAdminUser = 
     (req.user.isAdmin === true) || 
-    ((req.user as any).is_admin === true);
+    ((req.user as { is_admin?: boolean }).is_admin === true);
   
   if (isAdminUser) {
     return next();

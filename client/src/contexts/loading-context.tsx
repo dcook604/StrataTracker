@@ -78,6 +78,7 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useLoading() {
   const context = useContext(LoadingContext);
   if (context === undefined) {
@@ -87,11 +88,12 @@ export function useLoading() {
 }
 
 // Custom hook for async operations with loading states
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAsyncLoading(key: string) {
   const { setLoading, isLoading, getLoadingMessage } = useLoading();
 
   const executeWithLoading = useCallback(
-    async (asyncFn: () => Promise<any>, loadingMessage?: string): Promise<any> => {
+    async (asyncFn: () => Promise<unknown>, loadingMessage?: string): Promise<unknown> => {
       try {
         setLoading(key, true, loadingMessage);
         const result = await asyncFn();

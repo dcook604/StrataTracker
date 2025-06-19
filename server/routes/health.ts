@@ -86,8 +86,8 @@ router.get('/health/detailed', async (req, res) => {
       duration: Date.now() - startTime
     });
     
-  } catch (error) {
-    logger.error('[HEALTH] Health check failed', { error });
+  } catch (error: unknown) {
+    logger.error('[HEALTH] Health check failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
@@ -107,7 +107,7 @@ router.get('/health/ready', async (req, res) => {
     } else {
       res.status(503).json({ status: 'not_ready', reason: 'database_unavailable' });
     }
-  } catch (error) {
+  } catch {
     res.status(503).json({ status: 'not_ready', reason: 'health_check_failed' });
   }
 });
@@ -134,11 +134,11 @@ async function checkDatabaseHealth(): Promise<ServiceHealth> {
       responseTime: Date.now() - startTime,
       lastCheck: new Date().toISOString()
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       lastCheck: new Date().toISOString()
     };
   }
@@ -174,11 +174,11 @@ async function checkVirusScannerHealth(): Promise<ServiceHealth> {
       responseTime: Date.now() - startTime,
       lastCheck: new Date().toISOString()
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       lastCheck: new Date().toISOString()
     };
   }
@@ -206,11 +206,11 @@ async function checkEmailHealth(): Promise<ServiceHealth> {
       responseTime: Date.now() - startTime,
       lastCheck: new Date().toISOString()
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       lastCheck: new Date().toISOString()
     };
   }
@@ -233,11 +233,11 @@ async function checkStorageHealth(): Promise<ServiceHealth> {
       responseTime: Date.now() - startTime,
       lastCheck: new Date().toISOString()
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       lastCheck: new Date().toISOString()
     };
   }
@@ -275,12 +275,12 @@ router.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       database: 'connected',
     });
-  } catch (error) {
+  } catch (error: unknown) {
     res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       database: 'disconnected',
-      error: (error as Error).message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -293,10 +293,10 @@ router.get('/supabase-keepalive', async (req, res) => {
       status: 'success',
       data: stats,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     res.status(500).json({
       status: 'error',
-      error: (error as Error).message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -309,10 +309,10 @@ router.post('/supabase-ping', async (req, res) => {
       status: 'success',
       data: result,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     res.status(500).json({
       status: 'error',
-      error: (error as Error).message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });

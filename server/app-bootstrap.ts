@@ -1,14 +1,13 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { requestLogger, errorLogger } from "./middleware/logging-middleware";
 import logger from "./utils/logger";
 import { setupGlobalErrorHandlers, errorHandlerMiddleware } from "./utils/error-handler";
-import { startPerformanceMonitoring, logSystemResources } from "./utils/performance-monitor";
+import { startPerformanceMonitoring } from "./utils/performance-monitor";
 import { pool } from "./db";
 import { createServer } from "http";
 import fs from "fs";
-import path from "path";
 
 // Initialize global error handlers
 setupGlobalErrorHandlers();
@@ -79,7 +78,7 @@ async function startServer() {
     });
     
     // Add error listener to the server
-    server.on('error', (error: any) => {
+    server.on('error', (error: Error & { code?: string }) => {
       if (error.code === 'EADDRINUSE') {
         logger.error(`Port ${port} is still in use, could not start server`);
         process.exit(1);
@@ -190,7 +189,7 @@ process.on('uncaughtException', (error: Error) => {
   });
 });
 
-process.on('unhandledRejection', (reason: any) => {
+process.on('unhandledRejection', (reason: unknown) => {
   // Use console.error as fallback
   console.error('[CRITICAL] Unhandled Rejection:', reason);
   

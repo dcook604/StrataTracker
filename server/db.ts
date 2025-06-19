@@ -35,7 +35,7 @@ pool.on('connect', () => {
   logger.info('New database connection established');
 });
 
-pool.on('error', (err: any) => {
+pool.on('error', (err: Error) => {
   logger.error('Database pool error:', {
     message: err.message,
     stack: err.stack,
@@ -49,10 +49,10 @@ let db: ReturnType<typeof drizzle>;
 try {
   db = drizzle(pool, { schema });
   logger.info('Drizzle ORM initialized successfully');
-} catch (err: any) {
+} catch (err: unknown) {
   logger.error('Failed to initialize Drizzle ORM:', {
-    message: err.message,
-    stack: err.stack
+    message: err instanceof Error ? err.message : 'Unknown error',
+    stack: err instanceof Error ? err.stack : undefined
   });
   throw err;
 }
@@ -70,11 +70,11 @@ try {
     `);
     logger.info(`Database contains ${tables.rowCount} tables`);
     
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error('Database connection test failed:', {
-      message: err.message,
-      stack: err.stack,
-      code: err.code || 'unknown'
+      message: err instanceof Error ? err.message : 'Unknown error',
+      stack: err instanceof Error ? err.stack : undefined,
+      code: (err as Error & { code?: string })?.code || 'unknown'
     });
     // Don't throw here to avoid crashing the app
     logger.warn('Application will continue despite database connection issues');

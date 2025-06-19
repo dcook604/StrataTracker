@@ -1,5 +1,4 @@
 import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
 import type { HelmetOptions } from 'helmet';
 
 // Security configuration for production
@@ -141,4 +140,15 @@ export function validateSecurityConfig() {
   }
 
   return errors;
-} 
+}
+
+
+export const contentSecurityPolicy = {
+  directives: {
+    // ...
+  },
+};
+
+export const frameguard = {
+  action: "deny",
+}; 

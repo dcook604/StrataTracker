@@ -20,18 +20,16 @@ import {
 import { format } from 'date-fns';
 import { Link } from 'wouter';
 import { cn } from '@/lib/utils';
+import { apiRequest } from "@/lib/queryClient";
 
-interface AdminAnnouncement {
+interface Announcement {
   id: number;
   title: string;
-  content: any; // JSON content
-  htmlContent: string;
-  isActive: boolean;
-  priority: number;
+  content: string;
   createdAt: string;
-  updatedAt: string;
-  createdBy: number | null;
-  updatedBy: number | null;
+  user: {
+    fullName: string;
+  };
 }
 
 const announcementIcons = {
@@ -57,15 +55,9 @@ export function AdminAnnouncementWidget() {
     data: announcements, 
     isLoading, 
     error 
-  } = useQuery<AdminAnnouncement[]>({
-    queryKey: ['admin-announcements'],
-    queryFn: async () => {
-      const response = await fetch('/api/admin-announcements');
-      if (!response.ok) {
-        throw new Error('Failed to fetch announcements');
-      }
-      return response.json();
-    },
+  } = useQuery<Announcement[]>({
+    queryKey: ["admin-announcements"],
+    queryFn: () => apiRequest("GET", "/api/admin-announcements").then((res) => res.json()),
   });
 
   const isAdmin = user?.isAdmin;
@@ -156,8 +148,8 @@ export function AdminAnnouncementWidget() {
         <CardContent className="pt-0">
           <ScrollArea className="max-h-80">
             <div className="space-y-4">
-              {announcements.map((announcement) => {
-                const type = getAnnouncementType(announcement.title, announcement.htmlContent);
+              {announcements.map((announcement: Announcement) => {
+                const type = getAnnouncementType(announcement.title, announcement.content);
                 const Icon = announcementIcons[type];
                 
                 return (
@@ -185,17 +177,13 @@ export function AdminAnnouncementWidget() {
                         </h4>
                         <div 
                           className="prose prose-sm max-w-none text-neutral-700"
-                          dangerouslySetInnerHTML={{ __html: announcement.htmlContent }}
-                        />
+                        >
+                          {announcement.content}
+                        </div>
                         <div className="flex items-center justify-between mt-3 text-xs text-neutral-500">
                           <span>
-                            Updated {format(new Date(announcement.updatedAt), 'MMM d, yyyy')}
+                            Updated {format(new Date(announcement.createdAt), 'MMM d, yyyy')}
                           </span>
-                          {announcement.priority > 0 && (
-                            <Badge variant="outline" className="text-xs">
-                              Priority: {announcement.priority}
-                            </Badge>
-                          )}
                         </div>
                       </div>
                     </div>

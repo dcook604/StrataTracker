@@ -228,8 +228,8 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
       await statusMutation.mutateAsync({ status: "approved", comment: comment || undefined });
       setShowFineModal(false);
       toast({ title: "Violation approved", description: `Violation approved with fine $${Number(fineInput).toFixed(2)}` });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "An error occurred", variant: "destructive" });
     } finally {
       setPendingApprove(false);
     }

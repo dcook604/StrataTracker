@@ -28,7 +28,7 @@ import { format } from 'date-fns';
 interface AdminAnnouncement {
   id: number;
   title: string;
-  content: any;
+  content: string;
   htmlContent: string;
   isActive: boolean;
   priority: number;
@@ -40,7 +40,7 @@ interface AdminAnnouncement {
 
 interface AnnouncementFormData {
   title: string;
-  content: any;
+  content: string;
   htmlContent: string;
   isActive: boolean;
   priority: number;
@@ -225,7 +225,7 @@ export function AdminAnnouncementsPage() {
     }
   };
 
-  const handleEditorChange = (html: string, json: any) => {
+  const handleEditorChange = (html: string, json: unknown) => {
     setFormData(prev => ({
       ...prev,
       htmlContent: html,

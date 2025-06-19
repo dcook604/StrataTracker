@@ -1,15 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 
-// Extend Express Request type
-declare global {
-  namespace Express {
-    interface Request {
-      id?: string;
-    }
-  }
-}
-
 export function securityHeadersMiddleware(req: Request, res: Response, next: NextFunction) {
   // Security headers for production
   res.setHeader('X-Content-Type-Options', 'nosniff');

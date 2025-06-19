@@ -9,11 +9,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  DownloadCloud, 
-  FileSpreadsheet,
-  File,
-  Loader2,
-  Eye
+  Eye,
+  Loader2
 } from "lucide-react";
 import {
   PieChart,
@@ -230,7 +227,7 @@ export default function ReportsPage() {
   const isLoading = reportDataLoading || categoriesLoading; // Overall loading state
 
   // Fetch monthly fines data
-  const { data: monthlyFinesData, isLoading: monthlyFinesLoading, error: monthlyFinesError, refetch: refetchMonthlyFines } = useQuery<MonthlyFines>({
+  const { data: monthlyFinesData, isLoading: monthlyFinesLoading, error: monthlyFinesError } = useQuery<MonthlyFines>({
     queryKey: ['reports', 'monthlyFines', selectedMonth, selectedCategoryId],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -365,7 +362,7 @@ export default function ReportsPage() {
                           cy="50%"
                           outerRadius="80%"
                           labelLine={false}
-                          label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                          label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, _index }) => {
                             const RADIAN = Math.PI / 180;
                             const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
                             const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -407,7 +404,7 @@ export default function ReportsPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis allowDecimals={false} />
-                        <Tooltip formatter={(value: number, name: string) => [value, `Violations`]} />
+                        <Tooltip formatter={(value: number, _name: string) => [value, `Violations`]} />
                         <Legend />
                         <Bar dataKey="count" fill="#8884d8" name="Violations" />
                       </RechartsBarChart>

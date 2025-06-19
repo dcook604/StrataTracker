@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,8 @@ interface ViolationDetails {
 }
 
 export default function EnhancedPublicViolationPage() {
-  const [match, params] = useRoute("/violation/comment/:token");
-  const [, navigate] = useLocation();
+  const [, params] = useRoute("/violation/comment/:token");
+  const [, setLocation] = useLocation();
   const token = params?.token;
   const { toast } = useToast();
   const { user, session } = useAuth();
@@ -50,7 +50,7 @@ export default function EnhancedPublicViolationPage() {
   const [success, setSuccess] = useState(false);
 
   // Helper function for authenticated API requests
-  const makeAuthenticatedRequest = async (method: string, url: string, body?: any) => {
+  const makeAuthenticatedRequest = async (method: string, url: string, body?: Record<string, unknown>) => {
     if (!session?.access_token) {
       throw new Error("No authentication token available");
     }
@@ -140,7 +140,7 @@ export default function EnhancedPublicViolationPage() {
         throw new Error(data.message || "Invalid code");
       }
 
-      const response = await res.json();
+      await res.json();
       // Note: With Supabase auth, we'd handle this differently
       // For now, just navigate to the violations page
       
@@ -150,9 +150,9 @@ export default function EnhancedPublicViolationPage() {
       });
 
       // Navigate to violations overview
-      navigate("/public/violations");
-    } catch (err: any) {
-      setCodeError(err.message || "Invalid code");
+      setLocation("/public/violations");
+    } catch (err: unknown) {
+      setCodeError(err instanceof Error ? err.message : "Invalid code");
     } finally {
       setVerifying(false);
     }
@@ -173,10 +173,10 @@ export default function EnhancedPublicViolationPage() {
         title: "Dispute Submitted", 
         description: "Your dispute has been submitted successfully." 
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({ 
         title: "Error", 
-        description: err.message || "Failed to submit dispute", 
+        description: err instanceof Error ? err.message : "Failed to submit dispute", 
         variant: "destructive" 
       });
     } finally {
@@ -251,7 +251,7 @@ export default function EnhancedPublicViolationPage() {
                 <div className="text-center">
                   <h3 className="text-lg font-semibold text-green-600 mb-2">Dispute Submitted!</h3>
                   <p>Your dispute has been submitted successfully and will be reviewed by the strata council.</p>
-                  <Button className="mt-4" onClick={() => navigate("/public/violations")}>
+                  <Button className="mt-4" onClick={() => setLocation("/public/violations")}>
                     View All Violations
                   </Button>
                 </div>

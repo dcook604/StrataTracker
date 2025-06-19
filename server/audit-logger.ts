@@ -1,5 +1,5 @@
 import { db } from './db';
-import { auditLogs, type InsertAuditLog } from '@shared/schema';
+import { auditLogs, type InsertAuditLog, type Profile } from '@shared/schema';
 import logger from './utils/logger';
 import type { Request } from 'express';
 
@@ -68,9 +68,9 @@ interface AuditLogData {
   action: AuditAction;
   targetType?: TargetType;
   targetId?: string | number;
-  details?: Record<string, any>;
-  userId?: number;
-  userName?: string;
+  details?: Record<string, unknown>;
+  userId?: string | number;
+  userName?: string | null;
   userEmail?: string;
   ipAddress?: string;
 }
@@ -81,15 +81,20 @@ export class AuditLogger {
    */
   static async log(data: AuditLogData): Promise<void> {
     try {
+      // Ensure required fields are present
+      if (!data.action) {
+        throw new Error('Action is required for audit log');
+      }
+
       const auditEntry: InsertAuditLog = {
         action: data.action,
-        targetType: data.targetType,
-        targetId: data.targetId?.toString(),
-        details: data.details ? JSON.stringify(data.details) : null,
-        userId: data.userId || null,
+        targetType: data.targetType || null,
+        targetId: data.targetId?.toString() || null,
+        details: data.details || null,
         userName: data.userName || null,
         userEmail: data.userEmail || null,
         ipAddress: data.ipAddress || null,
+        userId: data.userId ? String(data.userId) : null,
         timestamp: new Date(),
       };
 
@@ -116,9 +121,9 @@ export class AuditLogger {
   static async logFromRequest(req: Request, action: AuditAction, options: {
     targetType?: TargetType;
     targetId?: string | number;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   } = {}): Promise<void> {
-    const user = req.user;
+    const user = req.user as (Profile & { email?: string });
     const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] as string;
 
     await this.log({
@@ -141,7 +146,7 @@ export class AuditLogger {
     userId?: number;
     userName?: string;
     ipAddress?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }): Promise<void> {
     await this.log({
       action,
@@ -160,7 +165,7 @@ export class AuditLogger {
   static async logSystem(action: AuditAction, options: {
     targetType?: TargetType;
     targetId?: string | number;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   } = {}): Promise<void> {
     await this.log({
       action,
