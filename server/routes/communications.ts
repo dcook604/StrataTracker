@@ -162,6 +162,7 @@ router.post('/campaigns', async (req, res) => {
       .insert(communicationCampaigns)
       .values({
         ...data,
+        createdById: req.user!.id,
       })
       .returning();
 
@@ -191,9 +192,9 @@ router.post('/campaigns', async (req, res) => {
     if (recipients.length > 0) {
       await db
         .insert(communicationRecipients)
-        .values(recipients.map(recipient => ({
+        .values(recipients.map(({ trackingId, ...recipient }) => ({
           campaignId: campaign.id,
-          trackingId: recipient.trackingId || crypto.randomBytes(16).toString('hex'),
+          trackingId: trackingId || crypto.randomBytes(16).toString('hex'),
           ...recipient
         })));
     }
@@ -236,7 +237,7 @@ router.post('/campaigns/:id/send', async (req, res) => {
       .where(eq(communicationRecipients.campaignId, campaignId));
 
     // Start sending emails in background
-    sendCampaignEmails(campaign, recipients).catch(error => {
+    sendCampaignEmails(campaign as any, recipients).catch(error => {
       console.error('Error sending campaign emails:', error);
     });
 
@@ -335,6 +336,7 @@ router.post('/templates', async (req, res) => {
       .insert(communicationTemplates)
       .values({
         ...data,
+        createdById: req.user!.id,
       })
       .returning();
 

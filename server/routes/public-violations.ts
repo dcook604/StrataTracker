@@ -200,6 +200,9 @@ router.post('/violation/:token/verify-code', publicLimiter, async (req, res) => 
 
 // GET /public/violations - Get all violations for the authenticated unit
 router.get('/violations', checkPublicSession, async (req, res) => {
+  if (!req.publicSession) {
+    return res.status(401).json({ message: 'Session not found' });
+  }
   try {
     const { unitId } = req.publicSession;
     
@@ -217,6 +220,9 @@ router.get('/violations', checkPublicSession, async (req, res) => {
 
 // GET /public/violations/:id - Get specific violation details
 router.get('/violations/:id', checkPublicSession, async (req, res) => {
+  if (!req.publicSession) {
+    return res.status(401).json({ message: 'Session not found' });
+  }
   try {
     const { unitId } = req.publicSession;
     const violationId = parseInt(req.params.id);
@@ -244,47 +250,55 @@ router.get('/violations/:id', checkPublicSession, async (req, res) => {
 
 // POST /public/violations/:id/dispute - Submit dispute for a violation
 router.post('/violations/:id/dispute', checkPublicSession, async (req, res) => {
+  if (!req.publicSession) {
+    return res.status(401).json({ message: 'Session not found' });
+  }
   try {
-    const { unitId, fullName } = req.publicSession;
+    const { unitId, personId, fullName } = req.publicSession;
     const violationId = parseInt(req.params.id);
     const { comment } = req.body;
 
     if (isNaN(violationId)) {
       return res.status(400).json({ message: 'Invalid violation ID' });
     }
-
-    const violation = await dbStorage.getViolationWithUnit(violationId);
-    if (!violation || violation.unitId !== unitId) {
-      return res.status(404).json({ message: 'Violation not found' });
+    
+    if (!comment || typeof comment !== 'string' || comment.trim().length === 0) {
+      return res.status(400).json({ message: 'Comment is required' });
     }
 
-    // Update violation status to disputed
-    await dbStorage.updateViolationStatus(violationId, 'disputed');
+    const violation = await dbStorage.getViolation(violationId);
+    if (!violation || violation.unitId !== unitId) {
+      return res.status(404).json({ message: 'Violation not found or access denied' });
+    }
 
-    // Add history entry
-    await dbStorage.addViolationHistory({
-      violationId: violationId,
-      action: 'dispute_submitted',
-      comment: comment,
-      commenterName: fullName,
+    // Update violation status and add history
+    await dbStorage.updateViolationStatus(violationId, 'disputed', {
+      comment,
+      changedBy: { type: 'person', id: personId, name: fullName },
     });
+    
+    // TODO: Notify admins/council about the dispute
 
     res.json({ message: 'Dispute submitted successfully' });
+
   } catch (error) {
     logger.error('[PUBLIC_VIOLATIONS] Error submitting dispute:', error);
     res.status(500).json({ message: 'Failed to submit dispute' });
   }
 });
 
-// POST /public/logout - End public session
+// POST /public/logout
 router.post('/logout', checkPublicSession, async (req, res) => {
+  if (!req.publicSession) {
+    return res.status(401).json({ message: 'Session not found' });
+  }
   try {
-    const { sessionId } = req.publicSession;
+    const sessionId = req.headers['x-public-session-id'] as string;
     await dbStorage.expirePublicUserSession(sessionId);
-    res.json({ message: 'Session ended successfully' });
+    res.json({ message: 'Logged out successfully' });
   } catch (error) {
-    logger.error('[PUBLIC_VIOLATIONS] Error ending session:', error);
-    res.status(500).json({ message: 'Failed to end session' });
+    logger.error('[PUBLIC_SESSION] Error logging out:', error);
+    res.status(500).json({ message: 'Logout failed' });
   }
 });
 

@@ -9,17 +9,6 @@ import { eq } from 'drizzle-orm';
 const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client);
 
-export interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    email: string;
-    fullName: string;
-    role: 'admin' | 'council' | 'user';
-    isAdmin: boolean;
-    isCouncilMember: boolean;
-  };
-}
-
 /**
  * Middleware to authenticate requests using Supabase JWT
  */
@@ -54,13 +43,13 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     const profile = userProfile[0];
 
     // Attach user info to request
-    (req as AuthenticatedRequest).user = {
+    req.user = {
+      ...profile,
       id: user.id,
       email: user.email || '',
-      fullName: profile.fullName || '',
-      role: profile.role as 'admin' | 'council' | 'user',
       isAdmin: profile.role === 'admin',
       isCouncilMember: profile.role === 'council',
+      isUser: profile.role === 'user',
     };
 
     next();
@@ -74,9 +63,7 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
  * Middleware to require admin role
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const user = (req as AuthenticatedRequest).user;
-  
-  if (!user?.isAdmin) {
+  if (!req.user?.isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
   }
   
@@ -87,9 +74,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
  * Middleware to require admin or council role
  */
 export function requireAdminOrCouncil(req: Request, res: Response, next: NextFunction) {
-  const user = (req as AuthenticatedRequest).user;
-  
-  if (!user?.isAdmin && !user?.isCouncilMember) {
+  if (!req.user?.isAdmin && !req.user?.isCouncilMember) {
     return res.status(403).json({ error: 'Admin or council access required' });
   }
   
@@ -123,13 +108,13 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
 
     if (userProfile.length > 0) {
       const profile = userProfile[0];
-      (req as AuthenticatedRequest).user = {
+      req.user = {
+        ...profile,
         id: user.id,
         email: user.email || '',
-        fullName: profile.fullName || '',
-        role: profile.role as 'admin' | 'council' | 'user',
         isAdmin: profile.role === 'admin',
         isCouncilMember: profile.role === 'council',
+        isUser: profile.role === 'user',
       };
     }
 

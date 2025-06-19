@@ -35,7 +35,7 @@ pool.on('connect', () => {
   logger.info('New database connection established');
 });
 
-pool.on('error', (err: Error) => {
+pool.on('error', (err: Error & { code?: string; details?: string }) => {
   logger.error('Database pool error:', {
     message: err.message,
     stack: err.stack,

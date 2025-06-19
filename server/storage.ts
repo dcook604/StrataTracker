@@ -33,6 +33,8 @@ import {
   type StorageLocker,
   type BikeLocker,
   emailVerificationCodes,
+  publicUserSessions,
+  type PublicUserSession,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, like, or, gte, lte, asc, SQL, Name, inArray, gt, count } from "drizzle-orm";
@@ -92,8 +94,16 @@ export interface IStorage {
   getRecentViolations(limit: number): Promise<(Violation & { unit: PropertyUnit })[]>;
   createViolation(violation: InsertViolation): Promise<Violation>;
   updateViolation(id: number, violation: Partial<InsertViolation>): Promise<Violation | undefined>;
-  updateViolationStatus(id: number, status: ViolationStatus): Promise<Violation | undefined>;
-  updateViolationStatusByUuid(uuid: string, status: ViolationStatus): Promise<Violation | undefined>;
+  updateViolationStatus(
+    id: number, 
+    status: ViolationStatus,
+    details?: { comment: string; changedBy: { type: 'user', id: string } | { type: 'person', id: number, name: string } }
+  ): Promise<Violation | undefined>;
+  updateViolationStatusByUuid(
+    uuid: string, 
+    status: ViolationStatus,
+    details?: { comment: string; changedBy: { type: 'user', id: string } }
+  ): Promise<Violation | undefined>;
   setViolationFine(id: number, amount: number): Promise<Violation | undefined>;
   setViolationFineByUuid(uuid: string, amount: number): Promise<Violation | undefined>;
   generateViolationPdf(id: number, pdfPath: string): Promise<Violation | undefined>;
@@ -173,7 +183,7 @@ export interface IStorage {
   }>>;
 
   addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void>;
-  getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date } | null>;
+  getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date | null; } | null>;
   markEmailVerificationCodeUsed(id: number): Promise<void>;
 
   getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
@@ -191,9 +201,9 @@ export interface IStorage {
     email: string;
     role: string;
     expiresInHours?: number;
-  }): Promise<{ sessionId: string; expiresAt: Date }>;
+  }): Promise<PublicUserSession & { fullName: string }>;
 
-  getPublicUserSession(sessionId: string): Promise<{ unitId: number; expiresAt: Date } | null>;
+  getPublicUserSession(sessionId: string): Promise<(PublicUserSession & { fullName: string; unitNumber: string }) | null>;
 
   getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<Violation[]>;
 
@@ -642,29 +652,66 @@ export class DatabaseStorage implements IStorage {
     return updatedViolation;
   }
   
-  async updateViolationStatus(id: number, status: ViolationStatus): Promise<Violation | undefined> {
-    const [updatedViolation] = await db
-      .update(violations)
-      .set({
-        status,
-        updatedAt: new Date()
-      })
-      .where(eq(violations.id, id))
-      .returning();
-      
+  async updateViolationStatus(
+    id: number,
+    status: ViolationStatus,
+    details?: { comment: string; changedBy: { type: 'user'; id: string } | { type: 'person'; id: number; name: string } }
+  ): Promise<Violation | undefined> {
+    const updatedViolation = await db.transaction(async (tx) => {
+      const [violation] = await tx
+        .update(violations)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(violations.id, id))
+        .returning();
+
+      if (details) {
+        let historyDetails = details.comment;
+        let changedById: string | null = null;
+
+        if (details.changedBy.type === 'user') {
+          changedById = details.changedBy.id;
+        } else { // person
+          historyDetails = `Comment from ${details.changedBy.name}: ${details.comment}`;
+        }
+        
+        const historyEntry: InsertViolationHistory = {
+          violationId: id,
+          action: `status_changed_to_${status}`,
+          newValue: status,
+          details: historyDetails,
+          changedById: changedById,
+        };
+        await tx.insert(violationHistories).values(historyEntry);
+      }
+      return violation;
+    });
     return updatedViolation;
   }
   
-  async updateViolationStatusByUuid(uuid: string, status: ViolationStatus): Promise<Violation | undefined> {
-    const [updatedViolation] = await db
-      .update(violations)
-      .set({
-        status,
-        updatedAt: new Date()
-      })
-      .where(eq(violations.uuid, uuid))
-      .returning();
-      
+  async updateViolationStatusByUuid(
+    uuid: string, 
+    status: ViolationStatus,
+    details?: { comment: string; changedBy: { type: 'user', id: string } }
+  ): Promise<Violation | undefined> {
+    const updatedViolation = await db.transaction(async (tx) => {
+      const [violation] = await tx
+        .update(violations)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(violations.uuid, uuid))
+        .returning();
+
+      if (details && violation) {
+        const historyEntry: InsertViolationHistory = {
+          violationId: violation.id,
+          action: `status_changed_to_${status}`,
+          newValue: status,
+          details: details.comment,
+          changedById: details.changedBy.id,
+        };
+        await tx.insert(violationHistories).values(historyEntry);
+      }
+      return violation;
+    });
     return updatedViolation;
   }
   
@@ -955,43 +1002,47 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc') {
-    const offset = (page - 1) * limit;
-    const sortMap: Record<string, SQL | Name | undefined> = {
-      createdAt: violations.createdAt,
-      violationType: violations.violationType,
-      status: violations.status,
-      fineAmount: violations.fineAmount,
-      unitNumber: propertyUnits.unitNumber,
-      id: violations.id
-    };
-    const orderField = sortMap[sortBy || ''] || violations.createdAt;
-    const orderFn = sortOrder === 'asc' ? asc(orderField as Name) : desc(orderField as Name);
-    
-    const whereConditions: SQL[] = [];
-    if (status) whereConditions.push(eq(violations.status, status as ViolationStatus));
-    if (unitId) whereConditions.push(eq(violations.unitId, unitId));
-    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+    const whereClauses = [];
+    if (status) whereClauses.push(eq(violations.status, status));
+    if (unitId) whereClauses.push(eq(violations.unitId, unitId));
 
-    const result = await db
-      .select({ violation: violations, unit: propertyUnits })
+    const violationsQuery = db
+      .select({
+        violation: violations,
+        unit: propertyUnits,
+      })
       .from(violations)
       .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(whereClause)
-      .orderBy(orderFn)
+      .where(whereClauses.length > 0 ? and(...whereClauses) : undefined)
       .limit(limit)
-      .offset(offset);
+      .offset((page - 1) * limit);
 
-    const countQuery = db
-      .select({ count: sql`count(*)` })
+    const columnMap: { [key: string]: any } = {
+        'createdAt': violations.createdAt,
+        'violationType': violations.violationType,
+        'status': violations.status,
+        'fineAmount': violations.fineAmount,
+        'unitNumber': propertyUnits.unitNumber,
+        'id': violations.id
+    };
+
+    if (sortBy && columnMap[sortBy]) {
+        const sortColumn = columnMap[sortBy];
+        (violationsQuery as any).orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn));
+    } else {
+        (violationsQuery as any).orderBy(desc(violations.createdAt));
+    }
+
+    const results = await violationsQuery;
+
+    const totalQuery = await db
+      .select({ total: count() })
       .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .where(whereClause);
-
-    const [{ count }] = await countQuery;
+      .where(whereClauses.length > 0 ? and(...whereClauses) : undefined);
 
     return {
-      violations: result.map(r => ({ ...r.violation, unit: r.unit })),
-      total: Number(count)
+      violations: results.map(r => ({ ...r.violation, unit: r.unit })),
+      total: totalQuery[0].total,
     };
   }
 
@@ -1230,7 +1281,7 @@ export class DatabaseStorage implements IStorage {
     await db.insert(emailVerificationCodes).values(params);
   }
 
-  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date } | null> {
+  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date | null; } | null> {
     const [code] = await db
       .select()
       .from(emailVerificationCodes)
@@ -1243,7 +1294,9 @@ export class DatabaseStorage implements IStorage {
         )
       );
     
-    return code || null;
+    if (!code) return null;
+
+    return { id: code.id, usedAt: code.usedAt };
   }
   
   async markEmailVerificationCodeUsed(id: number): Promise<void> {
@@ -1257,34 +1310,86 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUnitWithPersonsAndFacilities(
-    _unitId: number,
-    _unitData: Partial<InsertPropertyUnit>,
-    _personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
-    _facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
+    unitId: number,
+    unitData: Partial<InsertPropertyUnit>,
+    personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
+    facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
   ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; } }> {
     throw new Error("Method not implemented.");
   }
 
-  async createPublicUserSession(_data: {
+  async createPublicUserSession(data: {
     personId: number;
     unitId: number;
     email: string;
     role: string;
     expiresInHours?: number;
-  }): Promise<{ sessionId: string; expiresAt: Date }> {
-    throw new Error("Method not implemented.");
+  }): Promise<PublicUserSession & { fullName: string }> {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + (data.expiresInHours || 24));
+
+    const [session] = await db.insert(publicUserSessions).values({
+      personId: data.personId,
+      unitId: data.unitId,
+      email: data.email,
+      role: data.role,
+      expiresAt,
+    }).returning();
+    
+    const [person] = await db.select({ fullName: persons.fullName }).from(persons).where(eq(persons.id, data.personId));
+
+    return { ...session, fullName: person?.fullName ?? 'N/A' };
   }
 
-  async getPublicUserSession(_sessionId: string): Promise<{ unitId: number; expiresAt: Date } | null> {
-    throw new Error("Method not implemented.");
+  async getPublicUserSession(sessionId: string): Promise<(PublicUserSession & { fullName: string; unitNumber: string; }) | null> {
+    const result = await db
+      .select({
+        session: publicUserSessions,
+        person: {
+          fullName: persons.fullName,
+        },
+        unit: {
+          unitNumber: propertyUnits.unitNumber,
+        }
+      })
+      .from(publicUserSessions)
+      .innerJoin(persons, eq(publicUserSessions.personId, persons.id))
+      .innerJoin(propertyUnits, eq(publicUserSessions.unitId, propertyUnits.id))
+      .where(
+        and(
+          eq(publicUserSessions.sessionId, sessionId),
+          gt(publicUserSessions.expiresAt, new Date())
+        )
+      );
+
+    if (result.length === 0) {
+      return null;
+    }
+
+    const { session, person, unit } = result[0];
+    return {
+      ...session,
+      fullName: person.fullName ?? 'N/A',
+      unitNumber: unit.unitNumber,
+    };
   }
 
-  async getViolationsForUnit(_unitId: number, _includeStatuses?: string[]): Promise<Violation[]> {
-    throw new Error("Method not implemented.");
+  async getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<Violation[]> {
+    const conditions = [eq(violations.unitId, unitId)];
+    if (includeStatuses && includeStatuses.length > 0) {
+      conditions.push(inArray(violations.status, includeStatuses));
+    }
+    
+    const query = await db
+      .select()
+      .from(violations)
+      .where(and(...conditions));
+    
+    return query;
   }
 
-  async expirePublicUserSession(_sessionId: string): Promise<void> {
-    throw new Error("Method not implemented.");
+  async expirePublicUserSession(sessionId: string): Promise<void> {
+    await db.delete(publicUserSessions).where(eq(publicUserSessions.sessionId, sessionId));
   }
 }
 

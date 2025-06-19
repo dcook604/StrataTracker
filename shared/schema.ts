@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, date, foreignKey } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { unique } from "drizzle-orm/pg-core";
@@ -452,7 +452,7 @@ export const communicationCampaigns = pgTable("communication_campaigns", {
   plainTextContent: text("plain_text_content"), // Plain text version
   scheduledAt: timestamp("scheduled_at"),
   sentAt: timestamp("sent_at"),
-  createdById: integer("created_by_id").notNull().references(() => profiles.id),
+  createdById: uuid("created_by_id").notNull().references(() => profiles.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -468,7 +468,7 @@ export const communicationRecipients = pgTable("communication_recipients", {
   status: text("status").default("pending").notNull(), // 'pending', 'sent', 'failed', 'bounced'
   sentAt: timestamp("sent_at"),
   errorMessage: text("error_message"),
-  trackingId: text("tracking_id").unique(), // Unique tracking ID for this recipient
+  trackingId: text("tracking_id").unique().notNull(), // Unique tracking ID for this recipient
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -480,7 +480,7 @@ export const communicationTemplates = pgTable("communication_templates", {
   subject: text("subject").notNull(),
   content: text("content").notNull(),
   isDefault: boolean("is_default").default(false).notNull(),
-  createdById: integer("created_by_id").notNull().references(() => profiles.id),
+  createdById: uuid("created_by_id").notNull().references(() => profiles.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -568,7 +568,7 @@ export const bylaws = pgTable("bylaws", {
   sectionNumber: text("section_number").notNull().unique(), // e.g., "3.4.2", "Section 10"
   title: text("title").notNull(),
   content: text("content").notNull(),
-  parentSectionId: integer("parent_section_id").references(() => bylaws.id),
+  parentSectionId: integer("parent_section_id"), // Self-reference defined below
   sectionOrder: integer("section_order").notNull(),
   partNumber: text("part_number"), // e.g., "PART 2", "PART 10"
   partTitle: text("part_title"), // e.g., "DUTIES OF OWNERS, TENANTS, OCCUPANTS AND VISITORS"
@@ -576,9 +576,14 @@ export const bylaws = pgTable("bylaws", {
   effectiveDate: date("effective_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  createdById: integer("created_by_id").notNull().references(() => profiles.id),
-  updatedById: integer("updated_by_id").references(() => profiles.id),
-});
+  createdById: uuid("created_by_id").notNull().references(() => profiles.id),
+  updatedById: uuid("updated_by_id").references(() => profiles.id),
+}, (table) => ({
+  parentSectionFk: foreignKey({
+    columns: [table.parentSectionId],
+    foreignColumns: [table.id]
+  }),
+}));
 
 export const bylawCategoryLinks = pgTable("bylaw_category_links", {
   id: serial("id").primaryKey(),
@@ -596,7 +601,7 @@ export const bylawRevisions = pgTable("bylaw_revisions", {
   revisionNotes: text("revision_notes"),
   effectiveDate: date("effective_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  createdById: integer("created_by_id").notNull().references(() => profiles.id),
+  createdById: uuid("created_by_id").notNull().references(() => profiles.id),
 });
 
 // Insert schemas for bylaws
@@ -836,15 +841,29 @@ export type InsertAdminAnnouncement = typeof adminAnnouncements.$inferInsert;
 // Public user sessions table (for authenticated owner/tenant sessions)
 export const publicUserSessions = pgTable("public_user_sessions", {
   id: serial("id").primaryKey(),
-  sessionId: uuid("session_id").defaultRandom().notNull().unique(),
-  personId: integer("person_id").notNull().references(() => persons.id, { onDelete: "cascade" }),
-  unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: "cascade" }),
+  sessionId: uuid("session_id").$defaultFn(() => crypto.randomUUID()).notNull().unique(),
+  personId: integer("person_id").notNull().references(() => persons.id, { onDelete: 'cascade' }),
+  unitId: integer("unit_id").notNull().references(() => propertyUnits.id, { onDelete: 'cascade' }),
   email: text("email").notNull(),
-  role: text("role").notNull(), // 'owner' or 'tenant'
+  role: text("role").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  lastAccessedAt: timestamp("last_accessed_at"),
+  data: jsonb("data"), // For any other session data
 });
+
+export const publicUserSessionsRelations = relations(publicUserSessions, ({ one }) => ({
+  person: one(persons, {
+    fields: [publicUserSessions.personId],
+    references: [persons.id],
+  }),
+  unit: one(propertyUnits, {
+    fields: [publicUserSessions.unitId],
+    references: [propertyUnits.id],
+  }),
+}));
+
+export type PublicUserSession = typeof publicUserSessions.$inferSelect;
+export type InsertPublicUserSession = typeof publicUserSessions.$inferInsert;
 
 export type User = Profile; // Add alias for compatibility
 

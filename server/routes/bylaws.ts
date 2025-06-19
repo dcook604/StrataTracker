@@ -118,8 +118,7 @@ router.get('/', async (req, res) => {
         updatedAt: bylaws.updatedAt,
         createdBy: {
           id: profiles.id,
-          fullName: profiles.fullName,
-          email: profiles.email
+          fullName: profiles.fullName
         }
       })
       .from(bylaws)
@@ -155,8 +154,7 @@ router.get('/', async (req, res) => {
               updatedAt: bylaws.updatedAt,
               createdBy: {
                 id: profiles.id,
-                fullName: profiles.fullName,
-                email: profiles.email
+                fullName: profiles.fullName
               }
             })
             .from(bylaws)
@@ -239,8 +237,7 @@ router.get('/:id', async (req, res) => {
         updatedAt: bylaws.updatedAt,
         createdBy: {
           id: profiles.id,
-          fullName: profiles.fullName,
-          email: profiles.email
+          fullName: profiles.fullName
         }
       })
       .from(bylaws)
@@ -438,8 +435,7 @@ router.get('/:id/revisions', ensureCouncilOrAdmin, async (req, res) => {
         createdAt: bylawRevisions.createdAt,
         createdBy: {
           id: profiles.id,
-          fullName: profiles.fullName,
-          email: profiles.email
+          fullName: profiles.fullName
         }
       })
       .from(bylawRevisions)
