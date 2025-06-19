@@ -1,3 +1,4 @@
+import express from 'express';
 import logger from './logger';
 
 /**
@@ -43,7 +44,7 @@ export function setupGlobalErrorHandlers() {
 /**
  * Centralized error handler middleware for Express
  */
-export function errorHandlerMiddleware(err: any, req: any, res: any, _next: any) {
+export function errorHandlerMiddleware(err: Error & { statusCode?: number; status?: number }, req: express.Request, res: express.Response, _next: express.NextFunction) {
   // Log the error with contextual information
   logger.error('Express error:', {
     message: err.message,

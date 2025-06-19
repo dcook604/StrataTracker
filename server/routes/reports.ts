@@ -35,9 +35,9 @@ router.get("/test", (req, res) => {
     
 //     generateViolationsPdf(stats, violations, pdfFilters, res);
     
-//   } catch (error: any) {
-//     logger.error("[API] Failed to generate PDF report:", error);
-//     res.status(500).json({ message: "Failed to generate PDF report", details: error.message });
+//   } catch (error: unknown) {
+//     logger.error("[API] Failed to generate PDF report:", error instanceof Error ? error.message : 'Unknown error');
+//     res.status(500).json({ message: "Failed to generate PDF report", details: error instanceof Error ? error.message : 'Unknown error' });
 //   }
 // });
 
@@ -52,7 +52,7 @@ router.get("/violations-csv", async (req, res) => {
 
     const violations = await dbStorage.getFilteredViolationsForReport(filters);
 
-    const escapeCsv = (data: any) => {
+    const escapeCsv = (data: unknown) => {
       if (data === null || data === undefined) return "";
       const str = String(data);
       if (str.includes(',')) return `"${str}"`;
@@ -78,9 +78,9 @@ router.get("/violations-csv", async (req, res) => {
     res.setHeader("Content-Disposition", 'attachment; filename="violations.csv"');
     res.status(200).end(csv);
 
-  } catch (error: any) {
-    logger.error("[API] Failed to generate CSV report:", error);
-    res.status(500).json({ message: "Failed to generate CSV report", details: error.message });
+  } catch (error: unknown) {
+    logger.error("[API] Failed to generate CSV report:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to generate CSV report", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -106,8 +106,8 @@ router.get("/stats", async (req, res) => {
       violationsByMonth,
       violationsByType
     });
-  } catch (error) {
-    logger.error("Failed to fetch violation stats:", error);
+  } catch (error: unknown) {
+    logger.error("Failed to fetch violation stats:", error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: "Failed to fetch stats" });
   }
 });
@@ -118,9 +118,9 @@ router.get("/repeat-violations", async (req, res) => {
     const minCount = req.query.minCount ? parseInt(req.query.minCount as string) : 2;
     const repeatViolations = await dbStorage.getRepeatViolations(minCount);
     res.json(repeatViolations);
-  } catch (error: any) {
-    logger.error("Failed to fetch repeat violations:", error);
-    res.status(500).json({ message: "Failed to fetch repeat violations", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to fetch repeat violations:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to fetch repeat violations", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -134,9 +134,9 @@ router.get("/violations-by-month", async (req, res) => {
     };
     const violationsByMonth = await dbStorage.getViolationsByMonth(filters);
     res.json(violationsByMonth);
-  } catch (error: any) {
-    logger.error("Failed to fetch violations by month:", error);
-    res.status(500).json({ message: "Failed to fetch violations by month", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to fetch violations by month:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to fetch violations by month", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -150,9 +150,9 @@ router.get("/violations-by-type", async (req, res) => {
     };
     const violationsByType = await dbStorage.getViolationsByType(filters);
     res.json(violationsByType);
-  } catch (error: any) {
-    logger.error("Failed to fetch violations by type:", error);
-    res.status(500).json({ message: "Failed to fetch violations by type", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to fetch violations by type:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to fetch violations by type", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -166,9 +166,9 @@ router.get("/monthly-fines", async (req, res) => {
     };
     const monthlyFines = await dbStorage.getMonthlyFines(filters);
     res.json(monthlyFines);
-  } catch (error: any) {
-    logger.error("Failed to fetch monthly fines:", error);
-    res.status(500).json({ message: "Failed to fetch monthly fines", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to fetch monthly fines:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to fetch monthly fines", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 

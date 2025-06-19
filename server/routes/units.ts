@@ -24,9 +24,9 @@ router.get("/", async (req, res) => {
       search as string | undefined
     );
     res.json(result);
-  } catch (error: any) {
-    logger.error("Failed to fetch units:", error);
-    res.status(500).json({ message: "Failed to fetch units", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to fetch units:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to fetch units", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -42,9 +42,9 @@ router.get("/:id/details", async (req, res) => {
       return res.status(404).json({ message: "Unit not found" });
     }
     res.json(unitDetails);
-  } catch (error: any) {
-    logger.error("Failed to fetch unit details:", error);
-    res.status(500).json({ message: "Failed to fetch unit details", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to fetch unit details:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to fetch unit details", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -57,9 +57,9 @@ router.get("/check-duplicate", async (req, res) => {
     }
     const existingUnit = await dbStorage.getPropertyUnitByUnitNumber(unitNumber);
     res.json({ isDuplicate: !!existingUnit });
-  } catch (error: any) {
-    logger.error("Failed to check duplicate unit number:", error);
-    res.status(500).json({ message: "Failed to check duplicate unit number", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to check duplicate unit number:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to check duplicate unit number", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -71,8 +71,8 @@ router.get("/property-units", async (req, res) => {
     try {
       const units = await dbStorage.getAllPropertyUnits();
       res.json(units);
-    } catch (error) {
-      logger.error("Property units fetch error:", error);
+    } catch (error: unknown) {
+      logger.error("Property units fetch error:", error instanceof Error ? error.message : 'Unknown error');
       res.json([]);
     }
 });
@@ -95,7 +95,7 @@ router.post("/property-units", async (req, res) => {
       });
       
       res.status(201).json(unit);
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
@@ -130,9 +130,9 @@ router.patch("/:id", async (req, res) => {
     });
     
     res.json(updatedUnit);
-  } catch (error: any) {
-    logger.error(`[API] Failed to update unit ${req.params.id}:`, error);
-    res.status(500).json({ message: "Failed to update unit", details: error.message });
+  } catch (error: unknown) {
+    logger.error(`[API] Failed to update unit ${req.params.id}:`, error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to update unit", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -163,9 +163,9 @@ router.delete("/:id", async (req, res) => {
     }
     
     res.status(204).send();
-  } catch (error: any) {
-    logger.error(`[API] Failed to delete unit ${req.params.id}:`, error);
-    res.status(500).json({ message: "Failed to delete unit", details: error.message });
+  } catch (error: unknown) {
+    logger.error(`[API] Failed to delete unit ${req.params.id}:`, error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to delete unit", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -174,9 +174,9 @@ router.get("/count", async (req, res) => {
   try {
     const units = await dbStorage.getAllPropertyUnits();
     res.json({ total: units.length });
-  } catch (error: any) {
-    logger.error("Failed to fetch unit count:", error);
-    res.status(500).json({ message: "Failed to fetch unit count", details: error.message });
+  } catch (error: unknown) {
+    logger.error("Failed to fetch unit count:", error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ message: "Failed to fetch unit count", details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 

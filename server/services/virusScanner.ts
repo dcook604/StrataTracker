@@ -20,7 +20,7 @@ export interface ScannerConfig {
 }
 
 class VirusScannerService {
-  private clamscan: any = null;
+  private clamscan: unknown = null;
   private isInitialized: boolean = false;
   private config: ScannerConfig;
 
@@ -68,7 +68,7 @@ class VirusScannerService {
       
       this.isInitialized = true;
       logger.info('[VirusScanner] ClamAV scanner initialized successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.message?.includes('virus database is empty')) {
         logger.error('[VirusScanner] ClamAV database not initialized. Run: sudo freshclam');
       } else if (error.code === 'ENOENT') {
@@ -118,7 +118,7 @@ class VirusScannerService {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       
       if (error.code === 'ENOENT') {
         throw new Error('File not found or ClamAV socket connection failed');
@@ -158,7 +158,7 @@ class VirusScannerService {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(`[VirusScanner] Buffer scan error${filename ? ` (${filename})` : ''}:`, error);
       throw new Error(`Virus scan failed: ${error.message}`);
     }

@@ -77,7 +77,7 @@ router.delete('/:id', isAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     
-    if (userId === (req.user as any).id) {
+    if (userId === (req.user as { id?: string }).id) {
       return res.status(400).json({ message: 'Cannot delete your own account' });
     }
     

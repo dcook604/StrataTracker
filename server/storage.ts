@@ -173,7 +173,7 @@ export interface IStorage {
   }>>;
 
   addEmailVerificationCode(params: { personId: number, violationId: number, codeHash: string, expiresAt: Date }): Promise<void>;
-  getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any>;
+  getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date } | null>;
   markEmailVerificationCodeUsed(id: number): Promise<void>;
 
   getMonthlyFines(filters?: { from?: Date, to?: Date, categoryId?: number }): Promise<{ month: string, totalFines: number }[]>;
@@ -191,11 +191,11 @@ export interface IStorage {
     email: string;
     role: string;
     expiresInHours?: number;
-  }): Promise<any>;
+  }): Promise<{ sessionId: string; expiresAt: Date }>;
 
-  getPublicUserSession(sessionId: string): Promise<any>;
+  getPublicUserSession(sessionId: string): Promise<{ unitId: number; expiresAt: Date } | null>;
 
-  getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<any[]>;
+  getViolationsForUnit(unitId: number, includeStatuses?: string[]): Promise<Violation[]>;
 
   expirePublicUserSession(sessionId: string): Promise<void>;
 }
@@ -210,7 +210,7 @@ export class DatabaseStorage implements IStorage {
   constructor() {
     const pgSession = connectPgSimple(session);
     this.sessionStore = new pgSession({
-      pool: (db as any).pool, // Use the exported pool from db.ts
+      pool: (db as { pool?: unknown }).pool, // Use the exported pool from db.ts
       createTableIfMissing: true,
     });
   }
@@ -957,12 +957,12 @@ export class DatabaseStorage implements IStorage {
   async getViolationsPaginated(page: number = 1, limit: number = 20, status?: string, unitId?: number, sortBy?: string, sortOrder?: 'asc' | 'desc') {
     const offset = (page - 1) * limit;
     const sortMap: Record<string, SQL | Name | undefined> = {
-      createdAt: violations.createdAt as any,
-      violationType: violations.violationType as any,
-      status: violations.status as any,
-      fineAmount: violations.fineAmount as any,
-      unitNumber: propertyUnits.unitNumber as any,
-      id: violations.id as any
+      createdAt: violations.createdAt,
+      violationType: violations.violationType,
+      status: violations.status,
+      fineAmount: violations.fineAmount,
+      unitNumber: propertyUnits.unitNumber,
+      id: violations.id
     };
     const orderField = sortMap[sortBy || ''] || violations.createdAt;
     const orderFn = sortOrder === 'asc' ? asc(orderField as Name) : desc(orderField as Name);

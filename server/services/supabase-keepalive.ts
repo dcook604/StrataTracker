@@ -21,7 +21,7 @@ interface KeepAliveStats {
 class SupabaseKeepAliveService {
   private config: KeepAliveConfig;
   private stats: KeepAliveStats;
-  private cronJob: any = null;
+  private cronJob: NodeJS.Timeout | null = null;
   private isRunning = false;
 
   constructor() {

@@ -10,7 +10,7 @@ import net from 'net';
 export function isPortInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer()
-      .once('error', (err: any) => {
+      .once('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'EADDRINUSE') {
           logger.warn(`Port ${port} is already in use`);
           resolve(true);
