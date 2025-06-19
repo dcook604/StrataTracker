@@ -31,12 +31,12 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
-import { insertViolationSchema, PropertyUnit, ViolationCategory } from "@shared/schema";
+import { PropertyUnit, ViolationCategory } from "@shared/schema";
 
 interface UnitUpdateDialogState {
   existing: PropertyUnit;
   newUnit: Partial<PropertyUnit>;
-  changedFields: { field: string; oldValue: any; newValue: any }[];
+  changedFields: { field: string; oldValue: unknown; newValue: unknown }[];
 }
 
 interface PendingUnitUpdatePayload extends Partial<PropertyUnit> {
@@ -91,8 +91,8 @@ export function ViolationForm() {
   });
 
   // Fix linter errors for .map on units and categories
-  const safeUnits: PropertyUnit[] = Array.isArray(units) ? units : [];
-  const safeCategories: ViolationCategory[] = Array.isArray(categories) ? categories : [];
+  const safeUnits: PropertyUnit[] = useMemo(() => Array.isArray(units) ? units : [], [units]);
+  const safeCategories: ViolationCategory[] = useMemo(() => Array.isArray(categories) ? categories : [], [categories]);
 
   // Filtered units based on search term
   const filteredUnits = useMemo(() => {
@@ -278,7 +278,7 @@ export function ViolationForm() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {filteredUnits.map((unit: any) => (
+                            {filteredUnits.map((unit: PropertyUnit) => (
                               <SelectItem key={unit.id} value={unit.id.toString()}>
                                 Unit #{unit.unitNumber}
                               </SelectItem>
@@ -402,7 +402,7 @@ export function ViolationForm() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {safeCategories.map((category: any) => (
+                            {safeCategories.map((category: ViolationCategory) => (
                               <SelectItem key={category.id} value={category.id.toString()}>
                                 {category.name}
                               </SelectItem>

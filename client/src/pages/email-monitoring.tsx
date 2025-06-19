@@ -10,20 +10,13 @@ import { Layout } from '@/components/layout';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from "@/lib/queryClient";
 
-interface EmailStats {
-  totalSent: number;
-  totalFailed: number;
-  duplicatesPrevented: number;
-  retryAttempts: number;
-  uniqueRecipients: number;
-}
 
 interface DeduplicationLog {
   id: number;
   recipientEmail: string;
   emailType: string;
   preventedAt: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 const EMAIL_TYPES = {

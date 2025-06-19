@@ -142,7 +142,6 @@ export function validateSecurityConfig() {
   return errors;
 }
 
-const thirtyDaysInSeconds = 2592000;
 
 export const contentSecurityPolicy = {
   directives: {

@@ -8,8 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { PublicSidebar } from "@/components/public-sidebar";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 
 interface ViolationDetails {
   id: number;
@@ -32,7 +30,6 @@ export default function EnhancedPublicViolationPage() {
   const token = params?.token;
   const { toast } = useToast();
   const { user, session } = useAuth();
-  const [error, setError] = useState<string | null>(null);
 
   // Pre-authentication state
   const [loading, setLoading] = useState(true);
@@ -53,7 +50,7 @@ export default function EnhancedPublicViolationPage() {
   const [success, setSuccess] = useState(false);
 
   // Helper function for authenticated API requests
-  const makeAuthenticatedRequest = async (method: string, url: string, body?: any) => {
+  const makeAuthenticatedRequest = async (method: string, url: string, body?: Record<string, unknown>) => {
     if (!session?.access_token) {
       throw new Error("No authentication token available");
     }
@@ -143,7 +140,7 @@ export default function EnhancedPublicViolationPage() {
         throw new Error(data.message || "Invalid code");
       }
 
-      const response = await res.json();
+      await res.json();
       // Note: With Supabase auth, we'd handle this differently
       // For now, just navigate to the violations page
       
@@ -154,8 +151,8 @@ export default function EnhancedPublicViolationPage() {
 
       // Navigate to violations overview
       setLocation("/public/violations");
-    } catch (err: any) {
-      setCodeError(err.message || "Invalid code");
+    } catch (err: unknown) {
+      setCodeError(err instanceof Error ? err.message : "Invalid code");
     } finally {
       setVerifying(false);
     }
@@ -176,10 +173,10 @@ export default function EnhancedPublicViolationPage() {
         title: "Dispute Submitted", 
         description: "Your dispute has been submitted successfully." 
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({ 
         title: "Error", 
-        description: err.message || "Failed to submit dispute", 
+        description: err instanceof Error ? err.message : "Failed to submit dispute", 
         variant: "destructive" 
       });
     } finally {

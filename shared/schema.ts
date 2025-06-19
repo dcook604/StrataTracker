@@ -568,7 +568,7 @@ export const bylaws = pgTable("bylaws", {
   sectionNumber: text("section_number").notNull().unique(), // e.g., "3.4.2", "Section 10"
   title: text("title").notNull(),
   content: text("content").notNull(),
-  parentSectionId: integer("parent_section_id").references((): any => bylaws.id),
+  parentSectionId: integer("parent_section_id").references(() => bylaws.id),
   sectionOrder: integer("section_order").notNull(),
   partNumber: text("part_number"), // e.g., "PART 2", "PART 10"
   partTitle: text("part_title"), // e.g., "DUTIES OF OWNERS, TENANTS, OCCUPANTS AND VISITORS"

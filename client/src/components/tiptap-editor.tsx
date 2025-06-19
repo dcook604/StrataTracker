@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import TextStyle from '@tiptap/extension-text-style';
@@ -24,7 +24,7 @@ import { Toolbar } from "./tiptap-toolbar";
 
 interface TiptapEditorProps {
   content: string;
-  onChange: (html: string, json: any) => void;
+  onChange: (html: string, json: unknown) => void;
   placeholder?: string;
   editable?: boolean;
   className?: string;
@@ -246,10 +246,6 @@ export function TiptapEditor({
   );
 }
 
-interface TiptapProps {
-  content: string;
-  onUpdate: (content: string) => void;
-}
 
 const Tiptap = ({
   content,

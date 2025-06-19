@@ -1,22 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Unit,
-  Person,
-  UnitPersonRole,
-  insertUnitSchema,
-  insertPersonSchema,
-  facilities,
-  unitFacilities,
-} from "@shared/schema";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,8 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -39,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
@@ -74,16 +55,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useAuth } from "@/hooks/use-auth";
-import { useAsyncLoading } from "@/contexts/loading-context";
-import { ButtonLoading } from "@/components/ui/loading-spinner";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -91,8 +68,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 
 // START: Temporary Local Type Definitions (Mirror these in @shared/schema.ts)
 interface FacilityItem {
@@ -186,9 +161,11 @@ type UnitWithPeopleAndFacilities = PatchedPropertyUnit & {
   townhouse?: boolean;
 };
 
+type PersonWithRole = PersonForm & { role: string };
+
 type UnitDetailsForDelete = {
   unit: PatchedPropertyUnit;
-  persons: (PersonForm & { role: string })[];
+  persons: PersonWithRole[];
   facilities: PatchedUnitFacility;
   violationCount: number;
   violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date }[];
@@ -209,7 +186,7 @@ export default function UnitsPage() {
   const [sortBy, setSortBy] = useState<string>(() => JSON.parse(localStorage.getItem(SORT_KEY) || '"unitNumber"'));
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => JSON.parse(localStorage.getItem(SORT_ORDER_KEY) || '"asc"'));
   const [search, setSearch] = useState(() => localStorage.getItem(SEARCH_KEY) || "");
-  const defaultPerson = { fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false };
+  const defaultPerson = useMemo(() => ({ fullName: "", email: "", phone: "", receiveEmailNotifications: true, hasCat: false, hasDog: false }), []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -323,7 +300,7 @@ export default function UnitsPage() {
         setIsFormReady(true);
       }, 100);
     }
-  }, [editingUnit, isAddDialogOpen, reset]);
+  }, [editingUnit, isAddDialogOpen, reset, defaultPerson]);
 
   useEffect(() => {
     if (defaultPerson) {
@@ -364,7 +341,7 @@ export default function UnitsPage() {
   });
 
   // Use PatchedPropertyUnit for the type here for consistency within this file's current state
-  const { data: propertyUnitsData, isLoading: isPropertyUnitsLoading } = useQuery<PatchedPropertyUnit[]>({ 
+  const { isLoading: isPropertyUnitsLoading } = useQuery<PatchedPropertyUnit[]>({ 
     queryKey: ["/api/property-units"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/property-units");
@@ -374,7 +351,7 @@ export default function UnitsPage() {
   });
   
   const createMutation = useMutation({
-    mutationFn: async (data: { unit: any; facilities: any; persons: PersonFormWithRole[] }) => {
+    mutationFn: async (data: { unit: Partial<PatchedPropertyUnit>; facilities: Record<string, unknown>; persons: PersonFormWithRole[] }) => {
       return apiRequest("POST", "/api/units-with-persons", data);
     },
     onSuccess: () => {
@@ -389,7 +366,7 @@ export default function UnitsPage() {
   });
   
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: number; unit: any; facilities: any; persons: PersonFormWithRole[] }) => {
+    mutationFn: async (data: { id: number; unit: Partial<PatchedPropertyUnit>; facilities: Record<string, unknown>; persons: PersonFormWithRole[] }) => {
       const { id, ...rest } = data;
       return apiRequest("PATCH", `/api/units/${id}`, rest);
     },
@@ -438,7 +415,7 @@ export default function UnitsPage() {
     try {
       setDeletingUnit(unit);
       await fetchUnitDetails(unit.id);
-    } catch (error) {
+    } catch {
       toast({ title: "Error", description: "Failed to fetch unit details", variant: "destructive" });
       setDeletingUnit(null);
     }
@@ -680,7 +657,8 @@ export default function UnitsPage() {
   ) => {
     // Limit to 10 characters and allow alphanumeric
     const cleanValue = value.slice(0, 10);
-    setValue(`${fieldName}.${index}.identifier` as any, cleanValue);
+    const fieldPath = `${fieldName}.${index}.identifier` as const;
+    setValue(fieldPath as keyof FormValues, cleanValue);
   };
 
   return (
@@ -1687,7 +1665,7 @@ export default function UnitsPage() {
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <h4 className="font-semibold text-orange-800 mb-2">Associated People ({unitToDelete.persons.length})</h4>
                   <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
-                    {unitToDelete.persons.map((person: any, idx: number) => (
+                    {unitToDelete.persons.map((person: PersonWithRole, idx: number) => (
                       <div key={idx} className="flex justify-between">
                         <span>{person.fullName} ({person.role})</span>
                         <span className="text-gray-600">{person.email}</span>
@@ -1704,13 +1682,13 @@ export default function UnitsPage() {
                   <h4 className="font-semibold text-blue-800 mb-2">Facilities</h4>
                   <div className="text-sm">
                     {(unitToDelete.facilities?.parkingSpots?.length ?? 0) > 0 && (
-                      <div>Parking Spots: {unitToDelete.facilities?.parkingSpots?.map((p: any) => p.identifier).join(", ")}</div>
+                      <div>Parking Spots: {unitToDelete.facilities?.parkingSpots?.map((p: FacilityItem) => p.identifier).join(", ")}</div>
                     )}
                     {(unitToDelete.facilities?.storageLockers?.length ?? 0) > 0 && (
-                      <div>Storage Lockers: {unitToDelete.facilities?.storageLockers?.map((s: any) => s.identifier).join(", ")}</div>
+                      <div>Storage Lockers: {unitToDelete.facilities?.storageLockers?.map((s: FacilityItem) => s.identifier).join(", ")}</div>
                     )}
                     {(unitToDelete.facilities?.bikeLockers?.length ?? 0) > 0 && (
-                      <div>Bike Lockers: {unitToDelete.facilities?.bikeLockers?.map((b: any) => b.identifier).join(", ")}</div>
+                      <div>Bike Lockers: {unitToDelete.facilities?.bikeLockers?.map((b: FacilityItem) => b.identifier).join(", ")}</div>
                     )}
                   </div>
                 </div>

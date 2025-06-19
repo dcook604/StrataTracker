@@ -75,7 +75,7 @@ function formatLogMessage(level: LogLevel, message: string, data?: any): string 
       } else {
         logMessage += `: ${data}`;
       }
-    } catch (err) {
+    } catch {
       logMessage += `: [Object cannot be stringified]`;
     }
   }

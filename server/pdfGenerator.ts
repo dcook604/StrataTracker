@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import express from 'express';
 import { Violation, PropertyUnit, ViolationCategory } from '@shared/schema';
 import { format } from 'date-fns';
 
@@ -18,7 +19,7 @@ export function generateViolationsPdf(
   stats: ReportStats,
   violations: (Violation & { unit: PropertyUnit, category?: ViolationCategory })[],
   filters: FilterCriteria,
-  res: any // Express Response object
+  res: express.Response // Express Response object
 ): void {
   const doc = new PDFDocument({ margin: 50, layout: 'portrait', size: 'A4' });
 
@@ -59,7 +60,6 @@ export function generateViolationsPdf(
   doc.fontSize(14).text('Detailed Violations List:', { underline: true });
   doc.moveDown();
 
-  const tableTop = doc.y;
   // const itemMargin = 20; // itemMargin is not used if we base everything on page margins
 
   const colWidthId = 40;

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger';
-import ResponsePayload = Express.Response;
+// import ResponsePayload = Express.Response; // Unused
 
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
   const start = Date.now();
@@ -32,18 +32,17 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
   // Capture the original response methods
   const originalJson = res.json;
   const originalSend = res.send;
-  const originalEnd = res.end;
   
-  let responseBody: any;
+  let responseBody: unknown;
   
   // Override json method
-  res.json = function(body: any) {
+  res.json = function(body: unknown) {
     responseBody = body;
     return originalJson.apply(res, [body]);
   };
   
   // Override send method
-  res.send = function(body: any) {
+  res.send = function(body: unknown) {
     responseBody = body;
     return originalSend.apply(res, [body]);
   };
@@ -66,7 +65,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
           responseSize: res.get('content-length') || 'unknown',
           contentType: res.get('content-type'),
           userId: req.user?.id,
-          sessionId: req.sessionID
+          sessionId: (req as Request & { sessionID?: string }).sessionID
         };
 
         logger.error(`[API] Request failed: ${method} ${path}`, {
@@ -82,7 +81,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-export function errorLogger(err: any, req: Request, res: Response, next: NextFunction) {
+export function errorLogger(err: Error & { status?: number; statusCode?: number }, req: Request, res: Response, next: NextFunction) {
   const status = err.status || err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
   

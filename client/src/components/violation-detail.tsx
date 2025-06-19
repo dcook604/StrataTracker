@@ -1,8 +1,8 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   CheckCircle, 
@@ -228,8 +228,8 @@ export function ViolationDetail({ id }: ViolationDetailProps) {
       await statusMutation.mutateAsync({ status: "approved", comment: comment || undefined });
       setShowFineModal(false);
       toast({ title: "Violation approved", description: `Violation approved with fine $${Number(fineInput).toFixed(2)}` });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "An error occurred", variant: "destructive" });
     } finally {
       setPendingApprove(false);
     }

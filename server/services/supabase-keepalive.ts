@@ -144,7 +144,7 @@ class SupabaseKeepAliveService {
    * Test basic auth connection
    */
   private async testAuthConnection(): Promise<void> {
-    const { data, error } = await supabase.auth.getSession();
+    const { error } = await supabase.auth.getSession();
     if (error && error.message !== 'No session found') {
       throw new Error(`Auth connection failed: ${error.message}`);
     }
@@ -157,7 +157,7 @@ class SupabaseKeepAliveService {
   private async testDatabaseQuery(): Promise<void> {
     try {
       // Simple query to keep the database connection alive
-      const { data, error } = await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from('profiles')
         .select('id')
         .limit(1);
@@ -166,9 +166,9 @@ class SupabaseKeepAliveService {
         throw new Error(`Database query failed: ${error.message}`);
       }
       console.log('[SUPABASE_KEEPALIVE] Database query test passed');
-    } catch (error) {
+    } catch {
       // If profiles table doesn't exist or is inaccessible, try a simpler auth check
-      const { data, error: authError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1 });
+      const { error: authError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1 });
       if (authError) {
         throw new Error(`Database connection failed: ${authError.message}`);
       }
@@ -180,7 +180,7 @@ class SupabaseKeepAliveService {
    * Test admin connection
    */
   private async testAdminConnection(): Promise<void> {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1 });
+    const { error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1 });
     if (error) {
       throw new Error(`Admin connection failed: ${error.message}`);
     }

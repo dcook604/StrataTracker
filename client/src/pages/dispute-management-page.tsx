@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
@@ -14,14 +14,13 @@ import { apiRequest } from "@/lib/queryClient";
 import { 
   AlertCircle, 
   Search, 
-  Clock, 
   CheckCircle, 
   XCircle, 
-  MessageSquare,
   Eye,
   Calendar,
   Building
 } from "lucide-react";
+import { ViolationStatus } from "@shared/schema";
 import { 
   Dialog,
   DialogContent,
@@ -38,7 +37,7 @@ interface DisputedViolation {
   referenceNumber: string;
   violationType: string;
   description: string;
-  status: string;
+  status: ViolationStatus;
   createdAt: string;
   violationDate: string;
   unit: {
@@ -258,7 +257,7 @@ export default function DisputeManagementPage() {
                       <Badge variant="outline" className="font-mono">
                         {`VIO-${format(new Date(violation.createdAt), 'yyyyMMdd')}-${violation.id.toString().padStart(3, '0')}`}
                       </Badge>
-                      <StatusBadge status={violation.status as any} />
+                      <StatusBadge status={violation.status} />
                       <Badge variant="secondary" className="bg-orange-100 text-orange-800">
                         {getDaysDisputed(violation.violationDate)} days disputed
                       </Badge>

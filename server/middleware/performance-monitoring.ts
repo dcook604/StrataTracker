@@ -19,7 +19,7 @@ export function performanceMonitoringMiddleware(req: Request, res: Response, nex
   const originalSend = res.send;
   
   // Override res.send to capture response details
-  res.send = function(body: any) {
+  res.send = function(body: unknown) {
     const duration = Date.now() - startTime;
     
     const metrics: PerformanceMetrics = {

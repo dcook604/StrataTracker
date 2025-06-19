@@ -49,7 +49,7 @@ router.get("/", async (req, res) => {
         sortOrder as 'asc' | 'desc' | undefined
       );
       res.json(result);
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: "Failed to fetch violations" });
     }
 });
@@ -222,7 +222,7 @@ router.get("/:id", async (req, res) => {
         return res.status(404).json({ message: "Violation not found" });
       }
       res.json(violation);
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: "Failed to fetch violation" });
     }
 });
@@ -287,7 +287,7 @@ router.get("/:id/history", async (req, res) => {
     try {
         const history = await dbStorage.getViolationHistory(parseInt(req.params.id));
         res.json(history);
-    } catch (error) {
+    } catch {
         res.status(500).json({ message: "Failed to fetch violation history" });
     }
 });
@@ -332,7 +332,7 @@ router.delete("/:id", async (req, res) => {
         });
         
         res.status(204).send();
-    } catch (error) {
+    } catch {
         res.status(500).json({ message: "Failed to delete violation" });
     }
 });
@@ -346,7 +346,7 @@ router.get("/categories", async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
       res.json(categories);
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: "Failed to fetch categories" });
     }
 });
@@ -356,7 +356,7 @@ router.get("/categories", async (req, res) => {
     try {
       const categories = await dbStorage.getAllViolationCategories();
       res.json(categories);
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: "Failed to fetch categories" });
     }
 });
@@ -366,7 +366,7 @@ router.post("/categories", async (req, res) => {
     try {
       const category = await dbStorage.createViolationCategory({ name: req.body.name });
       res.status(201).json(category);
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: "Failed to create category" });
     }
 });
@@ -376,7 +376,7 @@ router.put("/categories/:id", async (req, res) => {
     try {
       const category = await dbStorage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
       res.json(category);
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: "Failed to update category" });
     }
 });
@@ -386,7 +386,7 @@ router.delete("/categories/:id", async (req, res) => {
     try {
       await dbStorage.deleteViolationCategory(parseInt(req.params.id));
       res.status(204).send();
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: "Failed to delete category" });
     }
 });

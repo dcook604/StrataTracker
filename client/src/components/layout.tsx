@@ -9,7 +9,6 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
-import { User } from "@supabase/supabase-js";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -109,7 +108,7 @@ export function Layout({ children, title, leftContent }: LayoutProps) {
                   ) : pending.length === 0 ? (
                     <div className="px-3 py-2 text-sm text-neutral-500">No pending approvals</div>
                   ) : (
-                    pending.map((v: any) => (
+                    pending.map((v: { id: number; unitId: string; unit?: { unitNumber: string }; violationType: string; violationDate?: string }) => (
                       <DropdownMenuItem key={v.id} onClick={() => navigate(`/violations/${v.id}`)} className="flex flex-col items-start cursor-pointer">
                         <div className="font-medium">Unit: {v.unit?.unitNumber || v.unitId}</div>
                         <div className="text-xs text-neutral-600">{v.violationType} &middot; {v.violationDate ? format(new Date(v.violationDate), "MMM dd, yyyy") : ""}</div>

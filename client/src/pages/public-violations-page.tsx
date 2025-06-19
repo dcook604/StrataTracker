@@ -44,8 +44,8 @@ export default function PublicViolationsPage() {
       const response = await apiRequest('GET', '/api/public/violations');
       const data = await response.json();
       setViolations(data.violations || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load violations');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load violations');
       toast({
         title: "Error",
         description: "Failed to load violations for your unit.",
@@ -54,7 +54,7 @@ export default function PublicViolationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [toast]);
 
   useEffect(() => {
     if (user) {
@@ -147,7 +147,7 @@ export default function PublicViolationsPage() {
                         <Badge variant="outline" className="font-mono">
                           {`VIO-${format(new Date(violation.createdAt), 'yyyyMMdd')}-${violation.id.toString().padStart(3, '0')}`}
                         </Badge>
-                        <StatusBadge status={violation.status as any} />
+                        <StatusBadge status={violation.status as 'new' | 'pending_approval' | 'approved' | 'disputed' | 'rejected'} />
                         <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                           {getDaysAgo(violation.violationDate)} days ago
                         </Badge>

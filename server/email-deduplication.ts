@@ -7,9 +7,6 @@ import {
 } from '@shared/schema';
 import { eq, and, gte, sql } from 'drizzle-orm';
 import { sendEmail } from './email-service';
-import { logger } from './utils/logger';
-import { createClient } from '@supabase/supabase-js';
-import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface EmailRequest {
   to: string;
@@ -18,7 +15,7 @@ export interface EmailRequest {
   text?: string;
   from?: string;
   emailType: 'violation_notification' | 'violation_approved' | 'campaign' | 'system';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   idempotencyKey?: string; // Optional - will be generated if not provided
 }
 

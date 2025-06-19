@@ -7,19 +7,13 @@ import {
   bylawRevisions,
   profiles,
   insertBylawSchema,
-  insertBylawCategorySchema,
-  insertBylawRevisionSchema,
-  Bylaw,
-  BylawCategory
+  insertBylawCategorySchema
 } from "@shared/schema";
-import { eq, desc, and, like, or, sql, asc, inArray } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, inArray } from "drizzle-orm";
 import { Request, Response } from "express";
 import { importSpectrumBylaws, parseXMLBylaws } from "../utils/bylawsImporter";
 import multer from "multer";
-import path from "path";
 import fs from "fs/promises";
-import { requireAdmin } from "../middleware/supabase-auth-middleware";
-import { AuditLogger, AuditAction, TargetType } from "../audit-logger";
 
 const router = express.Router();
 
@@ -39,7 +33,7 @@ const upload = multer({
 });
 
 // Middleware to ensure user is admin or council member
-const ensureCouncilOrAdmin = (req: Request, res: Response, next: Function) => {
+const ensureCouncilOrAdmin = (req: Request, res: Response, next: () => void) => {
   if (req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
     return next();
   }
@@ -58,8 +52,8 @@ router.get('/categories', async (req, res) => {
       .orderBy(asc(bylawCategories.displayOrder));
 
     res.json(categories);
-  } catch (error) {
-    console.error('Error fetching bylaw categories:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching bylaw categories:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch bylaw categories' });
   }
 });
@@ -75,8 +69,8 @@ router.post('/categories', ensureCouncilOrAdmin, async (req, res) => {
       .returning();
 
     res.status(201).json(category);
-  } catch (error) {
-    console.error('Error creating bylaw category:', error);
+  } catch (error: unknown) {
+    console.error('Error creating bylaw category:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to create bylaw category' });
   }
 });
@@ -129,7 +123,7 @@ router.get('/', async (req, res) => {
         }
       })
       .from(bylaws)
-      .leftJoin(users, eq(bylaws.createdById, profiles.id))
+      .leftJoin(profiles, eq(bylaws.createdById, profiles.id))
       .where(and(...whereConditions));
 
     // Add category filter if specified
@@ -166,7 +160,7 @@ router.get('/', async (req, res) => {
               }
             })
             .from(bylaws)
-            .leftJoin(users, eq(bylaws.createdById, profiles.id))
+            .leftJoin(profiles, eq(bylaws.createdById, profiles.id))
             .where(and(...whereConditions));
         }
       }
@@ -175,8 +169,8 @@ router.get('/', async (req, res) => {
     const results = await query.orderBy(asc(bylaws.sectionOrder));
 
     res.json(results);
-  } catch (error) {
-    console.error('Error fetching bylaws:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching bylaws:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch bylaws' });
   }
 });
@@ -214,11 +208,11 @@ router.get('/structure', async (req, res) => {
         sectionOrder: bylaw.sectionOrder
       });
       return acc;
-    }, {} as any);
+    }, {} as Record<string, { partNumber: string | null; partTitle: string | null; sections: Array<{ id: number; sectionNumber: string | null; title: string; sectionOrder: number | null; }> }>);
 
     res.json(groupedStructure);
-  } catch (error) {
-    console.error('Error fetching bylaw structure:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching bylaw structure:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch bylaw structure' });
   }
 });
@@ -250,7 +244,7 @@ router.get('/:id', async (req, res) => {
         }
       })
       .from(bylaws)
-      .leftJoin(users, eq(bylaws.createdById, profiles.id))
+      .leftJoin(profiles, eq(bylaws.createdById, profiles.id))
       .where(eq(bylaws.id, bylawId));
 
     if (!bylaw) {
@@ -258,8 +252,8 @@ router.get('/:id', async (req, res) => {
     }
 
     res.json(bylaw);
-  } catch (error) {
-    console.error('Error fetching bylaw:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching bylaw:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch bylaw' });
   }
 });
@@ -294,8 +288,8 @@ router.get('/search/suggestions', async (req, res) => {
       .limit(10);
 
     res.json(suggestions);
-  } catch (error) {
-    console.error('Error searching bylaws:', error);
+  } catch (error: unknown) {
+    console.error('Error searching bylaws:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to search bylaws' });
   }
 });
@@ -314,8 +308,8 @@ router.post('/', ensureCouncilOrAdmin, async (req, res) => {
       .returning();
 
     res.status(201).json(bylaw);
-  } catch (error) {
-    console.error('Error creating bylaw:', error);
+  } catch (error: unknown) {
+    console.error('Error creating bylaw:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to create bylaw' });
   }
 });
@@ -360,8 +354,8 @@ router.put('/:id', ensureCouncilOrAdmin, async (req, res) => {
       .returning();
 
     res.json(updatedBylaw);
-  } catch (error) {
-    console.error('Error updating bylaw:', error);
+  } catch (error: unknown) {
+    console.error('Error updating bylaw:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to update bylaw' });
   }
 });
@@ -386,8 +380,8 @@ router.delete('/:id', ensureCouncilOrAdmin, async (req, res) => {
     }
 
     res.json({ message: 'Bylaw deactivated successfully' });
-  } catch (error) {
-    console.error('Error deactivating bylaw:', error);
+  } catch (error: unknown) {
+    console.error('Error deactivating bylaw:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to deactivate bylaw' });
   }
 });
@@ -403,8 +397,8 @@ router.post('/import', ensureCouncilOrAdmin, upload.single('bylawsFile'), async 
       // Clean up temporary file
       try {
         await fs.unlink(filePath);
-      } catch (cleanupError) {
-        console.warn('Failed to cleanup temporary file:', cleanupError);
+      } catch (cleanupError: unknown) {
+        console.warn('Failed to cleanup temporary file:', cleanupError instanceof Error ? cleanupError.message : 'Unknown error');
       }
       
       res.status(201).json({
@@ -420,8 +414,8 @@ router.post('/import', ensureCouncilOrAdmin, upload.single('bylawsFile'), async 
         success: true
       });
     }
-  } catch (error) {
-    console.error('Error importing bylaws:', error);
+  } catch (error: unknown) {
+    console.error('Error importing bylaws:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ 
       message: 'Failed to import bylaws',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -449,13 +443,13 @@ router.get('/:id/revisions', ensureCouncilOrAdmin, async (req, res) => {
         }
       })
       .from(bylawRevisions)
-      .leftJoin(users, eq(bylawRevisions.createdById, profiles.id))
+      .leftJoin(profiles, eq(bylawRevisions.createdById, profiles.id))
       .where(eq(bylawRevisions.bylawId, bylawId))
       .orderBy(desc(bylawRevisions.createdAt));
 
     res.json(revisions);
-  } catch (error) {
-    console.error('Error fetching bylaw revisions:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching bylaw revisions:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ message: 'Failed to fetch bylaw revisions' });
   }
 });

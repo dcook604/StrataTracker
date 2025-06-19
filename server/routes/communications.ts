@@ -10,10 +10,8 @@ import {
   insertCommunicationTemplateSchema,
   RecipientType
 } from "@shared/schema";
-import { eq, desc, asc, and, ilike, sql } from "drizzle-orm";
-import { requireAdminOrCouncil } from "../middleware/auth-helpers";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { sendEmailWithDeduplication } from "../email-deduplication";
-import { AuditLogger, AuditAction, TargetType } from "../audit-logger";
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { EmailDeduplicationService } from '../email-deduplication';

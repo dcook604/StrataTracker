@@ -288,22 +288,4 @@ router.post('/logout', checkPublicSession, async (req, res) => {
   }
 });
 
-// Add session info to request type
-declare global {
-  namespace Express {
-    interface Request {
-      publicSession?: {
-        sessionId: string;
-        personId: number;
-        unitId: number;
-        email: string;
-        role: string;
-        fullName: string;
-        unitNumber: string;
-        expiresAt: Date;
-      };
-    }
-  }
-}
-
 export default router; 

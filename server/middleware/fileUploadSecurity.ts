@@ -2,6 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
+import express, { Request as ExpressRequest } from 'express';
 import { getVirusScanner } from '../services/virusScanner.js';
 import logger from '../utils/logger.js';
 import { fileTypeFromBuffer } from 'file-type';
@@ -24,7 +25,7 @@ const DEFAULT_OPTIONS: SecurityValidationOptions = {
 
 // Enhanced file filter with multiple validation layers
 const createSecureFileFilter = (options: SecurityValidationOptions) => {
-  return (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  return (req: ExpressRequest, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     try {
       // Basic MIME type validation
       if (!options.allowedMimeTypes.includes(file.mimetype)) {
@@ -40,7 +41,7 @@ const createSecureFileFilter = (options: SecurityValidationOptions) => {
       }
 
       // File name validation (prevent path traversal)
-      if (file.originalname.includes('..') || /[\/\\:]/.test(file.originalname)) {
+      if (file.originalname.includes('..') || /[/\\:]/.test(file.originalname)) {
         logger.warn(`[FileUpload] Rejected file with suspicious name: ${file.originalname}`);
         return cb(new Error('Invalid file name: contains path traversal or invalid characters'));
       }
@@ -79,8 +80,8 @@ const validateFileContent = async (buffer: Buffer, originalName: string, expecte
     await performTypeSpecificValidation(buffer, detectedType.mime, originalName);
     
     logger.debug(`[FileUpload] Content validation passed for ${originalName} (${detectedType.mime})`);
-  } catch (error: any) {
-    logger.error(`[FileUpload] Content validation failed for ${originalName}:`, error.message);
+  } catch (error: unknown) {
+    logger.error(`[FileUpload] Content validation failed for ${originalName}:`, error instanceof Error ? error.message : 'Unknown error');
     throw error;
   }
 };
@@ -141,8 +142,8 @@ const validateImageFile = async (buffer: Buffer, filename: string): Promise<void
     }
 
     logger.debug(`[FileUpload] Image validation passed for ${filename}`);
-  } catch (error: any) {
-    logger.warn(`[FileUpload] Image validation failed for ${filename}:`, error.message);
+  } catch (error: unknown) {
+    logger.warn(`[FileUpload] Image validation failed for ${filename}:`, error instanceof Error ? error.message : 'Unknown error');
     throw error;
   }
 };
@@ -174,14 +175,14 @@ const validatePdfFile = async (buffer: Buffer, filename: string): Promise<void> 
     }
 
     logger.debug(`[FileUpload] PDF validation passed for ${filename}`);
-  } catch (error: any) {
-    logger.warn(`[FileUpload] PDF validation failed for ${filename}:`, error.message);
+  } catch (error: unknown) {
+    logger.warn(`[FileUpload] PDF validation failed for ${filename}:`, error instanceof Error ? error.message : 'Unknown error');
     throw error;
   }
 };
 
 // Virus scanning middleware
-const virusScanMiddleware = async (req: any, res: any, next: any) => {
+const virusScanMiddleware = async (req: ExpressRequest, res: express.Response, next: express.NextFunction) => {
   const scanner = getVirusScanner();
   
   if (!scanner.isEnabled()) {
@@ -228,7 +229,7 @@ const virusScanMiddleware = async (req: any, res: any, next: any) => {
 
     logger.debug(`[FileUpload] Virus scan completed for ${files.length} file(s)`);
     next();
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[FileUpload] Virus scanning error:', error);
     return res.status(500).json({
       error: 'Scan failed',
@@ -238,7 +239,7 @@ const virusScanMiddleware = async (req: any, res: any, next: any) => {
 };
 
 // Content validation middleware
-const contentValidationMiddleware = async (req: any, res: any, next: any) => {
+const contentValidationMiddleware = async (req: ExpressRequest, res: express.Response, next: express.NextFunction) => {
   try {
     const files = req.files || (req.file ? [req.file] : []);
     
@@ -254,8 +255,8 @@ const contentValidationMiddleware = async (req: any, res: any, next: any) => {
 
     logger.debug(`[FileUpload] Content validation completed for ${files.length} file(s)`);
     next();
-  } catch (error: any) {
-    logger.warn('[FileUpload] Content validation failed:', error.message);
+  } catch (error: unknown) {
+    logger.warn('[FileUpload] Content validation failed:', error instanceof Error ? error.message : 'Unknown error');
     return res.status(400).json({
       error: 'Invalid file content',
       message: error.message

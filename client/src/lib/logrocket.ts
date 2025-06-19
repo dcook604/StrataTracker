@@ -4,7 +4,6 @@ import setupLogRocketReact from 'logrocket-react';
 
 // Initialize LogRocket only if we have an app ID and we're not in test environment
 const LOGROCKET_APP_ID = import.meta.env.VITE_LOGROCKET_APP_ID;
-const IS_PRODUCTION = import.meta.env.PROD;
 const IS_DEVELOPMENT = import.meta.env.DEV;
 
 let isInitialized = false;
@@ -101,7 +100,7 @@ export const identifyUser = (user: UserData) => {
 };
 
 // Custom error tracking
-export const captureException = (error: Error, extra?: Record<string, any>) => {
+export const captureException = (error: Error, extra?: Record<string, unknown>) => {
   if (!isInitialized) {
     return;
   }
@@ -121,7 +120,7 @@ export const captureException = (error: Error, extra?: Record<string, any>) => {
 };
 
 // Track custom events
-export const track = (eventName: string, properties?: Record<string, any>) => {
+export const track = (eventName: string, properties?: Record<string, unknown>) => {
   if (!isInitialized) {
     return;
   }

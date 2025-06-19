@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
-import { profiles } from '../shared/schema';
 
 dotenv.config({ path: '../.env' });
 
@@ -143,10 +141,5 @@ async function migrateUsers() {
   }
 }
 
-async function updateForeignKeys() {
-  const mappingResult = await client.query('SELECT old_id, new_id FROM user_id_mapping');
-  const idMapping = new Map(mappingResult.rows.map(r => [r.old_id.toString(), r.new_id]));
-  // ... (rest of the update logic using raw SQL)
-}
 
 migrateUsers(); 

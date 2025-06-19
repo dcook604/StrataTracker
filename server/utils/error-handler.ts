@@ -43,7 +43,7 @@ export function setupGlobalErrorHandlers() {
 /**
  * Centralized error handler middleware for Express
  */
-export function errorHandlerMiddleware(err: any, req: any, res: any, next: any) {
+export function errorHandlerMiddleware(err: any, req: any, res: any, _next: any) {
   // Log the error with contextual information
   logger.error('Express error:', {
     message: err.message,

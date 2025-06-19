@@ -40,7 +40,7 @@ interface AuditLog {
   action: string;
   targetType: string | null;
   targetId: string | null;
-  details: any;
+  details: Record<string, unknown> | null;
   ipAddress: string | null;
 }
 
@@ -208,7 +208,7 @@ export default function AuditLogPage() {
     return 'secondary';
   };
 
-  const formatDetails = (details: any) => {
+  const formatDetails = (details: Record<string, unknown> | null) => {
     if (!details) return 'N/A';
     try {
       const parsed = typeof details === 'string' ? JSON.parse(details) : details;

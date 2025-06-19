@@ -1,10 +1,10 @@
-import { useLocation, useParams, Link } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ViolationDetail } from "@/components/violation-detail";
 import { useAuth } from "@/hooks/use-auth";
-import { ChevronLeft, ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 export function ViolationDetailPage() {
@@ -14,9 +14,7 @@ export function ViolationDetailPage() {
   const id = params.id;
 
   const {
-    data: violation,
     isLoading: violationLoading,
-    error,
   } = useQuery({
     queryKey: ["violation", id],
     queryFn: () => apiRequest("GET", `/api/violations/${id}`),

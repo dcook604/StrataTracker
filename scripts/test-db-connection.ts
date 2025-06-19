@@ -25,7 +25,7 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-function log(message: string, error?: any) {
+function log(message: string, error?: unknown) {
   const timestamp = new Date().toISOString();
   const formattedMessage = `[${timestamp}] ${message}${error ? `: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}` : ''}`;
   
