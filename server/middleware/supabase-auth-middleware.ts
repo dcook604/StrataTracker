@@ -5,6 +5,23 @@ import postgres from 'postgres';
 import { profiles } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 
+// Define the authenticated user interface
+export interface AuthenticatedUser {
+  id: string;
+  fullName: string | null;
+  role: string;
+  updatedAt: Date | null;
+  email: string;
+  isAdmin: boolean;
+  isCouncilMember: boolean;
+  isUser: boolean;
+}
+
+// Extend Express Request to include user
+export interface AuthenticatedRequest extends Request {
+  user: AuthenticatedUser;
+}
+
 // Initialize database connection
 const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client);

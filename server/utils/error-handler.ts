@@ -56,7 +56,7 @@ export function errorHandlerMiddleware(err: Error & { statusCode?: number; statu
   });
 
   // Determine if this is an operational error that should be exposed to the client
-  const isOperationalError = err.isOperational || false;
+  const isOperationalError = (err as any).isOperational || false;
   
   // Don't leak error details in production unless it's an operational error
   const responseMessage = (process.env.NODE_ENV === 'production' && !isOperationalError)

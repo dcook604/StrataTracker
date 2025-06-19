@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "enabled": true
+    },
+    "context7-mcp": {
+      "enabled": true
+    },
+    "coolify": {
+      "enabled": true
+    }
+  }
+} 

@@ -677,9 +677,8 @@ export class DatabaseStorage implements IStorage {
         const historyEntry: InsertViolationHistory = {
           violationId: id,
           action: `status_changed_to_${status}`,
-          newValue: status,
-          details: historyDetails,
-          changedById: changedById,
+          details: { comment: historyDetails, newValue: status },
+          userId: changedById,
         };
         await tx.insert(violationHistories).values(historyEntry);
       }
@@ -704,9 +703,8 @@ export class DatabaseStorage implements IStorage {
         const historyEntry: InsertViolationHistory = {
           violationId: violation.id,
           action: `status_changed_to_${status}`,
-          newValue: status,
-          details: details.comment,
-          changedById: details.changedBy.id,
+          details: { comment: details.comment, newValue: status },
+          userId: details.changedBy.id,
         };
         await tx.insert(violationHistories).values(historyEntry);
       }

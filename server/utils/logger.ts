@@ -335,7 +335,7 @@ class Logger {
       query: Object.keys(req.query || {}).length > 0 ? '[REDACTED]' : undefined,
       params: Object.keys(req.params || {}).length > 0 ? '[REDACTED]' : undefined,
       ip: req.ip || req.connection?.remoteAddress,
-      userAgent: req.headers['user-agent']?.slice(0, 100) // Truncate long user agents
+      userAgent: req.headers?.['user-agent']?.slice(0, 100) // Truncate long user agents
     };
     
     this.debug(`Request: ${req.method} ${req.originalUrl || req.url}`, requestInfo);
@@ -350,15 +350,15 @@ class Logger {
     const status = res.statusCode;
     
     // In production, only log failed requests (4xx, 5xx)
-    if (this.isProduction && status < 400) return;
+    if (this.isProduction && status && status < 400) return;
     
     // Log failed requests with higher priority
-    if (status >= 400) {
+    if (status && status >= 400) {
       this.error(`Request failed: ${method} ${url}`, {
         statusCode: status,
         duration: responseTime,
         // Don't log response body in production to avoid sensitive data leaks
-        response: this.isProduction ? undefined : (res.body || res.locals.responseBody)
+        response: this.isProduction ? undefined : (res.body || res.locals?.responseBody)
       });
     } else {
       // Only log successful requests in development
