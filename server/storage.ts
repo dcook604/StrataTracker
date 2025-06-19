@@ -35,7 +35,7 @@ import {
   emailVerificationCodes,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, like, or, gte, lte, asc, SQL, Name, inArray, gt } from "drizzle-orm";
+import { eq, and, desc, sql, like, or, gte, lte, asc, SQL, Name, inArray, gt, count } from "drizzle-orm";
 import logger from './utils/logger';
 import session from 'express-session';
 
@@ -183,7 +183,7 @@ export interface IStorage {
     unitData: Partial<InsertPropertyUnit>,
     personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
     facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
-  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }>;
+  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; } }>;
 
   createPublicUserSession(data: {
     personId: number;
@@ -806,7 +806,7 @@ export class DatabaseStorage implements IStorage {
 
       const [counts] = await db
         .select({
-          total: drizzleCount(),
+          total: count(),
           new: sql<number>`SUM(CASE WHEN ${violations.status} = 'new' THEN 1 ELSE 0 END)`,
           pending: sql<number>`SUM(CASE WHEN ${violations.status} = 'pending_approval' THEN 1 ELSE 0 END)`,
           approved: sql<number>`SUM(CASE WHEN ${violations.status} = 'approved' THEN 1 ELSE 0 END)`,
@@ -869,7 +869,7 @@ export class DatabaseStorage implements IStorage {
 
     const violationsByMonthRaw = await db.select({
       yearMonth: sql<string>`TO_CHAR(${violations.createdAt}, 'YYYY-MM')`,
-      count: drizzleCount()
+      count: count()
     })
     .from(violations)
     .where(whereClause)
@@ -911,13 +911,13 @@ export class DatabaseStorage implements IStorage {
 
     const result = await db.select({
       type: violationCategories.name,
-      count: drizzleCount()
+      count: count()
     })
     .from(violations)
     .leftJoin(violationCategories, eq(violations.categoryId, violationCategories.id))
     .where(whereClause)
     .groupBy(violationCategories.name)
-    .orderBy(desc(drizzleCount()));
+    .orderBy(desc(count()));
 
     return result.map((r) => ({ 
       type: r.type ?? 'Unknown',
@@ -1230,7 +1230,7 @@ export class DatabaseStorage implements IStorage {
     await db.insert(emailVerificationCodes).values(params);
   }
 
-  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<any> {
+  async getEmailVerificationCode(personId: number, violationId: number, codeHash: string): Promise<{ id: number; usedAt?: Date } | null> {
     const [code] = await db
       .select()
       .from(emailVerificationCodes)
@@ -1243,7 +1243,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
     
-    return code;
+    return code || null;
   }
   
   async markEmailVerificationCodeUsed(id: number): Promise<void> {
@@ -1261,7 +1261,7 @@ export class DatabaseStorage implements IStorage {
     _unitData: Partial<InsertPropertyUnit>,
     _personsData: Array<{ id?: number; fullName: string; email: string; phone?: string; role: 'owner' | 'tenant'; receiveEmailNotifications: boolean }>,
     _facilitiesData: { parkingSpots?: string[]; storageLockers?: string[]; bikeLockers?: string[] }
-  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: any }> {
+  ): Promise<{ unit: PropertyUnit; persons: Person[]; roles: UnitPersonRole[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; } }> {
     throw new Error("Method not implemented.");
   }
 
@@ -1271,15 +1271,15 @@ export class DatabaseStorage implements IStorage {
     email: string;
     role: string;
     expiresInHours?: number;
-  }): Promise<any> {
+  }): Promise<{ sessionId: string; expiresAt: Date }> {
     throw new Error("Method not implemented.");
   }
 
-  async getPublicUserSession(_sessionId: string): Promise<any> {
+  async getPublicUserSession(_sessionId: string): Promise<{ unitId: number; expiresAt: Date } | null> {
     throw new Error("Method not implemented.");
   }
 
-  async getViolationsForUnit(_unitId: number, _includeStatuses?: string[]): Promise<any[]> {
+  async getViolationsForUnit(_unitId: number, _includeStatuses?: string[]): Promise<Violation[]> {
     throw new Error("Method not implemented.");
   }
 
