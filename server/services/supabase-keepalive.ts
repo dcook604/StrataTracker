@@ -1,5 +1,5 @@
 import { supabase, supabaseAdmin } from '../supabase-client';
-import cron from 'node-cron';
+import cron, { ScheduledTask } from 'node-cron';
 
 interface KeepAliveConfig {
   enabled: boolean;
@@ -21,7 +21,7 @@ interface KeepAliveStats {
 class SupabaseKeepAliveService {
   private config: KeepAliveConfig;
   private stats: KeepAliveStats;
-  private cronJob: NodeJS.Timeout | null = null;
+  private cronJob: ScheduledTask | null = null;
   private isRunning = false;
 
   constructor() {
@@ -63,11 +63,12 @@ class SupabaseKeepAliveService {
     this.cronJob = cron.schedule(this.config.interval, async () => {
       await this.performKeepAlive();
     }, {
-      scheduled: false,
       timezone: 'America/Vancouver' // Adjust to your timezone
     });
 
-    this.cronJob.start();
+    if (this.cronJob) {
+      this.cronJob.start();
+    }
     this.isRunning = true;
 
     // Perform initial ping
@@ -79,7 +80,7 @@ class SupabaseKeepAliveService {
    */
   stop() {
     if (this.cronJob) {
-      this.cronJob.destroy();
+      this.cronJob.stop();
       this.cronJob = null;
     }
     this.isRunning = false;

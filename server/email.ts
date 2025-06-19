@@ -49,14 +49,14 @@ interface ViolationApprovedParams {
 
 export interface ViolationPendingApprovalAdminNotificationParams {
   violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string }; // Key violation details
-  adminUser: Pick<AdminUserType, 'id' | 'fullName' | 'email'>; // Added 'id' to the Pick
+  adminUser: Pick<AdminUserType, 'id' | 'fullName'> & { email: string }; // Include email separately
   reporterName: string;
   appUrl: string; // Base URL of the application
 }
 
 export interface ViolationDisputedAdminNotificationParams {
   violation: Pick<Violation, 'id' | 'uuid' | 'violationType' | 'referenceNumber'> & { unitNumber?: string };
-  adminUser: Pick<AdminUserType, 'id' | 'fullName' | 'email'>;
+  adminUser: Pick<AdminUserType, 'id' | 'fullName'> & { email: string };
   disputedBy: string; // Name of person who disputed (from commenterName or person record)
   appUrl: string;
 }
@@ -151,12 +151,12 @@ export const sendNewViolationToOccupantsNotification = async (params: NewViolati
       const senderName = emailSettings?.fromName || 'Strata Management';
       const senderEmail = emailSettings?.from || 'no-reply@spectrum4.ca';
       
-      // Generate Magic Link
-      const { data, error: otpError } = await supabaseAdmin.auth.signInWithOtp({
+      // Generate Magic Link using generateLink instead of signInWithOtp
+      const { data, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
         email: person.email,
         options: {
-          shouldCreateUser: true, // Create the user if they don't exist
-          emailRedirectTo: `${process.env.APP_URL}/public/violations?session_token={RAW_SESSION_TOKEN}`, // Redirect to public violation page
+          redirectTo: `${process.env.APP_URL}/public/violations`,
         },
       });
 
@@ -351,7 +351,7 @@ StrataGuard System
   `;
 
   const emailRequest: EmailRequest = {
-    to: adminUser.email,
+    to: adminUser.email as string,
     subject,
     text: textContent,
     // html: "...", // TODO: Add HTML content using a template
@@ -412,7 +412,7 @@ StrataGuard System
   `;
 
   const emailRequest: EmailRequest = {
-    to: adminUser.email,
+    to: adminUser.email as string,
     subject,
     text: textContent,
     // html: "...", // TODO: Add HTML content using a template

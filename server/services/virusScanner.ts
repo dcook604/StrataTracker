@@ -69,14 +69,15 @@ class VirusScannerService {
       this.isInitialized = true;
       logger.info('[VirusScanner] ClamAV scanner initialized successfully');
     } catch (error: unknown) {
-      if (error.message?.includes('virus database is empty')) {
+      const err = error as Error & { code?: string };
+      if (err.message?.includes('virus database is empty')) {
         logger.error('[VirusScanner] ClamAV database not initialized. Run: sudo freshclam');
-      } else if (error.code === 'ENOENT') {
+      } else if (err.code === 'ENOENT') {
         logger.error('[VirusScanner] ClamAV socket not found. Check if clamd is running');
       } else {
         logger.error('[VirusScanner] Initialization error:', error);
       }
-      throw new Error(`Virus scanner initialization failed: ${error.message}`);
+      throw new Error(`Virus scanner initialization failed: ${err.message || 'Unknown error'}`);
     }
   }
 
@@ -97,7 +98,7 @@ class VirusScannerService {
         throw new Error(`File size (${stats.size} bytes) exceeds maximum allowed (${this.config.maxFileSize} bytes)`);
       }
 
-      const { isInfected, viruses } = await this.clamscan.scanFile(filePath);
+      const { isInfected, viruses } = await (this.clamscan as any).scanFile(filePath);
 
       const result: ScanResult = {
         isClean: !isInfected,
@@ -119,13 +120,13 @@ class VirusScannerService {
 
       return result;
     } catch (error: unknown) {
-      
-      if (error.code === 'ENOENT') {
+      const err = error as Error & { code?: string };
+      if (err.code === 'ENOENT') {
         throw new Error('File not found or ClamAV socket connection failed');
       }
       
       logger.error(`[VirusScanner] Scan error for ${filePath}:`, error);
-      throw new Error(`Virus scan failed: ${error.message}`);
+      throw new Error(`Virus scan failed: ${err.message || 'Unknown error'}`);
     }
   }
 
@@ -143,7 +144,7 @@ class VirusScannerService {
     }
 
     try {
-      const { isInfected, viruses } = await this.clamscan.scanBuffer(buffer);
+      const { isInfected, viruses } = await (this.clamscan as any).scanBuffer(buffer);
 
       const result: ScanResult = {
         isClean: !isInfected,
@@ -159,8 +160,9 @@ class VirusScannerService {
 
       return result;
     } catch (error: unknown) {
+      const err = error as Error;
       logger.error(`[VirusScanner] Buffer scan error${filename ? ` (${filename})` : ''}:`, error);
-      throw new Error(`Virus scan failed: ${error.message}`);
+      throw new Error(`Virus scan failed: ${err.message || 'Unknown error'}`);
     }
   }
 
@@ -168,8 +170,8 @@ class VirusScannerService {
     if (!this.isInitialized) return null;
     
     try {
-      return await this.clamscan.getVersion();
-    } catch (error) {
+      return await (this.clamscan as any).getVersion();
+    } catch (error: unknown) {
       logger.error('[VirusScanner] Failed to get version:', error);
       return null;
     }
