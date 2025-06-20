@@ -2,7 +2,7 @@ import pkg from 'pg';
 const { Pool } = pkg;
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from '#shared/schema';
-import logger from './utils/logger';
+import logger from './utils/logger.js';
 
 // Log database connection attempt
 logger.info('Setting up database connection...');
