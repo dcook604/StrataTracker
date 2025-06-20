@@ -7,7 +7,7 @@ export default defineConfig({
     react({
       babel: {
         plugins: [
-          // Add React display name plugin for better LogRocket component tracking
+          // React development plugins
           "@babel/plugin-transform-react-display-name"
         ]
       }

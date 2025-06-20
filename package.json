@@ -7,7 +7,6 @@
   "imports": {
     "#shared/*": "./shared/*"
   },
-
   "scripts": {
     "dev": "NODE_ENV=development vite",
     "dev:backend": "NODE_ENV=development nodemon --watch 'server/**/*.ts' --exec 'npx tsx' server/index.ts",
@@ -75,8 +74,6 @@
     "framer-motion": "^11.13.1",
     "helmet": "^7.1.0",
     "input-otp": "^1.4.2",
-    "logrocket": "^10.0.0",
-    "logrocket-react": "^6.0.3",
     "lucide-react": "^0.303.0",
     "memorystore": "^1.6.7",
     "multer": "^1.4.5-lts.2",

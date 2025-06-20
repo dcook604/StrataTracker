@@ -9,6 +9,22 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   
+  // Content Security Policy - Allow necessary external scripts
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'"
+  ].join('; ');
+  
+  res.setHeader('Content-Security-Policy', csp);
+  
   // Remove server signature
   res.removeHeader('X-Powered-By');
   
