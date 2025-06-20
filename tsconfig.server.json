@@ -1,5 +1,4 @@
 {
-  "extends": "./tsconfig.json",
   "include": ["server/**/*", "shared/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "client/**/*"],
   "compilerOptions": {
@@ -22,6 +21,7 @@
     "paths": {
       "@shared/*": ["./shared/*"]
     },
+    "resolveJsonModule": true,
     "types": ["node"]
   }
 } 
