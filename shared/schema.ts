@@ -61,31 +61,21 @@ export const propertyUnits = pgTable("property_units", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertCustomerSchema = createInsertSchema(customers).pick({
-  unitNumber: true,
-  floor: true,
-  ownerName: true,
-  ownerEmail: true,
-  tenantName: true,
-  tenantEmail: true,
-  phone: true,
-  notes: true,
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertPropertyUnitSchema = createInsertSchema(propertyUnits).pick({
-  unitNumber: true,
-  strataLot: true,
-  floor: true,
-  townhouse: true,
-  mailingStreet1: true,
-  mailingStreet2: true,
-  mailingCity: true,
-  mailingStateProvince: true,
-  mailingPostalCode: true,
-  mailingCountry: true,
-  phone: true,
-  notes: true,
+export const insertPropertyUnitSchema = createInsertSchema(propertyUnits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
   // Deprecated fields are not included in insert schema for new units
+  ownerEmail: true,
+  tenantEmail: true,
+  ownerName: true,
+  tenantName: true,
 });
 export type PropertyUnit = typeof propertyUnits.$inferSelect;
 export type InsertPropertyUnit = typeof propertyUnits.$inferInsert;
@@ -99,9 +89,10 @@ export const parkingSpots = pgTable("parking_spots", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertParkingSpotSchema = createInsertSchema(parkingSpots).pick({
-  unitId: true,
-  identifier: true,
+export const insertParkingSpotSchema = createInsertSchema(parkingSpots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 export type ParkingSpot = typeof parkingSpots.$inferSelect;
 export type InsertParkingSpot = typeof parkingSpots.$inferInsert;
@@ -115,9 +106,10 @@ export const storageLockers = pgTable("storage_lockers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertStorageLockerSchema = createInsertSchema(storageLockers).pick({
-  unitId: true,
-  identifier: true,
+export const insertStorageLockerSchema = createInsertSchema(storageLockers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 export type StorageLocker = typeof storageLockers.$inferSelect;
 export type InsertStorageLocker = typeof storageLockers.$inferInsert;
@@ -131,9 +123,10 @@ export const bikeLockers = pgTable("bike_lockers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertBikeLockerSchema = createInsertSchema(bikeLockers).pick({
-  unitId: true,
-  identifier: true,
+export const insertBikeLockerSchema = createInsertSchema(bikeLockers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 export type BikeLocker = typeof bikeLockers.$inferSelect;
 export type InsertBikeLocker = typeof bikeLockers.$inferInsert;
@@ -165,12 +158,10 @@ export const violationCategories = pgTable("violation_categories", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertViolationCategorySchema = createInsertSchema(violationCategories).pick({
-  name: true,
-  description: true,
-  bylawReference: true,
-  defaultFineAmount: true,
-  active: true,
+export const insertViolationCategorySchema = createInsertSchema(violationCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // System settings schema (for global email settings, etc.)
@@ -183,11 +174,9 @@ export const systemSettings = pgTable("system_settings", {
   updatedById: uuid("updated_by_id").references(() => profiles.id),
 });
 
-export const insertSystemSettingSchema = createInsertSchema(systemSettings).pick({
-  settingKey: true,
-  settingValue: true,
-  description: true,
-  updatedById: true,
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  updatedAt: true,
 });
 
 // Violation schema
@@ -238,25 +227,15 @@ export const violationsRelations = relations(violations, ({ one }) => ({
   }),
 }));
 
-export const insertViolationSchema = createInsertSchema(violations).pick({
-  unitId: true,
-  reportedById: true,
-  categoryId: true,
-  violationType: true,
-  violationDate: true,
-  violationTime: true,
-  description: true,
-  bylawReference: true,
-  status: true,
-  attachments: true,
-  incidentArea: true,
-  conciergeName: true,
-  peopleInvolved: true,
-  noticedBy: true,
-  damageToProperty: true,
-  damageDetails: true,
-  policeInvolved: true,
-  policeDetails: true,
+export const insertViolationSchema = createInsertSchema(violations).omit({
+  id: true,
+  uuid: true,
+  referenceNumber: true,
+  createdAt: true,
+  updatedAt: true,
+  pdfGenerated: true,
+  pdfPath: true,
+  fineAmount: true,
 });
 
 // Violation history/comments schema
@@ -351,13 +330,10 @@ export const persons = pgTable("persons", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertPersonSchema = createInsertSchema(persons).pick({
-  fullName: true,
-  email: true,
-  phone: true,
-  // Add pet info to insert schema
-  hasCat: true,
-  hasDog: true,
+export const insertPersonSchema = createInsertSchema(persons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Unit-Person Roles (many-to-many, with role: 'owner' | 'tenant')
@@ -370,10 +346,9 @@ export const unitPersonRoles = pgTable("unit_person_roles", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertUnitPersonRoleSchema = createInsertSchema(unitPersonRoles).pick({
-  unitId: true,
-  personId: true,
-  role: true,
+export const insertUnitPersonRoleSchema = createInsertSchema(unitPersonRoles).omit({
+  id: true,
+  createdAt: true,
 });
 
 export type InsertUser = typeof profiles.$inferInsert;
@@ -404,12 +379,10 @@ export const violationAccessLinks = pgTable("violation_access_links", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertViolationAccessLinkSchema = createInsertSchema(violationAccessLinks).pick({
-  violationId: true,
-  violationUuid: true,
-  recipientEmail: true,
-  token: true,
-  expiresAt: true,
+export const insertViolationAccessLinkSchema = createInsertSchema(violationAccessLinks).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
 });
 
 export type ViolationAccessLink = typeof violationAccessLinks.$inferSelect;
