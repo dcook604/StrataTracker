@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { bylaws } from '@shared/schema';
+import { bylaws } from '#shared/schema';
 import fs from 'fs/promises';
 
 interface BylawData {

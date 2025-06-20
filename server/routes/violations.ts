@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { storage as dbStorage } from '../storage';
+import { storage } from '../storage.js';
 import { 
   isUUID,
   getViolationByIdOrUuid
@@ -11,9 +11,13 @@ import {
   sendViolationPendingApprovalToAdminsNotification,
   formatViolationReferenceNumber 
 } from '../email';
-import { insertViolationSchema, type User } from '@shared/schema';
+import { insertViolationSchema, type User } from '#shared/schema';
 import logger from '../utils/logger';
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
+import { Router } from 'express';
+import { db } from '../db.js';
+import { eq, desc, and, or, sql } from 'drizzle-orm';
+import { requireAdmin, requireAdminOrCouncil } from '../middleware/auth-helpers.js';
 
 const router = express.Router();
 
@@ -40,7 +44,7 @@ router.get("/", async (req, res) => {
       const { status, unitId, page, limit, sortBy, sortOrder } = req.query;
       const pageNum = parseInt(page as string) || 1;
       const limitNum = parseInt(limit as string) || 20;
-      const result = await dbStorage.getViolationsPaginated(
+      const result = await storage.getViolationsPaginated(
         pageNum,
         limitNum,
         status as string | undefined,
@@ -59,7 +63,7 @@ router.get("/", async (req, res) => {
 router.get("/recent", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 5;
-      const violations = await dbStorage.getRecentViolations(limit);
+      const violations = await storage.getRecentViolations(limit);
       res.json(violations);
     } catch (error: unknown) {
       logger.error("Recent violations fetch error:", error instanceof Error ? error.message : 'Unknown error');
@@ -72,7 +76,7 @@ router.get("/pending-approval", async (req, res) => {
     try {
       const userId = req.user?.id as string || "";
       if (userId === undefined) return;
-      const pendingViolations = await dbStorage.getPendingApprovalViolations(userId);
+      const pendingViolations = await storage.getPendingApprovalViolations(userId);
       res.json(pendingViolations);
     } catch (error: unknown) {
       logger.error('[API] Error fetching pending violations:', error instanceof Error ? error.message : 'Unknown error');
@@ -110,7 +114,7 @@ router.post("/",
           attachments: Array.isArray(violationData.attachments) ? violationData.attachments : [],
         });
 
-        const violation = await dbStorage.createViolation(validatedData);
+        const violation = await storage.createViolation(validatedData);
         logger.info(`[Violation Upload] Created violation with UUID: ${violation.uuid}`);
         
         // Log audit event
@@ -129,18 +133,18 @@ router.post("/",
         
         setImmediate(async () => {
           try {
-            const unit = await dbStorage.getPropertyUnit(violation.unitId);
+            const unit = await storage.getPropertyUnit(violation.unitId);
             const reporterUser = req.user as User;
 
             if (unit && reporterUser) {
               try {
-                const personsForUnit = await dbStorage.getPersonsWithRolesForUnit(violation.unitId);
+                const personsForUnit = await storage.getPersonsWithRolesForUnit(violation.unitId);
                 const personsToNotifyForEmail = [];
 
                 for (const person of personsForUnit) {
                   let accessLinkForPerson: string | undefined = undefined;
                   if (person.receiveEmailNotifications && person.email) {
-                    const token = await dbStorage.createViolationAccessLink({
+                    const token = await storage.createViolationAccessLink({
                       violationId: violation.id,
                       violationUuid: violation.uuid,
                       recipientEmail: person.email,

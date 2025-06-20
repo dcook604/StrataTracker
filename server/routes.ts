@@ -18,10 +18,10 @@ import path from "path";
 import fs from "fs/promises";
 import logger from "./utils/logger";
 import { getVirusScanner } from "./services/virusScanner";
-import { adminAnnouncements } from '@shared/schema';
+import { adminAnnouncements } from '#shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { AuditLogger, AuditAction, TargetType } from './audit-logger';
-import { db } from './db';
+import { db } from './db.js';
 import { authenticateUser, requireAdmin, AuthenticatedRequest } from './middleware/supabase-auth-middleware';
 
 export async function registerRoutes(app: Express): Promise<Server> {

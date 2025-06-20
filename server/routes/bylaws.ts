@@ -1,5 +1,5 @@
 import express from "express";
-import { db } from "../db";
+import { db } from "../db.js";
 import {
   bylaws,
   bylawCategories,
@@ -8,12 +8,13 @@ import {
   profiles,
   insertBylawSchema,
   insertBylawCategorySchema
-} from "@shared/schema";
+} from "#shared/schema";
 import { eq, desc, and, like, or, asc, inArray } from "drizzle-orm";
 import { Request, Response } from "express";
-import { importSpectrumBylaws, parseXMLBylaws } from "../utils/bylawsImporter";
+import { importSpectrumBylaws, parseXMLBylaws } from "../utils/bylawsImporter.js";
 import multer from "multer";
 import fs from "fs/promises";
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger.js';
 
 const router = express.Router();
 

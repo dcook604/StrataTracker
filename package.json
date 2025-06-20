@@ -4,6 +4,9 @@
   "description": "A comprehensive strata violation tracking and management system.",
   "type": "module",
   "main": "dist/server/index.js",
+  "imports": {
+    "#shared/*": "./dist/shared/*"
+  },
   "scripts": {
     "dev": "NODE_ENV=development vite",
     "dev:backend": "NODE_ENV=development nodemon --watch 'server/**/*.ts' --exec 'npx tsx' server/index.ts",

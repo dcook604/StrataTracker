@@ -1,14 +1,19 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import {
   useMutation,
-  UseMutationResult,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
 } from "@tanstack/react-query";
-import { InsertUser } from "@shared/schema";
+import { InsertUser } from "#shared/schema";
 import { queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { identifyUser } from "@/lib/logrocket";
 import { supabase } from "@/lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
+import { useNavigate } from "react-router-dom";
+import { toast as useToastToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/utils";
 
 // Omit the password from the user type for client-side usage
 // type SafeUser = Omit<SelectUser, "password"> & {
@@ -45,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error] = useState<Error | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

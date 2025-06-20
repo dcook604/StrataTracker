@@ -1,9 +1,10 @@
 {
-  "include": ["server/**/*", "shared/**/*"],
+  "include": ["server/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "client/**/*"],
   "compilerOptions": {
     "noEmit": false,
     "outDir": "./dist",
+    "rootDir": ".",
     "module": "ESNext",
     "target": "ES2022",
     "moduleResolution": "node",
@@ -19,7 +20,7 @@
     "allowImportingTsExtensions": false,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["./shared/*"]
+      "#shared/*": ["./shared/*"]
     },
     "resolveJsonModule": true,
     "types": ["node"]

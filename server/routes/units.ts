@@ -1,10 +1,15 @@
 import express from 'express';
 import { z } from 'zod';
-import { storage as dbStorage } from '../storage';
+import { storage as dbStorage } from '../storage.js';
 // Note: Authentication now handled at route level in routes.ts
-import { insertPropertyUnitSchema } from '@shared/schema';
-import logger from '../utils/logger';
-import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
+import { insertPropertyUnitSchema } from '#shared/schema';
+import logger from '../utils/logger.js';
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger.js';
+import { Router } from 'express';
+import { db } from '../db.js';
+import { propertyUnits, persons } from '../..#shared/schema';
+import { eq, and, asc, isNull, or } from 'drizzle-orm';
+import { requireAdmin } from '../middleware/auth-helpers.js';
 
 const router = express.Router();
 

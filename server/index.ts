@@ -29,7 +29,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
     dotenv.config();
 
     // Test database connection
-    const { db } = await import('./db');
+    const { db } = await import('./db.js');
     await db.execute(sql`SELECT 1`);
     console.log("Database connected successfully");
 
@@ -51,7 +51,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
 
     // Register routes
     try {
-      const { registerRoutes } = await import('./routes');
+      const { registerRoutes } = await import('./routes.js');
       await registerRoutes(app);
       console.log("Routes registered successfully");
     } catch (error) {
@@ -75,7 +75,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
     } else {
       // Development mode - setup Vite
       try {
-        const { setupVite } = await import('./vite');
+        const { setupVite } = await import('./vite.js');
         const server = createServer(app);
         await setupVite(app, server);
         console.log("Vite development server configured");
@@ -105,7 +105,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
 
     // Start background services (if they exist)
     try {
-      const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler');
+      const { startEmailCleanupScheduler } = await import('./email-cleanup-scheduler.js');
       startEmailCleanupScheduler();
       console.log("Email cleanup scheduler started");
     } catch (error) {
@@ -113,7 +113,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
     }
 
     try {
-      const { supabaseKeepAlive } = await import('./services/supabase-keepalive');
+      const { supabaseKeepAlive } = await import('./services/supabase-keepalive.js');
       supabaseKeepAlive.start();
       console.log("Supabase keep-alive service started");
     } catch (error) {

@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import express from 'express';
-import { Violation, PropertyUnit, ViolationCategory } from '@shared/schema';
+import { Violation, PropertyUnit, ViolationCategory } from '#shared/schema';
 import { format } from 'date-fns';
 
 interface ReportStats {

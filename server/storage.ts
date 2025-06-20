@@ -35,8 +35,8 @@ import {
   emailVerificationCodes,
   publicUserSessions,
   type PublicUserSession,
-} from "@shared/schema";
-import { db } from "./db";
+} from "#shared/schema";
+import { db } from "./db.js";
 import { eq, and, desc, sql, like, or, gte, lte, asc, SQL, Name, inArray, gt, count } from "drizzle-orm";
 import logger from './utils/logger';
 import session from 'express-session';

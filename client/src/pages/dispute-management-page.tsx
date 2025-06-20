@@ -20,7 +20,7 @@ import {
   Calendar,
   Building
 } from "lucide-react";
-import { ViolationStatus } from "@shared/schema";
+import { ViolationStatus } from "#shared/schema";
 import { 
   Dialog,
   DialogContent,
@@ -30,6 +30,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { VIOLATION_STATUSES } from "@/lib/constants";
 
 interface DisputedViolation {
   id: number;

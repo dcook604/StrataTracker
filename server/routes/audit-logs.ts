@@ -1,6 +1,6 @@
 import express from 'express';
 import { db } from '../db';
-import { auditLogs, profiles } from '@shared/schema';
+import { auditLogs, profiles } from '#shared/schema';
 import { eq, desc, and, gte, lte, like, or, inArray, sql } from 'drizzle-orm';
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
 import { requireAdmin } from '../middleware/supabase-auth-middleware';

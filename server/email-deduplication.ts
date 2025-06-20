@@ -1,12 +1,13 @@
 import crypto from 'crypto';
-import { db } from './db';
-import { 
-  emailIdempotencyKeys, 
-  emailSendAttempts, 
+import { db } from './db.js';
+import {
   emailDeduplicationLog,
-} from '@shared/schema';
-import { eq, and, gte, sql } from 'drizzle-orm';
+  emailIdempotencyKeys,
+  emailSendAttempts,
+} from '#shared/schema';
+import { sql, and, eq, gte, lte, asc, desc, inArray } from 'drizzle-orm';
 import { sendEmail } from './email-service';
+import logger from './utils/logger.js';
 
 export interface EmailRequest {
   to: string;
