@@ -1,5 +1,5 @@
 import React from "react";
-import { captureException, getSessionURL } from "@/lib/logrocket";
+// LogRocket removed - replace with your preferred error tracking service
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -8,7 +8,6 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error?: Error;
-  sessionURL?: string | null;
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -22,35 +21,15 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Capture error in LogRocket
-    captureException(error, {
-      componentStack: errorInfo.componentStack,
-      errorBoundary: true,
-      timestamp: new Date().toISOString()
-    });
-
-    // Get session URL for debugging
-    const sessionURL = getSessionURL();
-    this.setState({ sessionURL });
-
     // Log error to console
     console.error("ErrorBoundary caught an error:", error, errorInfo);
-    
-    if (sessionURL) {
-      console.log("LogRocket session URL:", sessionURL);
-    }
   }
 
   handleReload = () => {
     window.location.reload();
   };
 
-  handleCopySessionURL = () => {
-    if (this.state.sessionURL) {
-      navigator.clipboard.writeText(this.state.sessionURL);
-      alert("Session URL copied to clipboard!");
-    }
-  };
+
 
   render() {
     if (this.state.hasError) {
@@ -76,22 +55,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               Reload Page
             </button>
             
-            {this.state.sessionURL && (
-              <button
-                onClick={this.handleCopySessionURL}
-                className="px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
-                title="Copy LogRocket session URL for debugging"
-              >
-                Copy Debug URL
-              </button>
-            )}
           </div>
-
-          {this.state.sessionURL && (
-            <p className="mt-4 text-xs text-neutral-600">
-              A debugging session has been recorded. Use the &quot;Copy Debug URL&quot; button to share with support.
-            </p>
-          )}
         </div>
       );
     }

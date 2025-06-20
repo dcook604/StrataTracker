@@ -8,7 +8,7 @@ import {
 import { InsertUser } from "#shared/schema";
 import { queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { identifyUser } from "@/lib/logrocket";
+// LogRocket removed - replace with your preferred error tracking service
 import { supabase } from "@/lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
@@ -59,12 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         setIsLoading(false);
 
-        if (session?.user) {
-          identifyUser({
-            id: session.user.id,
-            email: session.user.email,
-          });
-        }
+        // User session established - add your analytics tracking here if needed
       }
     );
 
