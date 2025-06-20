@@ -1,9 +1,9 @@
 import nodemailer from 'nodemailer';
 import { Request as ExpressRequest } from 'express';
-import { db } from './db';
-import { systemSettings } from '@shared/schema';
+import { db } from './db.js';
+import { systemSettings } from '#shared/schema.js';
 import { eq, inArray } from 'drizzle-orm';
-import logger from './utils/logger';
+import logger from './utils/logger.js';
 
 // Email configuration types
 export interface EmailConfig {

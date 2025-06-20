@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase } from '../supabase-client';
+import { supabase } from '../supabase-client.js';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { profiles } from '../../shared/schema';
+import { profiles } from '#shared/schema.js';
 import { eq } from 'drizzle-orm';
 
 // Define the authenticated user interface

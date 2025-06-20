@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
-import { ViolationStatus } from "@shared/schema";
+import { ViolationStatus } from "#shared/schema";
 import { format } from "date-fns";
 import { EmptyState } from "@/components/empty-state";
 import { useQueryParams } from "@/hooks/use-query-params";

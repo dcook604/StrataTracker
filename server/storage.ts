@@ -35,10 +35,10 @@ import {
   emailVerificationCodes,
   publicUserSessions,
   type PublicUserSession,
-} from "@shared/schema";
-import { db } from "./db";
+} from "#shared/schema.js";
+import { db } from "./db.js";
 import { eq, and, desc, sql, like, or, gte, lte, asc, SQL, Name, inArray, gt, count } from "drizzle-orm";
-import logger from './utils/logger';
+import logger from './utils/logger.js';
 import session from 'express-session';
 
 // @ts-expect-error connect-pg-simple package lacks proper TypeScript definitions

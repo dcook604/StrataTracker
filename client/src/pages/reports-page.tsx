@@ -29,7 +29,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Layout } from "@/components/layout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
-import { ViolationCategory } from "@shared/schema";
+import { ViolationCategory } from "#shared/schema";
 
 // Custom DateRangePicker component
 const DateRangePicker = ({ from, to, onFromChange, onToChange }: {

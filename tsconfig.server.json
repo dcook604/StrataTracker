@@ -4,9 +4,10 @@
   "compilerOptions": {
     "noEmit": false,
     "outDir": "./dist",
-    "module": "ESNext",
+    "rootDir": ".",
+    "module": "NodeNext",
     "target": "ES2022",
-    "moduleResolution": "node",
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
@@ -18,10 +19,10 @@
     "removeComments": false,
     "allowImportingTsExtensions": false,
     "baseUrl": ".",
-    "paths": {
-      "@shared/*": ["./shared/*"]
-    },
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "#shared/*": ["./shared/*"]
+    }
   }
 } 

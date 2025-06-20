@@ -1,7 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
-import { storage as dbStorage } from '../storage';
-import logger from '../utils/logger';
+import { storage as dbStorage } from '../storage.js';
+import logger from '../utils/logger.js';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 
@@ -240,7 +240,7 @@ router.get('/violations/:id', checkPublicSession, async (req, res) => {
 
     res.json({ 
       violation,
-      history: history.filter(h => !h.action?.includes('internal')) // Filter sensitive history
+      history: history.filter(h => h.action && !h.action.includes('internal')) // Filter sensitive history
     });
   } catch (error) {
     logger.error('[PUBLIC_VIOLATIONS] Error getting violation details:', error);

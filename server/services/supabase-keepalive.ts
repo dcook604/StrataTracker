@@ -1,5 +1,6 @@
-import { supabase, supabaseAdmin } from '../supabase-client';
+import { supabase, supabaseAdmin } from '../supabase-client.js';
 import cron, { ScheduledTask } from 'node-cron';
+import logger from '../utils/logger.js';
 
 interface KeepAliveConfig {
   enabled: boolean;

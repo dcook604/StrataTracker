@@ -1,6 +1,6 @@
 import express from 'express';
-import { storage as dbStorage } from '../storage';
-import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
+import { storage as dbStorage } from '../storage.js';
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger.js';
 
 const router = express.Router();
 

@@ -1,7 +1,7 @@
 import express from 'express';
-import { storage as dbStorage } from '../storage';
+import { storage as dbStorage } from '../storage.js';
 // Note: Authentication now handled at route level in routes.ts
-import logger from '../utils/logger';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 

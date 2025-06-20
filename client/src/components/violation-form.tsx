@@ -31,7 +31,7 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
-import { PropertyUnit, ViolationCategory } from "@shared/schema";
+import { PropertyUnit, ViolationCategory } from "#shared/schema";
 
 interface UnitUpdateDialogState {
   existing: PropertyUnit;

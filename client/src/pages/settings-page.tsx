@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { SystemSetting } from "@shared/schema";
+import { SystemSetting } from "#shared/schema";
 import {
   Card,
   CardContent,

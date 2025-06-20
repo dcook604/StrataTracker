@@ -1,6 +1,6 @@
 import express from 'express';
-import { storage as dbStorage } from '../storage';
-import { verifyEmailConfig, EmailConfig } from '../email-service';
+import { storage as dbStorage } from '../storage.js';
+import { verifyEmailConfig, EmailConfig } from '../email-service.js';
 
 const router = express.Router();
 

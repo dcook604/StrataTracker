@@ -1,6 +1,6 @@
-import { db } from './db';
-import { auditLogs, type InsertAuditLog, type Profile } from '@shared/schema';
-import logger from './utils/logger';
+import { auditLogs, type InsertAuditLog, type Profile } from '#shared/schema.js';
+import { db } from './db.js';
+import logger from './utils/logger.js';
 import type { Request } from 'express';
 
 export enum AuditAction {
