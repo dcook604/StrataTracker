@@ -1,5 +1,5 @@
 import * as cron from 'node-cron';
-import { EmailDeduplicationService } from './email-deduplication';
+import { EmailDeduplicationService } from './email-deduplication.js';
 
 export class EmailCleanupScheduler {
   private static cleanupJob: cron.ScheduledTask | null = null;

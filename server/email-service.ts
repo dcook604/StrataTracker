@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { Request as ExpressRequest } from 'express';
 import { db } from './db.js';
-import { systemSettings } from '#shared/schema';
+import { systemSettings } from '#shared/schema.js';
 import { eq, inArray } from 'drizzle-orm';
 import logger from './utils/logger.js';
 

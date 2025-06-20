@@ -1,10 +1,10 @@
 import express from 'express';
-import { storage as dbStorage } from '../storage';
-import { getVirusScanner } from '../services/virusScanner';
-import logger from '../utils/logger';
+import { storage as dbStorage } from '../storage.js';
+import { getVirusScanner } from '../services/virusScanner.js';
+import logger from '../utils/logger.js';
 import { sql } from 'drizzle-orm';
-import { db } from '../db';
-import { supabaseKeepAlive } from '../services/supabase-keepalive';
+import { db } from '../db.js';
+import { supabaseKeepAlive } from '../services/supabase-keepalive.js';
 
 const router = express.Router();
 

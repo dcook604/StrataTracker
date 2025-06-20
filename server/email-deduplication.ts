@@ -4,9 +4,9 @@ import {
   emailDeduplicationLog,
   emailIdempotencyKeys,
   emailSendAttempts,
-} from '#shared/schema';
+} from '#shared/schema.js';
 import { sql, and, eq, gte, lte, asc, desc, inArray } from 'drizzle-orm';
-import { sendEmail } from './email-service';
+import { sendEmail } from './email-service.js';
 import logger from './utils/logger.js';
 
 export interface EmailRequest {

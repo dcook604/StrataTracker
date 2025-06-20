@@ -1,20 +1,20 @@
-import express from "express";
 import { db } from "../db.js";
-import {
-  bylaws,
+import { 
+  bylaws, 
   bylawCategories,
   bylawCategoryLinks,
   bylawRevisions,
   profiles,
   insertBylawSchema,
   insertBylawCategorySchema
-} from "#shared/schema";
-import { eq, desc, and, like, or, asc, inArray } from "drizzle-orm";
-import { Request, Response } from "express";
-import { importSpectrumBylaws, parseXMLBylaws } from "../utils/bylawsImporter.js";
-import multer from "multer";
-import fs from "fs/promises";
+} from "#shared/schema.js";
+import { requireAdminOrCouncil } from "../middleware/supabase-auth-middleware.js";
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger.js';
+import { parseXMLBylaws, importSpectrumBylaws } from '../utils/bylawsImporter.js';
+import fs from "fs/promises";
+import express, { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
+import { and, eq, like, or, desc, asc, inArray } from 'drizzle-orm';
 
 const router = express.Router();
 
@@ -33,13 +33,8 @@ const upload = multer({
   }
 });
 
-// Middleware to ensure user is admin or council member
-const ensureCouncilOrAdmin = (req: Request, res: Response, next: () => void) => {
-  if (req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
-    return next();
-  }
-  res.status(403).json({ message: "Forbidden - Admin or Council access required" });
-};
+// Use the middleware from supabase-auth-middleware instead
+const ensureCouncilOrAdmin = requireAdminOrCouncil;
 
 // BYLAW CATEGORIES ROUTES
 

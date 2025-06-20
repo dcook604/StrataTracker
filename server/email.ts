@@ -1,10 +1,10 @@
 import nodemailer from 'nodemailer';
-import { loadEmailSettings, getEmailNotificationSubjects } from './email-service';
-import { sendEmailWithDeduplication, EmailDeduplicationService, type EmailRequest } from './email-deduplication';
-import { db } from './db';
-import { unitPersonRoles, persons as PersonsSchema, type User as AdminUserType, type Violation } from '../shared/schema';
+import { loadEmailSettings, getEmailNotificationSubjects } from './email-service.js';
+import { sendEmailWithDeduplication, EmailDeduplicationService, type EmailRequest } from './email-deduplication.js';
+import { db } from './db.js';
+import { unitPersonRoles, persons as PersonsSchema, type User as AdminUserType, type Violation } from '#shared/schema.js';
 import { and, eq } from 'drizzle-orm';
-import { supabaseAdmin } from './supabase-client';
+import { supabaseAdmin } from './supabase-client.js';
 
 // Initialize with default local configuration
 let transporter = nodemailer.createTransport({
@@ -565,7 +565,7 @@ StrataGuard System
   }
 };
 
-export { sendEmailWithDeduplication } from "./email-deduplication";
+export { sendEmailWithDeduplication } from "./email-deduplication.js";
 
 // Utility to format violation reference number as VIO-YYYYMMDD-XXX
 export function formatViolationReferenceNumber(id: number, createdAt: Date): string {

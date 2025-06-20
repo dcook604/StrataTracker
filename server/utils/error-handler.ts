@@ -1,5 +1,5 @@
 import express from 'express';
-import logger from './logger';
+import logger from './logger.js';
 
 /**
  * Configure global error handlers to catch and log unhandled errors

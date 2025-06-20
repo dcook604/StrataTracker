@@ -20,7 +20,7 @@ export function log(message: string, source = "express") {
 
 export async function setupVite(app: Express, server: Server) {
   // Import vite config only when needed (development mode)
-  const viteConfig = (await import("../vite.config")).default;
+  const viteConfig = (await import("../vite.config.js")).default;
   
   const serverOptions = {
     middlewareMode: true,

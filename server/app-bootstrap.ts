@@ -1,13 +1,16 @@
 import express from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { requestLogger, errorLogger } from "./middleware/logging-middleware";
-import logger from "./utils/logger";
-import { setupGlobalErrorHandlers, errorHandlerMiddleware } from "./utils/error-handler";
-import { startPerformanceMonitoring } from "./utils/performance-monitor";
-import { pool } from "./db";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
+import { requestLogger, errorLogger } from "./middleware/logging-middleware.js";
+import logger from "./utils/logger.js";
+import { setupGlobalErrorHandlers, errorHandlerMiddleware } from "./utils/error-handler.js";
+import { startPerformanceMonitoring } from "./utils/performance-monitor.js";
+import { pool } from "./db.js";
 import { createServer } from "http";
 import fs from "fs";
+import getPort from "./utils/port-manager.js";
+import { startEmailCleanupScheduler } from "./email-cleanup-scheduler.js";
+import { supabaseKeepAlive } from "./services/supabase-keepalive.js";
 
 // Initialize global error handlers
 setupGlobalErrorHandlers();

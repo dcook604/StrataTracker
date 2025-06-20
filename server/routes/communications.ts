@@ -15,12 +15,12 @@ import {
   emailTrackingEvents,
   manualEmailRecipients,
   emailDeduplicationLog
-} from "#shared/schema";
+} from "#shared/schema.js";
 import { eq, desc, and, sql, inArray, gte } from "drizzle-orm";
-import { sendEmailWithDeduplication } from "../email-deduplication";
+import { sendEmailWithDeduplication } from "../email-deduplication.js";
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { EmailDeduplicationService } from '../email-deduplication';
+import { EmailDeduplicationService } from '../email-deduplication.js';
 
 const router = express.Router();
 
@@ -238,7 +238,7 @@ router.post('/campaigns/:id/send', async (req, res) => {
       .where(eq(communicationRecipients.campaignId, campaignId));
 
     // Start sending emails in background
-    sendCampaignEmails(campaign as any, recipients).catch(error => {
+    sendCampaignEmails(campaign, recipients).catch(error => {
       console.error('Error sending campaign emails:', error);
     });
 
@@ -812,7 +812,7 @@ async function generateRecipients(recipientType: RecipientType, unitIds?: number
   return recipients;
 }
 
-async function sendCampaignEmails(campaign: { id: number; subject: string; content: string; recipientType: string }, recipients: Array<{ id: number; email: string; trackingId: string }>) {
+async function sendCampaignEmails(campaign: { id: number; subject: string; content: string; type?: string }, recipients: Array<{ id: number; email: string; trackingId: string }>) {
   console.log(`Starting to send ${recipients.length} emails for campaign: ${campaign.subject}`);
   
   const results: Array<{
@@ -853,7 +853,7 @@ async function sendCampaignEmails(campaign: { id: number; subject: string; conte
           campaignId: campaign.id,
           recipientId: recipient.id,
           trackingId: recipient.trackingId,
-          recipientType: campaign.recipientType
+          recipientType: campaign.type || 'campaign'
         }
       });
 

@@ -4,16 +4,17 @@ import { storage } from '../storage.js';
 import { 
   isUUID,
   getViolationByIdOrUuid
-} from '../middleware/auth-helpers';
-import { createSecureUpload, cleanupUploadedFiles } from '../middleware/fileUploadSecurity';
+} from '../middleware/auth-helpers.js';
+import { createSecureUpload, cleanupUploadedFiles } from '../middleware/fileUploadSecurity.js';
 import { 
   sendNewViolationToOccupantsNotification,
   sendViolationPendingApprovalToAdminsNotification,
-  formatViolationReferenceNumber 
-} from '../email';
-import { insertViolationSchema, type User } from '#shared/schema';
-import logger from '../utils/logger';
-import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
+  formatViolationReferenceNumber,
+  sendViolationApprovedToOccupantsNotification
+} from '../email.js';
+import { insertViolationSchema, type User } from '#shared/schema.js';
+import logger from '../utils/logger.js';
+import { AuditLogger, AuditAction, TargetType } from '../audit-logger.js';
 import { Router } from 'express';
 import { db } from '../db.js';
 import { eq, desc, and, or, sql } from 'drizzle-orm';

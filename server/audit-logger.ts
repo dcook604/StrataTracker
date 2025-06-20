@@ -1,4 +1,4 @@
-import { auditLogs, type InsertAuditLog, type Profile } from '#shared/schema';
+import { auditLogs, type InsertAuditLog, type Profile } from '#shared/schema.js';
 import { db } from './db.js';
 import logger from './utils/logger.js';
 import type { Request } from 'express';

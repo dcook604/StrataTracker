@@ -5,9 +5,9 @@
     "noEmit": false,
     "outDir": "./dist",
     "rootDir": ".",
-    "module": "ESNext",
+    "module": "NodeNext",
     "target": "ES2022",
-    "moduleResolution": "bundler",
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
@@ -19,10 +19,10 @@
     "removeComments": false,
     "allowImportingTsExtensions": false,
     "baseUrl": ".",
+    "resolveJsonModule": true,
+    "types": ["node"],
     "paths": {
       "#shared/*": ["./shared/*"]
-    },
-    "resolveJsonModule": true,
-    "types": ["node"]
+    }
   }
 } 

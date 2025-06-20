@@ -4,25 +4,26 @@ import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { createServer, type Server } from "http";
-import userManagementRoutes from "./routes/user-management";
-import emailConfigRoutes from "./routes/email-config";
-import communicationsRoutes from "./routes/communications";
-import bylawsRoutes from './routes/bylaws';
-import violationsRoutes from './routes/violations'; // Import the new violations router
-import violationCategoriesRoutes from './routes/violation-categories'; // Import the dedicated violation categories router
-import unitsRoutes from './routes/units'; // Import the new units router
-import reportsRoutes from './routes/reports'; // Import the new reports router
-import auditLogsRoutes from './routes/audit-logs'; // Import the audit logs router
-import publicViolationsRoutes from './routes/public-violations'; // Import public violations router
+import userManagementRoutes from "./routes/user-management.js";
+import emailConfigRoutes from "./routes/email-config.js";
+import communicationsRoutes from "./routes/communications.js";
+import bylawsRoutes from './routes/bylaws.js';
+import violationsRoutes from './routes/violations.js'; // Import the new violations router
+import violationCategoriesRoutes from './routes/violation-categories.js'; // Import the dedicated violation categories router
+import unitsRoutes from './routes/units.js'; // Import the new units router
+import reportsRoutes from './routes/reports.js'; // Import the new reports router
+import auditLogsRoutes from './routes/audit-logs.js'; // Import the audit logs router
+import publicViolationsRoutes from './routes/public-violations.js'; // Import public violations router
+import healthRoutes from './routes/health.js';
 import path from "path";
 import fs from "fs/promises";
-import logger from "./utils/logger";
-import { getVirusScanner } from "./services/virusScanner";
-import { adminAnnouncements } from '#shared/schema';
+import logger from "./utils/logger.js";
+import { getVirusScanner } from "./services/virusScanner.js";
+import { adminAnnouncements } from '#shared/schema.js';
 import { eq, desc, sql } from 'drizzle-orm';
-import { AuditLogger, AuditAction, TargetType } from './audit-logger';
+import { AuditLogger, AuditAction, TargetType } from './audit-logger.js';
 import { db } from './db.js';
-import { authenticateUser, requireAdmin, AuthenticatedRequest } from './middleware/supabase-auth-middleware';
+import { authenticateUser, requireAdmin, AuthenticatedRequest } from './middleware/supabase-auth-middleware.js';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Public health endpoint for Docker health checks (no authentication required)

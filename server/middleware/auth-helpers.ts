@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { storage as dbStorage } from '../storage';
-import { AuthenticatedRequest } from './supabase-auth-middleware';
+import { storage as dbStorage } from '../storage.js';
+import { AuthenticatedRequest } from './supabase-auth-middleware.js';
 
 // Utility function to determine if a parameter is a UUID or integer ID
 export function isUUID(value: string): boolean {

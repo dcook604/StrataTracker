@@ -1,5 +1,5 @@
 import { exec } from 'child_process';
-import logger from './logger';
+import logger from './logger.js';
 import net from 'net';
 
 /**

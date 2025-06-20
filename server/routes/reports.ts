@@ -1,9 +1,8 @@
 import express from 'express';
-import { storage as dbStorage } from '../storage';
-// Note: Authentication now handled at route level in routes.ts
-// import { generateViolationsPdf } from '../pdfGenerator';
+import { storage as dbStorage } from '../storage.js';
+import { generateViolationsPdf } from '../pdfGenerator.js';
 import { format } from 'date-fns';
-import logger from '../utils/logger';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 
