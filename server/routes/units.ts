@@ -9,7 +9,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { propertyUnits, persons } from '#shared/schema';
 import { eq, and, asc, isNull, or } from 'drizzle-orm';
-import { requireAdmin } from '../middleware/auth-helpers.js';
+import { requireAdmin } from '../middleware/supabase-auth-middleware.js';
 
 const router = express.Router();
 
