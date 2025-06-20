@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ViolationStatus } from "@shared/schema";
+import { ViolationStatus } from "#shared/schema";
 import { Badge } from "@/components/ui/badge";
 
 interface StatusBadgeProps {

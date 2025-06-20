@@ -3,6 +3,8 @@ import { Link } from "wouter";
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,10 +13,11 @@ import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { ViolationStatus } from "@shared/schema";
+import { ViolationStatus } from "#shared/schema";
 import { format } from "date-fns";
 import { ClipboardList, AlertCircle, Eye } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { ViolationsList } from "./violations-list";
 
 type Violation = {
   id: number;

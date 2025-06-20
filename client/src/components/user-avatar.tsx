@@ -1,5 +1,5 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User } from "@shared/schema";
+import { User } from "#shared/schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type UserAvatarProps = {
   user: Omit<User, "password"> | null;

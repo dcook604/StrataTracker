@@ -1,6 +1,9 @@
 import express from "express";
-import { db } from "../db";
+import { db } from "../db.js";
+import { storage } from '../storage.js';
 import {
+  communications,
+  insertCommunicationSchema,
   communicationCampaigns,
   communicationRecipients,
   communicationTemplates,
@@ -14,7 +17,7 @@ import {
   emailTrackingEvents,
   manualEmailRecipients,
   emailDeduplicationLog
-} from "@shared/schema";
+} from "#shared/schema";
 import { eq, desc, and, sql, inArray, gte } from "drizzle-orm";
 import { sendEmailWithDeduplication } from "../email-deduplication";
 import { Request, Response, NextFunction } from 'express';

@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ViolationStatus, type Violation, type ViolationCategory, type PropertyUnit } from "@shared/schema";
+import { ViolationStatus, type Violation, type ViolationCategory, type PropertyUnit } from "#shared/schema";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import {
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Lightbox } from "react-modal-image";
 
 interface ViolationDetailProps {
   id: string;

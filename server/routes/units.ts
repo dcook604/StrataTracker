@@ -7,7 +7,7 @@ import logger from '../utils/logger.js';
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger.js';
 import { Router } from 'express';
 import { db } from '../db.js';
-import { propertyUnits, persons } from '../..#shared/schema';
+import { propertyUnits, persons } from '#shared/schema';
 import { eq, and, asc, isNull, or } from 'drizzle-orm';
 import { requireAdmin } from '../middleware/auth-helpers.js';
 
