@@ -17,7 +17,7 @@ import { AuditLogger, AuditAction, TargetType } from '../audit-logger';
 import { Router } from 'express';
 import { db } from '../db.js';
 import { eq, desc, and, or, sql } from 'drizzle-orm';
-import { requireAdmin, requireAdminOrCouncil } from '../middleware/auth-helpers.js';
+import { requireAdmin, requireAdminOrCouncil } from '../middleware/supabase-auth-middleware.js';
 
 const router = express.Router();
 
@@ -177,7 +177,7 @@ router.post("/",
 
             if (reporterUser) {
               try {
-                const adminCouncilUsers = await dbStorage.getAdminAndCouncilUsers();
+                const adminCouncilUsers = await storage.getAdminAndCouncilUsers();
                 const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
                 const referenceNumberDisplay = formatViolationReferenceNumber(violation.id, violation.createdAt);
                 const adminEmailPromises = adminCouncilUsers.map(adminUser => 
@@ -250,14 +250,14 @@ router.patch("/:id/status", async (req, res) => {
       }
 
       // The storage layer method only updates the status field.
-      const violation = await dbStorage.updateViolationStatus(violationId, status);
+      const violation = await storage.updateViolationStatus(violationId, status);
 
       if (!violation) {
         return res.status(404).json({ message: "Violation not found" });
       }
 
       // Add a history entry for the status change, including any comments or rejection reasons.
-      await dbStorage.addViolationHistory({
+      await storage.addViolationHistory({
         violationId: violationId,
         userId: userId,
         action: `Status changed to ${status}`,
@@ -291,7 +291,7 @@ router.patch("/:id/status", async (req, res) => {
 // GET /api/violations/:id/history
 router.get("/:id/history", async (req, res) => {
     try {
-        const history = await dbStorage.getViolationHistory(parseInt(req.params.id));
+        const history = await storage.getViolationHistory(parseInt(req.params.id));
         res.json(history);
     } catch (error: unknown) {
         logger.error('Error fetching violation history:', error instanceof Error ? error.message : 'Unknown error');
@@ -314,13 +314,13 @@ router.delete("/:id", async (req, res) => {
         // Delete using the appropriate method based on identifier type
         let deleteSuccess: boolean;
         if (isUUID(idOrUuid)) {
-            deleteSuccess = await dbStorage.deleteViolationByUuid(idOrUuid);
+            deleteSuccess = await storage.deleteViolationByUuid(idOrUuid);
         } else {
             const violationId = parseInt(idOrUuid);
             if (isNaN(violationId)) {
                 return res.status(400).json({ message: "Invalid violation ID" });
             }
-            deleteSuccess = await dbStorage.deleteViolation(violationId);
+            deleteSuccess = await storage.deleteViolation(violationId);
         }
         
         if (!deleteSuccess) {
@@ -352,7 +352,7 @@ router.delete("/:id", async (req, res) => {
 // GET /api/violations/categories (also available as /api/violation-categories via separate mount)
 router.get("/categories", async (req, res) => {
     try {
-      const categories = await dbStorage.getAllViolationCategories();
+      const categories = await storage.getAllViolationCategories();
       res.json(categories);
     } catch (error: unknown) {
       logger.error('Error fetching categories:', error instanceof Error ? error.message : 'Unknown error');
@@ -363,7 +363,7 @@ router.get("/categories", async (req, res) => {
 // GET /api/violations/categories 
 router.get("/categories", async (req, res) => {
     try {
-      const categories = await dbStorage.getAllViolationCategories();
+      const categories = await storage.getAllViolationCategories();
       res.json(categories);
     } catch (error: unknown) {
       logger.error('Error fetching categories:', error instanceof Error ? error.message : 'Unknown error');
@@ -374,7 +374,7 @@ router.get("/categories", async (req, res) => {
 // POST /api/violations/categories
 router.post("/categories", async (req, res) => {
     try {
-      const category = await dbStorage.createViolationCategory({ name: req.body.name });
+      const category = await storage.createViolationCategory({ name: req.body.name });
       res.status(201).json(category);
     } catch (error: unknown) {
       logger.error('Error creating category:', error instanceof Error ? error.message : 'Unknown error');
@@ -385,7 +385,7 @@ router.post("/categories", async (req, res) => {
 // PUT /api/violations/categories/:id
 router.put("/categories/:id", async (req, res) => {
     try {
-      const category = await dbStorage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
+      const category = await storage.updateViolationCategory(parseInt(req.params.id), { name: req.body.name });
       res.json(category);
     } catch (error: unknown) {
       logger.error('Error updating category:', error instanceof Error ? error.message : 'Unknown error');
@@ -396,7 +396,7 @@ router.put("/categories/:id", async (req, res) => {
 // DELETE /api/violations/categories/:id
 router.delete("/categories/:id", async (req, res) => {
     try {
-      await dbStorage.deleteViolationCategory(parseInt(req.params.id));
+      await storage.deleteViolationCategory(parseInt(req.params.id));
       res.status(204).send();
     } catch (error: unknown) {
       logger.error('Error deleting category:', error instanceof Error ? error.message : 'Unknown error');

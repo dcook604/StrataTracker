@@ -2,14 +2,12 @@ import express from "express";
 import { db } from "../db.js";
 import { storage } from '../storage.js';
 import {
-  communications,
-  insertCommunicationSchema,
   communicationCampaigns,
+  insertCommunicationCampaignSchema,
   communicationRecipients,
   communicationTemplates,
   persons,
   propertyUnits,
-  insertCommunicationCampaignSchema,
   insertCommunicationTemplateSchema,
   RecipientType,
   profiles,

@@ -1,5 +1,5 @@
 {
-  "include": ["server/**/*"],
+  "include": ["server/**/*", "shared/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "client/**/*"],
   "compilerOptions": {
     "noEmit": false,
