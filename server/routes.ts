@@ -43,8 +43,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add helmet for security headers
-  app.use(helmet());
+  // Add helmet for security headers (disable CSP to avoid conflicts with nginx)
+  app.use(helmet({
+    contentSecurityPolicy: false, // CSP handled by nginx
+  }));
 
   // Add CORS
   const allowedOrigin = process.env.NODE_ENV === 'production'
