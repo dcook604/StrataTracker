@@ -53,7 +53,7 @@ services:
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
       
       # URLs
-      APP_URL: ${APP_URL}
+      APP_URL: ${APP_URL:-https://violation.spectrum4.ca}
       CORS_ORIGIN: ${CORS_ORIGIN}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       
@@ -63,9 +63,9 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       
       # Email Configuration
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER}
+      SMTP_HOST: ${SMTP_HOST:-mail.smtp2go.com}
+      SMTP_PORT: ${SMTP_PORT:-2525}
+      SMTP_USER: ${SMTP_USER:-spectrum4.ca}
       SMTP_PASS: ${SMTP_PASS}
       EMAIL_FROM: ${EMAIL_FROM}
       
@@ -99,7 +99,7 @@ services:
         condition: service_healthy
     
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:3001/api/health && curl -s http://localhost:3001/api/database-status -H 'Content-Type: application/json' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

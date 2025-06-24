@@ -17,55 +17,35 @@ RUN ls -la client # Debug: List files in /app/client to verify index.html presen
 RUN npm run build
 
 # Stage 2: Run
-FROM node:18-alpine
+FROM node:20-alpine
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
-# Install ClamAV and required dependencies
-RUN apk update && apk add --no-cache \
-    clamav \
-    clamav-daemon \
-    clamav-libunrar \
-    freshclam \
-    supervisor \
-    curl \
-    su-exec \
-    netcat-openbsd \
-    && rm -rf /var/cache/apk/*
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
-# Create ClamAV directories and set permissions
-# Note: clamav group/user may already exist from package installation
-RUN mkdir -p /var/lib/clamav /var/log/clamav /run/clamav \
-    && chown -R clamav:clamav /var/lib/clamav /var/log/clamav /run/clamav
+# Copy built application
+COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/shared ./shared
+COPY --from=builder --chown=nextjs:nodejs /app/server ./server
 
-# Create target directories
-RUN mkdir -p ./dist/public
-RUN mkdir -p ./node_modules
+# Install production dependencies only
+RUN npm ci --only=production && \
+    npm cache clean --force
 
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/dist ./dist/
-COPY --from=builder /app/dist/public ./dist/public/
-COPY --from=builder /app/node_modules ./node_modules/
+# Switch to non-root user
+USER nextjs
 
-# Copy ClamAV configuration files
-COPY docker/clamav/clamd.conf /etc/clamav/clamd.conf
-COPY docker/clamav/freshclam.conf /etc/clamav/freshclam.conf
-COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY docker/scripts/init-clamav.sh /usr/local/bin/init-clamav.sh
-COPY docker/scripts/health-check.sh /usr/local/bin/health-check.sh
+EXPOSE 3001
 
-# Make scripts executable
-RUN chmod +x /usr/local/bin/init-clamav.sh /usr/local/bin/health-check.sh
-
-# Create virus scanning quarantine directory
-RUN mkdir -p /app/quarantine && chown -R clamav:clamav /app/quarantine
-
-ENV NODE_ENV=production
-ENV VIRUS_SCANNING_ENABLED=true
-EXPOSE 3000
-
-# Add health check
+# Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD /usr/local/bin/health-check.sh
+  CMD curl -f http://localhost:3001/api/health || exit 1
 
-# Use supervisor to manage both Node.js app and ClamAV services
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 
+# Start the server with automatic migrations
+CMD ["npm", "start"] 

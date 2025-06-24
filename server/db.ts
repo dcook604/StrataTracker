@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from '../shared/schema.js';
 import logger from './utils/logger.js';
+import { MigrationRunner } from './migration-runner.js';
 
 // Log database connection attempt
 logger.info('Setting up database connection...');
@@ -56,21 +57,38 @@ try {
   throw err;
 }
 
-// Test the database connection with detailed error handling
+// Initialize migration runner
+const migrationRunner = new MigrationRunner(pool);
+
+// Test the database connection and run migrations
 (async () => {
   try {
     const result = await pool.query('SELECT NOW() as current_time');
     logger.info(`Database connection test successful, server time: ${result.rows[0].current_time}`);
     
-    // Check tables
-    const tables = await pool.query(`
+    // Check tables before migration
+    const tablesBefore = await pool.query(`
       SELECT table_name FROM information_schema.tables 
       WHERE table_schema = 'public'
     `);
-    logger.info(`Database contains ${tables.rowCount} tables`);
+    logger.info(`Database contains ${tablesBefore.rowCount} tables before migration check`);
+    
+    // 🚀 Run automatic migrations (safe, no data overwrites)
+    await migrationRunner.runStartupMigrations();
+    
+    // Check tables after migration
+    const tablesAfter = await pool.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public'
+    `);
+    logger.info(`Database contains ${tablesAfter.rowCount} tables after migration check`);
+    
+    // Get database status
+    const dbStatus = await migrationRunner.getDatabaseStatus();
+    logger.info('Database status:', dbStatus);
     
   } catch (err: unknown) {
-    logger.error('Database connection test failed:', {
+    logger.error('Database connection or migration failed:', {
       message: err instanceof Error ? err.message : 'Unknown error',
       stack: err instanceof Error ? err.stack : undefined,
       code: (err as Error & { code?: string })?.code || 'unknown'
@@ -80,5 +98,5 @@ try {
   }
 })();
 
-// Export the pool and db for use in other modules
-export { pool, db };
+// Export the pool, db, and migration runner for use in other modules
+export { pool, db, migrationRunner };
