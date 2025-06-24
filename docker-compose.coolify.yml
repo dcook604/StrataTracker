@@ -45,7 +45,7 @@ services:
       PORT: 3000
       
       # Database
-      DATABASE_URL: postgres://${POSTGRES_USER:-spectrum4}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-spectrum4}
+      DATABASE_URL: postgres://${POSTGRES_USER:-spectrum4}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-spectrum4}?sslmode=disable
       
       # Security
       SESSION_SECRET: ${SESSION_SECRET}
