@@ -366,3 +366,206 @@ For deployment issues:
 2. Review application logs
 3. Check the project's troubleshooting guides
 4. Contact system administrators 
+
+## 🚀 Automatic Migration System
+
+StrataTracker now includes an **automatic, safe migration system** that ensures all required database tables exist on every deployment:
+
+### ✅ What Gets Created Automatically
+- `profiles` table (Supabase authentication)
+- `admin_announcements` table 
+- Email deduplication tables (`email_idempotency_keys`, `email_send_attempts`, `email_deduplication_log`)
+- Required indexes for performance
+- Any other critical tables defined in the schema
+
+### 🛡️ Safety Features
+- **`CREATE TABLE IF NOT EXISTS`** - Never overwrites existing data
+- **Idempotent operations** - Safe to run multiple times
+- **Detailed logging** - Track what gets created during deployment
+- **Health checks** - Verify migrations completed successfully
+
+## 📋 Deployment Verification
+
+### Automatic Health Checks
+The application includes comprehensive health checks that verify:
+
+1. **Application Health**: `/api/health` endpoint responds
+2. **Database Connection**: Successful connection to PostgreSQL  
+3. **Migration Status**: All critical tables exist
+4. **API Endpoints**: Critical endpoints return proper responses
+
+### Verification Script
+Use the deployment verification script for manual checks:
+
+```bash
+# Basic verification
+bash scripts/deploy-hook.sh
+
+# Custom configuration
+APP_URL="https://violation.spectrum4.ca" \
+MAX_RETRIES=20 \
+RETRY_INTERVAL=15 \
+bash scripts/deploy-hook.sh
+```
+
+## 🔧 Coolify Deployment Configuration
+
+### Required Environment Variables
+```env
+# Database (with SSL disabled for compatibility)
+DATABASE_URL=postgres://username:password@postgres:5432/database?sslmode=disable
+
+# Supabase Authentication
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Email Configuration
+SMTP_HOST=mail.smtp2go.com
+SMTP_PORT=2525
+SMTP_USER=spectrum4.ca
+SMTP_PASS=your-smtp-password
+
+# Application
+APP_URL=https://violation.spectrum4.ca
+NODE_ENV=production
+```
+
+### Docker Compose Health Checks
+The `docker-compose.coolify.yml` includes:
+
+```yaml
+healthcheck:
+  test: ["CMD", "sh", "-c", "curl -f http://localhost:3001/api/health && curl -s http://localhost:3001/api/database-status || exit 1"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 60s
+```
+
+## 🚨 Troubleshooting Deployments
+
+### Check Migration Status
+```bash
+# View application logs
+docker logs container_name
+
+# Check database status (requires admin auth)
+curl -s https://violation.spectrum4.ca/api/database-status
+
+# Verify health
+curl -s https://violation.spectrum4.ca/api/health
+```
+
+### Common Issues & Solutions
+
+#### 1. Database Connection Fails
+**Symptoms**: `ECONNREFUSED` or `password authentication failed`
+**Solution**: 
+- Verify `DATABASE_URL` includes `?sslmode=disable`
+- Check PostgreSQL container is running
+- Verify credentials match between containers
+
+#### 2. Missing Tables After Deployment
+**Symptoms**: `relation "table_name" does not exist`
+**Solution**: 
+- Check application startup logs for migration errors
+- Tables are created automatically - verify container has proper permissions
+- Review PostgreSQL logs for connection/permission issues
+
+#### 3. Admin Announcements Not Loading
+**Symptoms**: Frontend shows "Error Loading Announcements"
+**Solution**:
+- Verify `/api/admin-announcements` returns JSON (not HTML)
+- Check if `admin_announcements` table exists
+- Review route registration order in `server/routes.ts`
+
+#### 4. Authentication Issues
+**Symptoms**: `profiles` table errors or auth failures
+**Solution**:
+- Verify Supabase environment variables are set
+- Check `profiles` table was created with correct schema
+- Ensure UUID format is consistent
+
+## 📊 Database Status Monitoring
+
+### Manual Database Inspection
+```bash
+# Connect to PostgreSQL container
+docker exec -it postgres_container psql -U username -d database
+
+# List all tables
+\dt
+
+# Check specific tables
+SELECT COUNT(*) FROM profiles;
+SELECT COUNT(*) FROM admin_announcements;
+SELECT COUNT(*) FROM email_idempotency_keys;
+```
+
+### Application-Level Monitoring
+```bash
+# Get database status (requires admin authentication)
+curl -H "Authorization: Bearer your-token" \
+  https://violation.spectrum4.ca/api/database-status
+
+# Response format:
+{
+  "success": true,
+  "database": {
+    "tablesCount": 25,
+    "criticalTablesPresent": true,
+    "lastMigrationCheck": "2024-06-25T10:30:00.000Z"
+  },
+  "timestamp": "2024-06-25T10:30:00.000Z"
+}
+```
+
+## ✅ Pre-Deployment Checklist
+
+- [ ] All environment variables configured in Coolify
+- [ ] Database container running and accessible
+- [ ] `DATABASE_URL` includes `?sslmode=disable`
+- [ ] Supabase credentials valid and accessible
+- [ ] SMTP credentials configured for email notifications
+- [ ] Domain DNS pointing to Coolify/Cloudflare
+- [ ] SSL certificates configured
+- [ ] Latest code committed to deployment branch
+
+## 🔄 Post-Deployment Verification
+
+1. **Health Check**: `curl https://violation.spectrum4.ca/api/health`
+2. **Database Status**: Verify tables exist via logs or admin endpoint
+3. **Frontend Loading**: Check admin announcements widget loads
+4. **Email System**: Test violation notifications
+5. **Authentication**: Verify Supabase login works
+6. **Dispute Workflow**: Test complete violation workflow
+
+## 📝 Migration System Technical Details
+
+### MigrationRunner Class
+Located in `server/migration-runner.ts`, this class:
+
+- Checks existing database schema
+- Creates missing tables using `CREATE TABLE IF NOT EXISTS`
+- Adds required indexes for performance
+- Verifies critical tables exist after creation
+- Provides status reporting for health checks
+
+### Startup Integration
+The migration system runs automatically in `server/db.ts`:
+
+```typescript
+// Run migrations on startup
+await migrationRunner.runStartupMigrations();
+```
+
+This ensures every deployment has complete database schema without manual intervention.
+
+## 🎯 Best Practices
+
+1. **Always verify deployments** using the verification script
+2. **Monitor logs** during first few minutes after deployment
+3. **Test critical workflows** after each deployment
+4. **Keep backups** before major schema changes
+5. **Use staging environment** for testing complex migrations 

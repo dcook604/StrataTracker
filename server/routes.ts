@@ -22,7 +22,7 @@ import { getVirusScanner } from "./services/virusScanner.js";
 import { adminAnnouncements } from '#shared/schema.js';
 import { eq, desc, sql } from 'drizzle-orm';
 import { AuditLogger, AuditAction, TargetType } from './audit-logger.js';
-import { db } from './db.js';
+import { db, migrationRunner } from './db.js';
 import { authenticateUser, requireAdmin, AuthenticatedRequest } from './middleware/supabase-auth-middleware.js';
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -236,6 +236,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting admin announcement:', error);
       res.status(500).json({ message: 'Failed to delete announcement' });
+    }
+  });
+
+  // Add database status endpoint for deployment verification
+  app.get('/api/database-status', authenticateUser, requireAdmin, async (req, res) => {
+    try {
+      const status = await migrationRunner.getDatabaseStatus();
+      res.json({
+        success: true,
+        database: status,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Failed to get database status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get database status',
+        timestamp: new Date().toISOString()
+      });
     }
   });
 
