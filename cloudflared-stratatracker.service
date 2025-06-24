@@ -1,0 +1,17 @@
+[Unit]
+Description=Cloudflare Tunnel for StrataTracker
+After=network.target
+
+[Service]
+Type=simple
+User=viodb
+Group=viodb
+WorkingDirectory=/home/viodb
+ExecStart=/usr/local/bin/cloudflared tunnel run stratatracker
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target 
