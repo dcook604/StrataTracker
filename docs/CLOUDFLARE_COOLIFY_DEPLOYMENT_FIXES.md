@@ -39,13 +39,13 @@ docker ps | grep postgres
 
 # Inspect container to find current password
 docker inspect <postgres_container_id> | grep POSTGRES_PASSWORD
-# Result: "POSTGRES_PASSWORD=lY0_6JVAcSG8utftr_MA"
+# Result: "POSTGRES_PASSWORD=<actual-database-password>"
 ```
 
 ### Step 2: Update Coolify Environment Variables
-In Coolify dashboard, set the following environment variable:
+In Coolify dashboard, set the following environment variable to match what was found:
 ```
-POSTGRES_PASSWORD=lY0_6JVAcSG8utftr_MA
+POSTGRES_PASSWORD=<actual-database-password>
 ```
 
 ### Step 3: Redeploy Application
@@ -95,8 +95,8 @@ SESSION_SECRET=<secure-random-string>
 ```env
 POSTGRES_DB=spectrum4
 POSTGRES_USER=spectrum4
-POSTGRES_PASSWORD=lY0_6JVAcSG8utftr_MA
-DATABASE_URL=postgres://spectrum4:lY0_6JVAcSG8utftr_MA@postgres:5432/spectrum4
+POSTGRES_PASSWORD=<your-database-password>
+DATABASE_URL=postgres://spectrum4:<your-database-password>@postgres:5432/spectrum4
 ```
 
 ### Cloudflare & Domain
