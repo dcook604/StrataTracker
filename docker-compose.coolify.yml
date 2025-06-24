@@ -25,6 +25,7 @@ services:
       start_period: 30s
     networks:
       - stratatracker
+      - coolify
 
   # StrataTracker Application
   app:
@@ -90,10 +91,8 @@ services:
       - app_logs:/app/logs
     
     networks:
-      stratatracker:
-      coolify:
-        aliases:
-          - app
+      - stratatracker
+      - coolify
     
     depends_on:
       postgres:
