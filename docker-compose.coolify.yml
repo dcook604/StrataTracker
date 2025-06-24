@@ -90,8 +90,10 @@ services:
       - app_logs:/app/logs
     
     networks:
-      - stratatracker
-      - coolify
+      stratatracker:
+      coolify:
+        aliases:
+          - app
     
     depends_on:
       postgres:
