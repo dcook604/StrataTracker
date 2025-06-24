@@ -25,10 +25,10 @@ ARG VITE_SUPABASE_ANON_KEY
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
 ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
 
-# Debug: Show what environment variables are set
-RUN echo "Build environment check:" && \
-    echo "VITE_SUPABASE_URL=${VITE_SUPABASE_URL}" && \
-    echo "VITE_SUPABASE_ANON_KEY is set: $([ -n "$VITE_SUPABASE_ANON_KEY" ] && echo 'YES' || echo 'NO')"
+# Debug: Show what environment variables are set (non-blocking)
+RUN echo "Build environment check:" || true && \
+    echo "VITE_SUPABASE_URL is set: $([ -n "$VITE_SUPABASE_URL" ] && echo 'YES' || echo 'NO')" || true && \
+    echo "VITE_SUPABASE_ANON_KEY is set: $([ -n "$VITE_SUPABASE_ANON_KEY" ] && echo 'YES' || echo 'NO')" || true
 
 # Build the application
 RUN npm run build
@@ -58,8 +58,8 @@ ENV VIRUS_SCANNING_ENABLED=false
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Health check with extended timeouts for Supabase initialization
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Start command

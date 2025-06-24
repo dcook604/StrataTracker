@@ -20,7 +20,10 @@ ensureLogDirectoryExists();
 
 console.log('Starting StrataTracker server...');
 console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT || 3000);
 console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'Set (hidden)' : 'Not set');
+console.log('Timestamp:', new Date().toISOString());
 
 (async () => {
   try {
@@ -28,9 +31,17 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not se
     const dotenv = await import('dotenv');
     dotenv.config();
 
-    // Test database connection
+    // Test database connection with timeout
+    console.log("Testing database connection...");
     const { db } = await import('./db.js');
-    await db.execute(sql`SELECT 1`);
+    
+    const dbTest = await Promise.race([
+      db.execute(sql`SELECT 1`),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database connection timeout')), 10000)
+      )
+    ]);
+    
     console.log("Database connected successfully");
 
     // Create Express app
