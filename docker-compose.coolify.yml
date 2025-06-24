@@ -91,6 +91,7 @@ services:
     
     networks:
       - stratatracker
+      - coolify
     
     depends_on:
       postgres:
@@ -127,3 +128,5 @@ volumes:
 networks:
   stratatracker:
     driver: bridge
+  coolify:
+    external: true
