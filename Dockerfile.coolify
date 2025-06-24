@@ -50,8 +50,8 @@ RUN apk update && apk add --no-cache \
     netcat-openbsd \
     && rm -rf /var/cache/apk/*
 
-# Create ClamAV directories and set permissions
-RUN mkdir -p /var/lib/clamav /var/log/clamav /run/clamav \
+# Create ClamAV and supervisor directories and set permissions
+RUN mkdir -p /var/lib/clamav /var/log/clamav /run/clamav /var/log/supervisor \
     && chown -R clamav:clamav /var/lib/clamav /var/log/clamav /run/clamav
 
 # Copy built application
