@@ -9,7 +9,8 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   
-  // CSP managed by Cloudflare - no need to set our own
+  // CSP is now handled by nginx/reverse proxy in production
+  // Remove conflicting CSP headers to avoid conflicts
   
   // Remove server signature
   res.removeHeader('X-Powered-By');
