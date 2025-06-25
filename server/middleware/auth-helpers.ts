@@ -30,10 +30,12 @@ export const ensureAuthenticated = (req: Request, res: Response, next: NextFunct
   res.status(401).json({ message: "Unauthorized" });
 };
 
-// Ensure user is council member or admin middleware (DEPRECATED - use requireAdminOrCouncil from supabase-auth-middleware)
+// DEPRECATED: Use requireAdminOrCouncil from supabase-auth-middleware instead
 export const ensureCouncilMember = (req: Request, res: Response, next: NextFunction) => {
-  const user = (req as AuthenticatedRequest).user;
-  if (user && (user.isCouncilMember || user.isAdmin)) {
+  console.warn('[DEPRECATED] ensureCouncilMember middleware is deprecated. Use requireAdminOrCouncil from supabase-auth-middleware instead.');
+  const request = req as AuthenticatedRequest;
+  const role = request.appUser?.profile?.role;
+  if (role === 'council' || role === 'admin') {
     return next();
   }
   res.status(403).json({ message: "Forbidden - Admin or Council access required" });

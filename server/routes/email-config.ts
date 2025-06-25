@@ -4,19 +4,15 @@ import { verifyEmailConfig, EmailConfig } from '../email-service.js';
 
 const router = express.Router();
 
-// Check if user is authenticated and has admin privileges
+// Check if user is authenticated and has admin privileges (FIXED for Supabase auth)
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   // Check if user is authenticated
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required." });
   }
   
-  // Check admin status using both camelCase and snake_case formats
-  const isAdminUser = 
-    (req.user.isAdmin === true) || 
-    ((req.user as { is_admin?: boolean }).is_admin === true);
-  
-  if (isAdminUser) {
+  // Use Supabase auth role property
+  if (req.user.role === 'admin') {
     return next();
   }
   

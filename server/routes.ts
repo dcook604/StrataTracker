@@ -146,11 +146,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       // Update with new UUID columns using raw SQL since schema might not be updated yet
-      await db.execute(sql`
-        UPDATE admin_announcements 
-        SET created_by_new = ${user.id}, updated_by_new = ${user.id}
-        WHERE id = ${announcement.id}
-      `);
+      if (user) {
+        await db.execute(sql`
+          UPDATE admin_announcements 
+          SET created_by_new = ${user.id}, updated_by_new = ${user.id}
+          WHERE id = ${announcement.id}
+        `);
+      }
 
       await AuditLogger.logFromRequest(req, AuditAction.SYSTEM_SETTING_UPDATED, {
         targetType: TargetType.SYSTEM_SETTING,
@@ -190,11 +192,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       // Update with new UUID column using raw SQL
-      await db.execute(sql`
-        UPDATE admin_announcements 
-        SET updated_by_new = ${user.id}
-        WHERE id = ${parseInt(id)}
-      `);
+      if (user) {
+        await db.execute(sql`
+          UPDATE admin_announcements 
+          SET updated_by_new = ${user.id}
+          WHERE id = ${parseInt(id)}
+        `);
+      }
 
       if (!announcement) {
         return res.status(404).json({ message: 'Announcement not found' });
@@ -255,6 +259,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Failed to get database status',
         timestamp: new Date().toISOString()
       });
+    }
+  });
+
+  // Get the profile of the currently authenticated user
+  app.get("/api/user-profile", authenticateUser, async (req, res) => {
+    try {
+      console.log('[API] /api/user-profile called - route is working!');
+      
+      // Cast the request to our custom type to access appUser
+      const request = req as AuthenticatedRequest;
+      const user = request.appUser;
+
+      console.log('[API] User auth check:', {
+        hasUser: !!user,
+        hasProfile: !!user?.profile,
+        userEmail: user?.email || 'no-email'
+      });
+
+      if (!user || !user.profile) {
+        console.log('[API] User profile not found, returning 404');
+        return res.status(404).json({ message: "User profile not found." });
+      }
+      
+      console.log('[API] Returning user profile:', { role: user.profile.role });
+      // Return the profile part of the user object
+      res.json(user.profile);
+
+    } catch (error) {
+      console.error("[API] Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile." });
     }
   });
 
