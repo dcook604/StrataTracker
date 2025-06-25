@@ -1,6 +1,7 @@
 import express from 'express';
 import { storage as dbStorage } from '../storage.js';
 import { AuditLogger, AuditAction, TargetType } from '../audit-logger.js';
+import { authenticateUser, AuthenticatedRequest } from "../middleware/supabase-auth-middleware.js";
 
 const router = express.Router();
 
@@ -105,6 +106,26 @@ router.delete('/:id', isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ message: 'Failed to delete user' });
+  }
+});
+
+// Get the profile of the currently authenticated user
+router.get("/api/user-profile", authenticateUser, async (req, res) => {
+  try {
+    // Cast the request to our custom type to access appUser
+    const request = req as AuthenticatedRequest;
+    const user = request.appUser;
+
+    if (!user || !user.profile) {
+      return res.status(404).json({ message: "User profile not found." });
+    }
+    
+    // Return the profile part of the user object
+    res.json(user.profile);
+
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({ message: "Failed to fetch user profile." });
   }
 });
 

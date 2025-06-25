@@ -2,24 +2,16 @@ import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../supabase-client.js';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { profiles } from '#shared/schema.js';
+import { profiles, Profile } from '#shared/schema.js';
 import { eq } from 'drizzle-orm';
+import { User } from '@supabase/supabase-js';
 
-// Define the authenticated user interface
-export interface AuthenticatedUser {
-  id: string;
-  fullName: string | null;
-  role: string;
-  updatedAt: Date | null;
-  email: string;
-  isAdmin: boolean;
-  isCouncilMember: boolean;
-  isUser: boolean;
-}
+// Define the shape of our application user, combining Supabase user and our profile
+export type AppUser = User & { profile: Profile };
 
-// Extend Express Request to include user
+// Extend Express Request to include our custom user object
 export interface AuthenticatedRequest extends Request {
-  user: AuthenticatedUser;
+  appUser: AppUser;
 }
 
 // Initialize database connection
@@ -47,26 +39,22 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     }
 
     // Get user profile from our database
-    const userProfile = await db
+    const profileResult = await db
       .select()
       .from(profiles)
       .where(eq(profiles.id, user.id))
       .limit(1);
 
-    if (userProfile.length === 0) {
+    if (profileResult.length === 0) {
       return res.status(401).json({ error: 'User profile not found' });
     }
 
-    const profile = userProfile[0];
+    const profile = profileResult[0];
 
-    // Attach user info to request
-    req.user = {
-      ...profile,
-      id: user.id,
-      email: user.email || '',
-      isAdmin: profile.role === 'admin',
-      isCouncilMember: profile.role === 'council',
-      isUser: profile.role === 'user',
+    // Attach combined user info to request
+    (req as AuthenticatedRequest).appUser = {
+      ...user,
+      profile: profile,
     };
 
     next();
@@ -80,7 +68,8 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
  * Middleware to require admin role
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (!req.user?.isAdmin) {
+  const request = req as AuthenticatedRequest;
+  if (request.appUser?.profile?.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' });
   }
   
@@ -91,7 +80,9 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
  * Middleware to require admin or council role
  */
 export function requireAdminOrCouncil(req: Request, res: Response, next: NextFunction) {
-  if (!req.user?.isAdmin && !req.user?.isCouncilMember) {
+  const request = req as AuthenticatedRequest;
+  const role = request.appUser?.profile?.role;
+  if (role !== 'admin' && role !== 'council') {
     return res.status(403).json({ error: 'Admin or council access required' });
   }
   
@@ -125,13 +116,9 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
 
     if (userProfile.length > 0) {
       const profile = userProfile[0];
-      req.user = {
-        ...profile,
-        id: user.id,
-        email: user.email || '',
-        isAdmin: profile.role === 'admin',
-        isCouncilMember: profile.role === 'council',
-        isUser: profile.role === 'user',
+      (req as AuthenticatedRequest).appUser = {
+        ...user,
+        profile: profile,
       };
     }
 

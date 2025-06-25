@@ -5,35 +5,25 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { InsertUser } from "#shared/schema";
-import { queryClient } from "../lib/queryClient";
+import { InsertUser, Profile } from "#shared/schema";
+import { queryClient, apiRequest } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-// LogRocket removed - replace with your preferred error tracking service
 import { supabase } from "@/lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
-import { toast as useToastToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/utils";
 
-// Omit the password from the user type for client-side usage
-// type SafeUser = Omit<SelectUser, "password"> & {
-//   // Add compatibility required fields that ensure consistent boolean values
-//   isAdmin: boolean;
-//   is_admin: boolean;
-//   isCouncilMember: boolean;
-//   is_council_member: boolean;
-//   isUser: boolean;
-//   is_user: boolean;
-// };
+// Combine Supabase User with our local Profile
+export type AppUser = User & { profile: Profile | null };
 
 type AuthContextType = {
-  user: User | null;
+  user: AppUser | null;
   session: Session | null;
   isLoading: boolean;
   error: Error | null;
   loginMutation: UseMutationResult<{ user: User; session: Session }, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<{ user: User; session: Session }, Error, InsertUser>;
+  registerMutation: UseMutationResult<null, Error, InsertUser>;
+  isAdmin: boolean;
+  isCouncilMember: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -46,34 +36,42 @@ type LoginData = {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error] = useState<Error | null>(null);
-  const navigate = useNavigate();
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+
+  // Fetch user profile from our backend.
+  const { 
+    data: user, 
+    error, 
+    isLoading: isProfileLoading 
+  } = useQuery<AppUser | null, Error>({ // Explicitly type the hook
+    queryKey: ['user-profile', session?.user?.id],
+    queryFn: async (): Promise<AppUser | null> => {
+      if (!session?.user) return null;
+      const response = await apiRequest("GET", `/api/user-profile`);
+      const profile: Profile = await response.json();
+      return { ...session.user, profile };
+    },
+    enabled: !!session,
+  });
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-
-        // User session established - add your analytics tracking here if needed
-      }
-    );
-
-    // Initial check
     supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
+      setSession(session);
+      setIsSessionLoading(false);
     });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setIsSessionLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+  
+  const isAdmin = user?.profile?.role === 'admin';
+  const isCouncilMember = user?.profile?.role === 'council';
+  const isLoading = isSessionLoading || (!!session && isProfileLoading);
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: LoginData) => {
@@ -144,13 +142,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: user ?? null,
         session,
         isLoading,
-        error,
+        error: error ?? null,
         loginMutation,
         logoutMutation,
         registerMutation,
+        isAdmin,
+        isCouncilMember,
       }}
     >
       {children}

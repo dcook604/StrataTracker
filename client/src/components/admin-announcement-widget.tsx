@@ -25,7 +25,8 @@ import { apiRequest } from "@/lib/queryClient";
 interface Announcement {
   id: number;
   title: string;
-  content: string;
+  content: string; // This is the JSON object from Tiptap
+  htmlContent: string; // This is the HTML output we should render
   createdAt: string;
   user: {
     fullName: string;
@@ -60,7 +61,8 @@ export function AdminAnnouncementWidget() {
     queryFn: () => apiRequest("GET", "/api/admin-announcements").then((res) => res.json()),
   });
 
-  const isAdmin = user?.isAdmin;
+  // Check for admin role within user_metadata
+  const isAdmin = user?.user_metadata?.role === 'admin';
 
   if (error) {
     console.error('Error fetching announcements:', error);
@@ -175,11 +177,10 @@ export function AdminAnnouncementWidget() {
                         <h4 className="font-semibold text-neutral-900 mb-2">
                           {announcement.title}
                         </h4>
-                        <div 
+                        <div
                           className="prose prose-sm max-w-none text-neutral-700"
-                        >
-                          {announcement.content}
-                        </div>
+                          dangerouslySetInnerHTML={{ __html: announcement.htmlContent }}
+                        />
                         <div className="flex items-center justify-between mt-3 text-xs text-neutral-500">
                           <span>
                             Updated {format(new Date(announcement.createdAt), 'MMM d, yyyy')}
