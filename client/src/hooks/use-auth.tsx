@@ -47,21 +47,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<AppUser | null, Error>({ // Explicitly type the hook
     queryKey: ['user-profile', session?.user?.id],
     queryFn: async (): Promise<AppUser | null> => {
-      if (!session?.user) return null;
-      const response = await apiRequest("GET", `/api/user-profile`);
-      const profile: Profile = await response.json();
-      return { ...session.user, profile };
+      if (!session?.user) {
+        console.log('[useAuth] No session user, returning null');
+        return null;
+      }
+      
+      console.log('[useAuth] Fetching user profile for:', session.user.email);
+      try {
+        const response = await apiRequest("GET", `/api/user-profile`);
+        const profile: Profile = await response.json();
+        console.log('[useAuth] Profile loaded successfully:', { 
+          email: session.user.email, 
+          role: profile.role 
+        });
+        return { ...session.user, profile };
+      } catch (error) {
+        console.error('[useAuth] Failed to load user profile:', error);
+        throw error;
+      }
     },
     enabled: !!session,
+    retry: 1, // Only retry once to avoid infinite loops
   });
 
   useEffect(() => {
+    console.log('[useAuth] Initializing auth state...');
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[useAuth] Initial session:', session ? `User: ${session.user?.email}` : 'No session');
       setSession(session);
       setIsSessionLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[useAuth] Auth state changed:', { 
+        event, 
+        session: session ? `User: ${session.user?.email}` : 'No session' 
+      });
       setSession(session);
       setIsSessionLoading(false);
     });

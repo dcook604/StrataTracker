@@ -50,7 +50,13 @@ export default function AuthPage() {
   const [showExpiredModal, setShowExpiredModal] = useState(false);
 
   useEffect(() => {
+    console.log('[AuthPage] User state changed:', { 
+      user: user ? `${user.email} (${user.profile?.role})` : null,
+      isLoading: loginMutation.isPending 
+    });
+    
     if (user) {
+      console.log('[AuthPage] User authenticated, navigating to dashboard...');
       navigate("/");
     }
   }, [user, navigate]);
@@ -102,13 +108,22 @@ export default function AuthPage() {
   // Handle login submission
   const onLoginSubmit = async (values: LoginFormValues) => {
     try {
+      console.log('[AuthPage] Starting login process...');
       setIsLoading(true);
       setError(null);
-      await loginMutation.mutateAsync({
+      
+      const result = await loginMutation.mutateAsync({
         email: values.email,
         password: values.password,
       });
+      
+      console.log('[AuthPage] Login mutation successful:', { 
+        userId: result.user?.id,
+        email: result.user?.email 
+      });
+      
     } catch (err) {
+      console.error('[AuthPage] Login failed:', err);
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
       setIsLoading(false);

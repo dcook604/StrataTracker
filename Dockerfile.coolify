@@ -55,15 +55,15 @@ RUN mkdir -p /app/uploads /app/logs
 
 # Set environment
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3001
 ENV VIRUS_SCANNING_ENABLED=false
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3001
 
 # Simple health check for Node.js app only
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || exit 1
+    CMD curl -f http://localhost:3001/api/health || exit 1
 
 # Run Node.js directly without supervisor
 CMD ["node", "dist/server/index.js"] 

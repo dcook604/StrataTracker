@@ -11,7 +11,14 @@ export function ProtectedRoute({
 }) {
   const { user, isLoading } = useAuth();
 
+  console.log(`[ProtectedRoute] ${path}:`, { 
+    user: user ? `${user.email} (${user.profile?.role})` : null,
+    isLoading,
+    hasProfile: !!user?.profile
+  });
+
   if (isLoading) {
+    console.log(`[ProtectedRoute] ${path}: Showing loading spinner`);
     return (
       <Route path={path}>
         <div className="flex items-center justify-center min-h-screen">
@@ -22,6 +29,7 @@ export function ProtectedRoute({
   }
 
   if (!user) {
+    console.log(`[ProtectedRoute] ${path}: No user, redirecting to /auth`);
     return (
       <Route path={path}>
         <Redirect to="/auth" />
@@ -29,5 +37,6 @@ export function ProtectedRoute({
     );
   }
 
+  console.log(`[ProtectedRoute] ${path}: User authenticated, rendering component`);
   return <Route path={path} component={Component} />;
 }
