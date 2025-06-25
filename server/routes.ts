@@ -52,10 +52,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const allowedOrigin = process.env.NODE_ENV === 'production'
     ? process.env.CORS_ORIGIN || 'https://your-production-domain.com'
     : '*';
+  
+  // Enhanced CORS configuration for Cloudflare tunnel
   app.use(cors({
-    origin: allowedOrigin,
+    origin: (origin, callback) => {
+      // Always allow same-origin requests (no origin header)
+      if (!origin) return callback(null, true);
+      
+      if (process.env.NODE_ENV === 'production') {
+        const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
+        
+        // Add debugging for Cloudflare tunnel
+        console.log('[CORS] Origin:', origin, 'Allowed:', allowedOrigins);
+        
+        // Allow configured origins
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        
+        // Also allow Cloudflare tunnel domain
+        if (origin.includes('cfargotunnel.com') || origin.includes('spectrum4.ca')) {
+          console.log('[CORS] Allowing Cloudflare tunnel origin:', origin);
+          return callback(null, true);
+        }
+        
+        console.log('[CORS] Rejecting origin:', origin);
+        return callback(new Error('Not allowed by CORS'));
+      } else {
+        // Development mode - allow all
+        return callback(null, true);
+      }
+    },
     credentials: true,
+    optionsSuccessStatus: 200,
+    exposedHeaders: ['X-Request-ID']
   }));
+
+  // Add middleware to log Cloudflare headers for debugging
+  app.use('/api/', (req, res, next) => {
+    if (process.env.NODE_ENV === 'production' && process.env.LOG_LEVEL === 'DEBUG') {
+      console.log('[CF-Debug]', {
+        'CF-Ray': req.headers['cf-ray'],
+        'CF-Connecting-IP': req.headers['cf-connecting-ip'],
+        'X-Forwarded-For': req.headers['x-forwarded-for'],
+        'X-Real-IP': req.headers['x-real-ip'],
+        'Origin': req.headers.origin,
+        'Referer': req.headers.referer,
+        'Host': req.headers.host,
+        'Remote-Addr': req.ip
+      });
+    }
+    next();
+  });
 
   // Create uploads directory if it doesn't exist
   const uploadsDir = path.join(process.cwd(), "uploads");
