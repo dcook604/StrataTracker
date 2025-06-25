@@ -21,12 +21,15 @@ import { sendEmailWithDeduplication } from "../email-deduplication.js";
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { EmailDeduplicationService } from '../email-deduplication.js';
+import { AuthenticatedRequest } from '../middleware/supabase-auth-middleware.js';
 
 const router = express.Router();
 
-// Middleware to ensure user is admin or council member
+// Middleware to ensure user is admin or council member (FIXED for Supabase auth)
 const ensureCouncilOrAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (req.user && (req.user.isCouncilMember || req.user.isAdmin)) {
+  const request = req as AuthenticatedRequest;
+  const role = request.appUser?.profile?.role;
+  if (role === 'council' || role === 'admin') {
     return next();
   }
   res.status(403).json({ message: "Forbidden - Admin or Council access required" });
@@ -163,7 +166,7 @@ router.post('/campaigns', async (req, res) => {
       .insert(communicationCampaigns)
       .values({
         ...data,
-        createdById: req.user!.id,
+        createdById: (req as AuthenticatedRequest).appUser.profile.id,
       })
       .returning();
 
@@ -337,7 +340,7 @@ router.post('/templates', async (req, res) => {
       .insert(communicationTemplates)
       .values({
         ...data,
-        createdById: req.user!.id,
+        createdById: (req as AuthenticatedRequest).appUser.profile.id,
       })
       .returning();
 

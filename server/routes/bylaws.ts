@@ -15,6 +15,7 @@ import fs from "fs/promises";
 import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { and, eq, like, or, desc, asc, inArray } from 'drizzle-orm';
+import { AuthenticatedRequest } from '../middleware/supabase-auth-middleware.js';
 
 const router = express.Router();
 
@@ -296,7 +297,7 @@ router.post('/', ensureCouncilOrAdmin, async (req, res) => {
       .insert(bylaws)
       .values({
         ...data,
-        createdById: req.user!.id
+        createdById: (req as AuthenticatedRequest).appUser.profile.id
       })
       .returning();
 
@@ -332,7 +333,7 @@ router.put('/:id', ensureCouncilOrAdmin, async (req, res) => {
         content: currentBylaw.content,
         revisionNotes: req.body.revisionNotes || 'Updated via admin interface',
         effectiveDate: currentBylaw.effectiveDate,
-        createdById: req.user!.id
+        createdById: (req as AuthenticatedRequest).appUser.profile.id
       });
 
     // Update the bylaw
@@ -341,7 +342,7 @@ router.put('/:id', ensureCouncilOrAdmin, async (req, res) => {
       .set({
         ...data,
         updatedAt: new Date(),
-        updatedById: req.user!.id
+        updatedById: (req as AuthenticatedRequest).appUser.profile.id
       })
       .where(eq(bylaws.id, bylawId))
       .returning();
@@ -363,7 +364,7 @@ router.delete('/:id', ensureCouncilOrAdmin, async (req, res) => {
       .set({
         isActive: false,
         updatedAt: new Date(),
-        updatedById: req.user!.id
+        updatedById: (req as AuthenticatedRequest).appUser.profile.id
       })
       .where(eq(bylaws.id, bylawId))
       .returning();
@@ -385,7 +386,7 @@ router.post('/import', ensureCouncilOrAdmin, upload.single('bylawsFile'), async 
     if (req.file) {
       // Parse and import from uploaded XML file
       const filePath = req.file.path;
-      await parseXMLBylaws(filePath, req.user!.id);
+      await parseXMLBylaws(filePath, (req as AuthenticatedRequest).appUser.profile.id);
       
       // Clean up temporary file
       try {
@@ -400,7 +401,7 @@ router.post('/import', ensureCouncilOrAdmin, upload.single('bylawsFile'), async 
       });
     } else {
       // Import default Spectrum IV bylaws
-      await importSpectrumBylaws(req.user!.id);
+      await importSpectrumBylaws((req as AuthenticatedRequest).appUser.profile.id);
       
       res.status(201).json({
         message: 'Successfully imported Spectrum IV bylaws',
