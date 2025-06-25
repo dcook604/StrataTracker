@@ -1,41 +1,22 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
-// Global 401 handler to ensure consistent authentication behavior
-let isHandling401 = false; // Prevent multiple simultaneous redirects
+let isHandling401 = false;
 
-export function handle401Error() {
-  if (isHandling401) return; // Prevent multiple calls
-  
-  // Don't handle 401 if we're already on the auth page
-  if (typeof window !== 'undefined' && window.location.pathname === '/auth') {
-    console.log("[AUTH] 401 detected but already on auth page - skipping redirect");
-    return;
-  }
+function handle401Error() {
+  if (isHandling401) return;
+  if (typeof window !== 'undefined' && window.location.pathname === '/auth') return;
   
   isHandling401 = true;
-  console.log("[AUTH] 401 detected - handling automatic logout");
   
-  // Clear any stored auth data
   if (typeof window !== 'undefined') {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    localStorage.clear();
     sessionStorage.clear();
   }
   
-  // Clear React Query cache of user data
-  queryClient.setQueryData(["/api/user"], null);
+  queryClient.clear();
   
-  // Clear sensitive cached data
-  queryClient.removeQueries({ 
-    predicate: (query) => {
-      const sensitiveKeys = ['/api/violations', '/api/communications', '/api/units', '/api/users'];
-      return sensitiveKeys.some(key => query.queryKey[0]?.toString().includes(key));
-    }
-  });
-  
-  // Show session expired message
   toast({
     title: 'Session Expired',
     description: 'Your session has expired. Please log in again.',
@@ -43,141 +24,66 @@ export function handle401Error() {
     duration: 5000,
   });
   
-  // Redirect to login with session expired flag
   setTimeout(() => {
     window.location.href = '/auth?expired=1';
-  }, 500); // Small delay to show toast
+  }, 500);
 }
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    // Handle 401 globally
-    if (res.status === 401) {
-      handle401Error();
-      throw new Error('Session expired');
-    }
-    
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
-  }
-}
-
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  try {
-    // Get the current session token from Supabase
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const headers: Record<string, string> = {};
-    
-    // Add Authorization header if we have a session
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    }
-    
-    // Add Content-Type for requests with data
-    if (data) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: "include",
-    });
-
-    // Handle 401 globally
-    if (res.status === 401) {
-      handle401Error();
-      throw new Error('Session expired');
-    }
-
-    // Handle non-JSON responses
-    const contentType = res.headers.get("content-type");
-    if (!res.ok) {
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "An error occurred");
-      } else {
-        const errorText = await res.text();
-        console.error("Non-JSON error response:", errorText);
-        throw new Error("An unexpected error occurred. Please try again.");
-      }
-    }
-
-    return res;
-  } catch (error) {
-    console.error("API request error:", error);
-    throw error;
-  }
-}
-
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    // Get the current session token from Supabase
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const headers: Record<string, string> = {};
-    
-    // Add Authorization header if we have a session
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    }
-
-    const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
-      headers,
-    });
-
-    // Handle 401 globally first
-    if (res.status === 401) {
-      // For auth check queries, return null silently (don't trigger global handler)
-      if (unauthorizedBehavior === "returnNull" && queryKey[0] === "/api/user") {
-        return null;
-      }
-      
-      // For all other queries, trigger global 401 handling
-      handle401Error();
-      throw new Error('Session expired');
-    }
-
-    await throwIfResNotOk(res);
-    return await res.json();
+export async function apiRequest(method: string, url: string, data?: unknown): Promise<Response> {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
   };
+
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`;
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: data ? JSON.stringify(data) : undefined,
+  });
+
+  if (response.status === 401) {
+    handle401Error();
+    throw new Error('Session expired');
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("API Error:", errorText);
+    throw new Error(errorText || 'An unexpected API error occurred');
+  }
+
+  return response;
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
+      queryFn: async ({ queryKey }) => {
+        const response = await apiRequest("GET", queryKey[0] as string);
+        return response.json();
+      },
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
       retry: false,
     },
     mutations: {
       retry: false,
-      onError: (error: Error) => {
-        // If it's a session expired error, the global handler has already been called
-        if (error.message === 'Session expired') {
-          return; // Don't show additional error toast
+      onError: (error: any) => {
+        if (error.message !== 'Session expired') {
+          toast({
+            title: "An error occurred",
+            description: error.message || "Please try again.",
+            variant: "destructive",
+          });
         }
-        
-        // For other errors, show generic error message
-        console.error('Mutation error:', error);
-      }
+      },
     },
   },
 });
 
-// Reset the 401 handling flag periodically and on successful requests
-setInterval(() => {
-  isHandling401 = false;
-}, 30000); // Reset every 30 seconds
+// Reset the 401 handling flag periodically
+setInterval(() => { isHandling401 = false; }, 30000);
