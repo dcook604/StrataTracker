@@ -48,6 +48,12 @@ console.log('Timestamp:', new Date().toISOString());
     const app = express();
     const port = Number(process.env.PORT) || 3000;
 
+    // Configure trust proxy for Cloudflare and reverse proxies
+    if (process.env.TRUST_PROXY) {
+      console.log('Configuring trust proxy for reverse proxy/Cloudflare');
+      app.set('trust proxy', true);
+    }
+
     // Basic middleware
     app.use(express.json());
 
