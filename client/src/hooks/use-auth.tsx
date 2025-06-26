@@ -51,10 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[useAuth] No session user, returning null');
         return null;
       }
+      if (!session.access_token) {
+        console.log('[useAuth] No access token in session, returning null');
+        return null;
+      }
       
       console.log('[useAuth] Fetching user profile for:', session.user.email);
       try {
-        const response = await apiRequest("GET", `/api/user-profile`);
+        const response = await apiRequest("GET", `/api/user-profile`, undefined, session.access_token);
         const profile: Profile = await response.json();
         console.log('[useAuth] Profile loaded successfully:', { 
           email: session.user.email, 
