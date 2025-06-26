@@ -48,8 +48,39 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
+  // Handle client-side hydration
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Enhanced modal state management for production
+  useEffect(() => {
+    if (!isClient) return; // Only run on client side
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasExpiredParam = urlParams.get('expired') === '1';
+    
+    console.log('[AuthPage] URL check:', { hasExpiredParam, currentModal: showExpiredModal });
+    
+    if (hasExpiredParam && !showExpiredModal) {
+      console.log('[AuthPage] Session expired detected, showing modal');
+      setShowExpiredModal(true);
+      // Clean URL immediately to prevent issues
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('expired');
+      window.history.replaceState({}, '', newUrl.pathname + newUrl.search);
+    } else if (!hasExpiredParam && showExpiredModal) {
+      console.log('[AuthPage] No expired parameter, hiding modal');
+      setShowExpiredModal(false);
+    }
+  }, [isClient, showExpiredModal]);
+
+  // Handle successful authentication
+  useEffect(() => {
+    if (!isClient) return; // Only run on client side
+    
     console.log('[AuthPage] User state changed:', { 
       user: user ? `${user.email} (${user.profile?.role})` : null,
       isLoading: loginMutation.isPending 
@@ -59,41 +90,37 @@ export default function AuthPage() {
       console.log('[AuthPage] User authenticated, navigating to dashboard...');
       navigate("/");
     }
-  }, [user, navigate]);
+  }, [user, navigate, isClient]);
 
+  // Handle URL parameters (logout success/error)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      
-      // Handle session expiry
-      if (urlParams.get('expired') === '1') {
-        setShowExpiredModal(true);
-      }
-      
-      // Handle logout success
-      if (urlParams.get('logout') === 'success') {
-        toast({
-          title: "Logged out successfully",
-          description: "You have been securely logged out. Please sign in again to continue.",
-          duration: 4000,
-        });
-        // Clean the URL
-        window.history.replaceState({}, '', '/auth');
-      }
-      
-      // Handle logout error
-      if (urlParams.get('logout') === 'error') {
-        toast({
-          title: "Logout completed with issues",
-          description: "You have been logged out, but there may have been connection issues. Please sign in again.",
-          variant: "destructive",
-          duration: 5000,
-        });
-        // Clean the URL
-        window.history.replaceState({}, '', '/auth');
-      }
+    if (!isClient) return; // Only run on client side
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Handle logout success
+    if (urlParams.get('logout') === 'success') {
+      toast({
+        title: "Logged out successfully",
+        description: "You have been securely logged out. Please sign in again to continue.",
+        duration: 4000,
+      });
+      // Clean the URL
+      window.history.replaceState({}, '', '/auth');
     }
-  }, [toast]);
+    
+    // Handle logout error
+    if (urlParams.get('logout') === 'error') {
+      toast({
+        title: "Logout completed with issues",
+        description: "You have been logged out, but there may have been connection issues. Please sign in again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+      // Clean the URL
+      window.history.replaceState({}, '', '/auth');
+    }
+  }, [toast, isClient]);
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -131,18 +158,36 @@ export default function AuthPage() {
   };
 
   const handleExpiredModalClose = () => {
+    console.log('[AuthPage] Closing expired modal');
     setShowExpiredModal(false);
-    // Clean the URL
+    // Ensure URL is completely clean
     if (typeof window !== 'undefined') {
       window.history.replaceState({}, '', '/auth');
     }
   };
 
+  // Show loading state during hydration to prevent FOUC
+  if (!isClient) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
-  // If user is already set (and useEffect for navigation will run), 
-  // we can return null earlier to prevent rendering the login form briefly.
+  // If user is already set, show loading until navigation completes
   if (user) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Redirecting...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -154,10 +199,10 @@ export default function AuthPage() {
             <img 
               src="/spectrum4-small.jpeg" 
               alt="Spectrum 4 Logo" 
-              className="h-56 w-auto mx-auto" // Increased by another 20% (from 192px to 224px)
+              className="h-56 w-auto mx-auto"
             />
           </div>
-          <CardHeader className="space-y-1 text-center pt-0"> {/* Adjusted pt-0 as logo div has padding */}
+          <CardHeader className="space-y-1 text-center pt-0">
             <CardTitle>Sign In</CardTitle>
             <CardDescription>
               Enter your credentials to access the system
@@ -228,19 +273,22 @@ export default function AuthPage() {
         </Card>
       </div>
       
-      <AlertDialog open={showExpiredModal} onOpenChange={setShowExpiredModal}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Session Expired</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your session has expired. Please log in again to continue.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={handleExpiredModalClose}>OK</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Only render modal on client side to prevent hydration mismatch */}
+      {isClient && (
+        <AlertDialog open={showExpiredModal} onOpenChange={setShowExpiredModal}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Session Expired</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your session has expired. Please log in again to continue.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={handleExpiredModalClose}>OK</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }

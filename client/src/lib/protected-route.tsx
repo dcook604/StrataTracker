@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
+import { useState, useEffect } from "react";
 
 export function ProtectedRoute({
   path,
@@ -10,6 +11,11 @@ export function ProtectedRoute({
   component: () => React.JSX.Element;
 }) {
   const { user, isLoading } = useAuth();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   console.log(`[ProtectedRoute] ${path}:`, { 
     user: user ? `${user.email} (${user.profile?.role})` : null,
@@ -17,7 +23,8 @@ export function ProtectedRoute({
     hasProfile: !!user?.profile
   });
 
-  if (isLoading) {
+  // Show loading spinner during SSR hydration or auth loading
+  if (!isClient || isLoading) {
     console.log(`[ProtectedRoute] ${path}: Showing loading spinner`);
     return (
       <Route path={path}>
