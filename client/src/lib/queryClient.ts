@@ -29,15 +29,21 @@ function handle401Error() {
   }, 500);
 }
 
-export async function apiRequest(method: string, url: string, data?: unknown): Promise<Response> {
-  const { data: { session } } = await supabase.auth.getSession();
+export async function apiRequest(method: string, url: string, data?: unknown, token?: string): Promise<Response> {
+  let accessToken = token;
+  if (!accessToken) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      accessToken = session.access_token;
+    }
+  }
   
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
 
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
   const response = await fetch(url, {
