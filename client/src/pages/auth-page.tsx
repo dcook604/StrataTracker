@@ -130,6 +130,14 @@ export default function AuthPage() {
     }
   };
 
+  const handleExpiredModalClose = () => {
+    setShowExpiredModal(false);
+    // Clean the URL
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/auth');
+    }
+  };
+
 
   // If user is already set (and useEffect for navigation will run), 
   // we can return null earlier to prevent rendering the login form briefly.
@@ -138,7 +146,88 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
+        <Card className="w-full max-w-md">
+          {/* Logo Placement */}
+          <div className="pt-8 pb-4">
+            <img 
+              src="/spectrum4-small.jpeg" 
+              alt="Spectrum 4 Logo" 
+              className="h-56 w-auto mx-auto" // Increased by another 20% (from 192px to 224px)
+            />
+          </div>
+          <CardHeader className="space-y-1 text-center pt-0"> {/* Adjusted pt-0 as logo div has padding */}
+            <CardTitle>Sign In</CardTitle>
+            <CardDescription>
+              Enter your credentials to access the system
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+              <Form {...loginForm}>
+                <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+          {error && (
+            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+              {error}
+            </div>
+          )}
+          
+                  <FormField
+                    control={loginForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                      <Input 
+                        type="email" 
+                        placeholder="Enter your email" 
+                        disabled={isLoading}
+                        {...field} 
+                      />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="Enter your password" 
+                        disabled={isLoading}
+                        {...field} 
+                      />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
+                  </Button>
+                </form>
+              </Form>
+              
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                <p>Only administrators can add new users to the system.</p>
+                <p>Contact your administrator if you need access.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
       <AlertDialog open={showExpiredModal} onOpenChange={setShowExpiredModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -148,89 +237,10 @@ export default function AuthPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowExpiredModal(false)}>OK</AlertDialogAction>
+            <AlertDialogAction onClick={handleExpiredModalClose}>OK</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Card className="w-full max-w-md">
-        {/* Logo Placement */}
-        <div className="pt-8 pb-4">
-          <img 
-            src="/spectrum4-small.jpeg" 
-            alt="Spectrum 4 Logo" 
-            className="h-56 w-auto mx-auto" // Increased by another 20% (from 192px to 224px)
-          />
-        </div>
-        <CardHeader className="space-y-1 text-center pt-0"> {/* Adjusted pt-0 as logo div has padding */}
-          <CardTitle>Sign In</CardTitle>
-          <CardDescription>
-            Enter your credentials to access the system
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-        {error && (
-          <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-            {error}
-          </div>
-        )}
-        
-                <FormField
-                  control={loginForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                    <Input 
-                      type="email" 
-                      placeholder="Enter your email" 
-                      disabled={isLoading}
-                      {...field} 
-                    />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={loginForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="Enter your password" 
-                      disabled={isLoading}
-                      {...field} 
-                    />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
-                </Button>
-              </form>
-            </Form>
-            
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              <p>Only administrators can add new users to the system.</p>
-              <p>Contact your administrator if you need access.</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </>
   );
 }
