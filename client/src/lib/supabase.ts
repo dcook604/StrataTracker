@@ -19,15 +19,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
     hint: 'Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in build environment'
   });
   
-  // In production, show user-friendly error instead of crashing
+  // In production, log error but don't block app initialization
   if (import.meta.env.PROD) {
     console.warn('[Supabase] Creating fallback client - authentication will fail gracefully');
-    // Create alert for users in production
+    // Schedule error notification without blocking main thread
     setTimeout(() => {
-      if (typeof window !== 'undefined' && !supabaseUrl) {
-        alert('Configuration Error: Authentication system not properly configured. Please contact support.');
+      if (typeof window !== 'undefined' && !supabaseUrl && document.body) {
+        // Use toast instead of alert to avoid blocking
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white p-4 rounded-md z-50';
+        errorDiv.textContent = 'Configuration Error: Authentication system not properly configured. Please contact support.';
+        document.body.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 10000);
       }
-    }, 1000);
+    }, 3000); // Delay to ensure DOM is ready
   } else {
     throw new Error('Supabase URL and anon key are required. Check your .env file.');
   }
