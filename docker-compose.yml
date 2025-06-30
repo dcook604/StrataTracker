@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.coolify
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     environment:
       NODE_ENV: production
       PORT: 3000

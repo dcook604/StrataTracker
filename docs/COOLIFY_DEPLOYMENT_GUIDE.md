@@ -44,14 +44,19 @@ POSTGRES_USER=spectrum4
 POSTGRES_PASSWORD=generate_secure_password_here
 ```
 
-#### **Supabase Authentication**
+#### **Supabase Authentication** ⚠️ **CRITICAL**
 ```env
+# Backend Supabase variables (for server-side auth)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# Frontend Supabase variables (REQUIRED for client-side React app)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key_here
 ```
+
+> **⚠️ CRITICAL:** The `VITE_` prefixed variables are **REQUIRED** for the React frontend to load properly. Without these, the app will show only basic HTML instead of the full interface.
 
 #### **Security**
 ```env
