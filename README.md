@@ -138,6 +138,21 @@ A comprehensive web-based violation management system designed specifically for 
    docker-compose up -d
    ```
 
+### For New Coolify Deployments 
+**⭐ New: Zero-Setup Deployment!**
+
+StrataTracker now works **out of the box** on any new Coolify deployment with **no manual database setup required**. 
+
+📖 **Follow the complete guide:** [`docs/COOLIFY_DEPLOYMENT_GUIDE.md`](docs/COOLIFY_DEPLOYMENT_GUIDE.md)
+
+✅ **Verify deployment:** [`DEPLOYMENT_CHECKLIST.md`](DEPLOYMENT_CHECKLIST.md)
+
+**Expected result:** Fully functional application in 5-10 minutes with:
+- ✅ Complete database schema (31+ tables) created automatically
+- ✅ Supabase authentication integration
+- ✅ Email deduplication system operational  
+- ✅ All features working immediately
+
 ## 📖 Configuration
 
 ### Environment Variables

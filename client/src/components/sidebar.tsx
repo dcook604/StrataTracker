@@ -43,7 +43,7 @@ interface NavItem {
 
 export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
-  const { user, logoutMutation } = useAuth();
+  const { user, logoutMutation, isAdmin, isCouncilMember } = useAuth();
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [violationsOpen, setViolationsOpen] = useState(true);
@@ -97,9 +97,20 @@ export function Sidebar({ className }: SidebarProps) {
       href: "/",
     },
     {
+      title: "All Violations",
+      icon: <FileText className="h-5 w-5" />,
+      href: "/violations",
+    },
+    {
       title: "Bylaws",
       icon: <BookOpen className="h-5 w-5" />,
       href: "/bylaws",
+    },
+    {
+      title: "Categories",
+      icon: <AlertCircle className="h-5 w-5" />,
+      href: "/categories",
+      adminOnly: true,
     },
     {
       title: "Communications",
@@ -114,24 +125,14 @@ export function Sidebar({ className }: SidebarProps) {
       adminOrCouncil: true,
     },
     {
+      title: "New Violation",
+      icon: <FileText className="h-5 w-5" />,
+      href: "/violations/new",
+    },
+    {
       title: "Reports",
       icon: <BarChart className="h-5 w-5" />,
       href: "/reports",
-    },
-    {
-      title: "Units",
-      icon: <Users className="h-5 w-5" />,
-      href: "/units",
-      adminOnly: true,
-    },
-    {
-      title: "Violations",
-      icon: <FileText className="h-5 w-5" />,
-      subItems: [
-        { title: "All Violations", href: "/violations" },
-        { title: "Categories", href: "/categories", adminOnly: true },
-        { title: "New Violation", href: "/violations/new" },
-      ],
     },
     {
       title: "Settings",
@@ -144,6 +145,12 @@ export function Sidebar({ className }: SidebarProps) {
         { title: "SMTP Settings", href: "/settings/smtp", adminOnly: true },
         { title: "User Management", href: "/settings/users", adminOnly: true },
       ],
+      adminOnly: true,
+    },
+    {
+      title: "Units",
+      icon: <Users className="h-5 w-5" />,
+      href: "/units",
       adminOnly: true,
     },
   ];
@@ -180,19 +187,18 @@ export function Sidebar({ className }: SidebarProps) {
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
             if (item.subItems) {
-              // Expandable sections (Violations and Settings) with sub-items
+              // Expandable sections (Settings) with sub-items
               const visibleSubItems = item.subItems.filter(sub => {
-                if (sub.adminOnly) return user && user.isAdmin;
-                if (sub.adminOrCouncil) return user && (user.isAdmin || user.isCouncilMember);
+                if (sub.adminOnly) return isAdmin;
+                if (sub.adminOrCouncil) return isAdmin || isCouncilMember;
                 return true;
               });
               if (visibleSubItems.length === 0) return null;
               
               // Determine which section this is and its open state
-              const isViolationsSection = item.title === "Violations";
               const isSettingsSection = item.title === "Settings";
-              const sectionOpen = isViolationsSection ? violationsOpen : isSettingsSection ? settingsOpen : false;
-              const sectionType = isViolationsSection ? 'violations' : isSettingsSection ? 'settings' : null;
+              const sectionOpen = isSettingsSection ? settingsOpen : false;
+              const sectionType = isSettingsSection ? 'settings' : null;
               
               return (
                 <div key={item.title} className="mb-1">
@@ -215,34 +221,34 @@ export function Sidebar({ className }: SidebarProps) {
                     </span>
                     {!collapsed && (sectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                   </Button>
-                                      {sectionOpen && !collapsed && (
-                      <div id={`${item.title.toLowerCase()}-subnav`} className="ml-4 flex flex-col gap-1 mt-1 border-l border-neutral-300 pl-2">
-                        {visibleSubItems.map(sub => (
-                          <Link key={sub.href} href={sub.href}>
-                            <Button
-                              variant="ghost"
-                              tabIndex={0}
-                              className={cn(
-                                "w-full text-left font-normal px-3 py-2 text-sm justify-start h-9",
-                                isActive(sub.href)
-                                  ? "bg-blue-700 text-white font-bold border-l-4 border-blue-500 shadow"
-                                  : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
-                              )}
-                              aria-current={isActive(sub.href) ? "page" : undefined}
-                              onClick={() => setOpen(false)}
-                            >
-                              {sub.title}
-                            </Button>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
+                  {sectionOpen && !collapsed && (
+                    <div id={`${item.title.toLowerCase()}-subnav`} className="ml-4 flex flex-col gap-1 mt-1 border-l border-neutral-300 pl-2">
+                      {visibleSubItems.map(sub => (
+                        <Link key={sub.href} href={sub.href}>
+                          <Button
+                            variant="ghost"
+                            tabIndex={0}
+                            className={cn(
+                              "w-full text-left font-normal px-3 py-2 text-sm justify-start h-9",
+                              isActive(sub.href)
+                                ? "bg-blue-700 text-white font-bold border-l-4 border-blue-500 shadow"
+                                : "text-neutral-800 hover:bg-blue-600 hover:text-white dark:text-neutral-200 dark:hover:bg-blue-400 dark:hover:text-white"
+                            )}
+                            aria-current={isActive(sub.href) ? "page" : undefined}
+                            onClick={() => setOpen(false)}
+                          >
+                            {sub.title}
+                          </Button>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             }
             // Regular nav item
-            if (item.adminOnly && !(user && user.isAdmin)) return null;
-            if (item.adminOrCouncil && !(user && (user.isAdmin || user.isCouncilMember))) return null;
+            if (item.adminOnly && !isAdmin) return null;
+            if (item.adminOrCouncil && !(isAdmin || isCouncilMember)) return null;
             return (
               <Link key={item.href} href={item.href as string}>
                 <Button
