@@ -1,6 +1,15 @@
 # Stage 1: Build
 FROM node:18-alpine AS builder
 WORKDIR /app
+
+# Declare build arguments for Vite environment variables
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+
+# Set environment variables from build arguments for Vite build process
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY vite.config.ts ./
@@ -10,6 +19,11 @@ COPY client ./client
 
 # Single npm install for all dependencies from root package.json
 RUN npm install
+
+# Debug: Show what environment variables are set (non-blocking)
+RUN echo "Build environment check:" || true && \
+    echo "VITE_SUPABASE_URL is set: $([ -n "$VITE_SUPABASE_URL" ] && echo 'YES' || echo 'NO')" || true && \
+    echo "VITE_SUPABASE_ANON_KEY is set: $([ -n "$VITE_SUPABASE_ANON_KEY" ] && echo 'YES' || echo 'NO')" || true
 
 # Build frontend and backend from /app
 # vite.config.ts sets root to 'client' and outDir to 'dist/public'
