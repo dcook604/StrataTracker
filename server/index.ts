@@ -79,13 +79,45 @@ console.log('Timestamp:', new Date().toISOString());
     if (process.env.NODE_ENV === 'production') {
       const publicPath = path.join(process.cwd(), 'dist', 'public');
       if (fs.existsSync(publicPath)) {
+        // Middleware to set no-cache headers for auth routes
+        app.use((req, res, next) => {
+          const authPaths = ['/auth', '/login', '/logout', '/forgot-password', '/reset-password', '/set-password'];
+          const isAuthRoute = authPaths.some(path => req.path === path || req.path.startsWith(path));
+          
+          if (isAuthRoute) {
+            // Set comprehensive no-cache headers for auth routes
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.setHeader('Surrogate-Control', 'no-store');
+            res.setHeader('X-Accel-Expires', '0');
+            res.setHeader('Vary', '*');
+            console.log(`[CACHE] No-cache headers set for auth route: ${req.path}`);
+          }
+          next();
+        });
+        
         app.use(express.static(publicPath));
         
-        // Serve index.html for SPA routes
+        // Serve index.html for SPA routes with special handling for auth routes
         app.get('*', (req, res) => {
+          const authPaths = ['/auth', '/login', '/logout', '/forgot-password', '/reset-password', '/set-password'];
+          const isAuthRoute = authPaths.some(path => req.path === path || req.path.startsWith(path));
+          
+          if (isAuthRoute) {
+            // Ensure no-cache headers are set for auth routes serving index.html
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.setHeader('Surrogate-Control', 'no-store');
+            res.setHeader('X-Accel-Expires', '0');
+            res.setHeader('Vary', '*');
+            console.log(`[CACHE] No-cache headers set for auth SPA route: ${req.path}`);
+          }
+          
           res.sendFile(path.join(publicPath, 'index.html'));
         });
-        console.log("Static files configured");
+        console.log("Static files configured with auth route cache control");
       } else {
         console.warn("Public directory not found:", publicPath);
       }

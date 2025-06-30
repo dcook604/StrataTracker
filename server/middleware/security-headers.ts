@@ -22,6 +22,21 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
     res.setHeader('Expires', '0');
   }
   
+  // Specific no-cache headers for authentication-related routes
+  const authPaths = ['/auth', '/login', '/logout', '/forgot-password', '/reset-password', '/set-password'];
+  const isAuthRoute = authPaths.some(path => req.path === path || req.path.startsWith(path));
+  
+  if (isAuthRoute || req.path.includes('/api/auth') || req.path.includes('/api/user-profile')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    
+    // Additional headers to prevent caching by CDNs and proxies
+    res.setHeader('X-Accel-Expires', '0');
+    res.setHeader('Vary', '*');
+  }
+  
   next();
 }
 

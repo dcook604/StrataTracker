@@ -57,6 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       console.log('[useAuth] Fetching user profile for:', session.user.email);
+      console.log('[useAuth] Token preview:', session.access_token.substring(0, 50) + '...');
+      
       try {
         const response = await apiRequest("GET", `/api/user-profile`, undefined, session.access_token);
         const profile: Profile = await response.json();
@@ -72,6 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     enabled: !!session,
     retry: 1, // Only retry once to avoid infinite loops
+    // Add a small delay to ensure session is properly established
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
