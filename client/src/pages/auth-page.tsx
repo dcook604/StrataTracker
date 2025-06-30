@@ -94,6 +94,7 @@ export default function AuthPage() {
 
   // Handle client-side hydration
   useEffect(() => {
+    console.log('[AuthPage] Setting isClient to true');
     setIsClient(true);
     // Set no-cache meta tags when auth page loads
     setNoCacheMeta();
@@ -217,15 +218,18 @@ export default function AuthPage() {
 
   // Show loading state during hydration to prevent FOUC
   if (!isClient) {
+    console.log('[AuthPage] Still in hydration state, isClient:', isClient);
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading...</span>
+          <span>Loading... (Hydration)</span>
         </div>
       </div>
     );
   }
+
+  console.log('[AuthPage] Rendering main form, user:', user ? 'logged in' : 'not logged in');
 
   // If user is already set, show loading until navigation completes
   if (user) {
