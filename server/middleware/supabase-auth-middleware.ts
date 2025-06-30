@@ -25,7 +25,10 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
   try {
     const authHeader = req.headers.authorization;
     
+    console.log(`[AuthMiddleware] Path: ${req.path}. Auth header present: ${!!authHeader}`);
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[AuthMiddleware] Failed: Missing or invalid authorization header.');
       return res.status(401).json({ error: 'Missing or invalid authorization header' });
     }
 
@@ -34,9 +37,18 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     // Verify the JWT with Supabase
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
-    if (error || !user) {
+    if (error) {
+        console.error(`[AuthMiddleware] Supabase getUser returned an error: ${error.message}`, { status: error.status });
+        // It's useful to know what kind of error it is
+        return res.status(error.status || 401).json({ error: 'Invalid token', details: error.message });
+    }
+
+    if (!user) {
+      console.error('[AuthMiddleware] Failed: Supabase returned no user and no error.');
       return res.status(401).json({ error: 'Invalid token' });
     }
+
+    console.log(`[AuthMiddleware] Supabase user found for token: ${user.email}`);
 
     // Get user profile from our database
     const profileResult = await db
@@ -46,10 +58,12 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
       .limit(1);
 
     if (profileResult.length === 0) {
+      console.error(`[AuthMiddleware] Failed: User profile not found in DB for id: ${user.id}`);
       return res.status(401).json({ error: 'User profile not found' });
     }
 
     const profile = profileResult[0];
+    console.log(`[AuthMiddleware] Profile found for ${user.email}, role: ${profile.role}`);
 
     // Attach combined user info to request
     (req as AuthenticatedRequest).appUser = {
@@ -59,7 +73,7 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
 
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('[AuthMiddleware] A critical error occurred in the authentication middleware:', error);
     return res.status(500).json({ error: 'Authentication failed' });
   }
 }
