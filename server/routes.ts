@@ -29,16 +29,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public health endpoint for Docker health checks (no authentication required)
   app.get("/api/health", async (req, res) => {
     try {
-      res.status(200).json({ 
-        status: "healthy", 
+      const checks = {
+        database: false,
+        supabase: false,
+        profileAutoCreation: false,
+      };
+
+      // Database connectivity check
+      try {
+        await db.execute(sql`SELECT 1`);
+        checks.database = true;
+      } catch (error) {
+        console.error('[Health] Database check failed:', error);
+      }
+
+      // Supabase connectivity check  
+      try {
+        const { supabase } = await import('./supabase-client.js');
+        const { error } = await supabase.auth.getSession();
+        checks.supabase = !error;
+      } catch (error) {
+        console.error('[Health] Supabase check failed:', error);
+      }
+
+      // Profile auto-creation readiness (check profiles table exists)
+      try {
+        const { profiles } = await import('#shared/schema.js');
+        await db.select().from(profiles).limit(1);
+        checks.profileAutoCreation = true;
+      } catch (error) {
+        console.error('[Health] Profile auto-creation check failed:', error);
+      }
+
+      const status = checks.database && checks.supabase && checks.profileAutoCreation ? "healthy" : "degraded";
+      
+      // Log production health status
+      if (process.env.NODE_ENV === 'production') {
+        console.log(`[PRODUCTION_HEALTH] Status: ${status} | DB: ${checks.database} | Supabase: ${checks.supabase} | ProfileAutoCreate: ${checks.profileAutoCreation}`);
+      }
+
+      res.status(status === "healthy" ? 200 : 503).json({ 
+        status,
         timestamp: new Date().toISOString(),
-        service: "StrataTracker API"
+        service: "StrataTracker API",
+        environment: process.env.NODE_ENV,
+        checks,
+        version: "production-ready-with-auto-profile-creation"
       });
-    } catch {
+    } catch (error) {
+      console.error('[Health] Critical health check failure:', error);
       res.status(503).json({ 
         status: "unhealthy", 
         timestamp: new Date().toISOString(),
-        error: "Service unavailable"
+        error: "Service unavailable",
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });

@@ -3,7 +3,7 @@ import { supabase } from '../supabase-client.js';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { profiles, Profile } from '#shared/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { User } from '@supabase/supabase-js';
 
 // Define the shape of our application user, combining Supabase user and our profile
@@ -50,20 +50,57 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
 
     console.log(`[AuthMiddleware] Supabase user found for token: ${user.email}`);
 
+    // Production health check: Verify database connection
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        await db.execute(sql`SELECT 1`);
+      } catch (dbError) {
+        console.error(`[AuthMiddleware] Database connectivity issue in production:`, dbError);
+        return res.status(503).json({ error: 'Database temporarily unavailable' });
+      }
+    }
+
     // Get user profile from our database
-    const profileResult = await db
+    let profileResult = await db
       .select()
       .from(profiles)
       .where(eq(profiles.id, user.id))
       .limit(1);
 
-    if (profileResult.length === 0) {
-      console.error(`[AuthMiddleware] Failed: User profile not found in DB for id: ${user.id}`);
-      return res.status(401).json({ error: 'User profile not found' });
-    }
+    let profile: Profile;
 
-    const profile = profileResult[0];
-    console.log(`[AuthMiddleware] Profile found for ${user.email}, role: ${profile.role}`);
+    if (profileResult.length === 0) {
+      console.log(`[AuthMiddleware] Profile not found for user ${user.email} (${user.id}). Auto-creating...`);
+      
+      try {
+        // Auto-create profile for new Supabase user
+        const newProfile = {
+          id: user.id,
+          fullName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          role: 'user' as const, // Default role
+          updatedAt: new Date(),
+        };
+
+        const [createdProfile] = await db
+          .insert(profiles)
+          .values(newProfile)
+          .returning();
+
+        profile = createdProfile;
+        console.log(`[AuthMiddleware] ✅ Profile auto-created for ${user.email} with role: ${profile.role}`);
+        
+        // Production notification for profile creation
+        if (process.env.NODE_ENV === 'production') {
+          console.warn(`[PRODUCTION] Auto-created profile for new user: ${user.email} (${user.id})`);
+        }
+      } catch (createError) {
+        console.error(`[AuthMiddleware] Failed to auto-create profile for ${user.email}:`, createError);
+        return res.status(500).json({ error: 'Failed to create user profile' });
+      }
+    } else {
+      profile = profileResult[0];
+      console.log(`[AuthMiddleware] Profile found for ${user.email}, role: ${profile.role}`);
+    }
 
     // Attach combined user info to request
     (req as AuthenticatedRequest).appUser = {
@@ -122,7 +159,7 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
     }
 
     // Get user profile
-    const userProfile = await db
+    let userProfile = await db
       .select()
       .from(profiles)
       .where(eq(profiles.id, user.id))
@@ -134,6 +171,31 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
         ...user,
         profile: profile,
       };
+    } else {
+      // Auto-create profile for optional auth as well
+      try {
+        const newProfile = {
+          id: user.id,
+          fullName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          role: 'user' as const,
+          updatedAt: new Date(),
+        };
+
+        const [createdProfile] = await db
+          .insert(profiles)
+          .values(newProfile)
+          .returning();
+
+        console.log(`[OptionalAuth] Profile auto-created for ${user.email} with role: ${createdProfile.role}`);
+        
+        (req as AuthenticatedRequest).appUser = {
+          ...user,
+          profile: createdProfile,
+        };
+      } catch (createError) {
+        console.error(`[OptionalAuth] Failed to auto-create profile for ${user.email}:`, createError);
+        // For optional auth, we don't fail - just continue without the profile
+      }
     }
 
     next();
