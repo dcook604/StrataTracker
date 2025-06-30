@@ -41,6 +41,48 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+// Helper function to set no-cache meta tags
+const setNoCacheMeta = () => {
+  if (typeof document === 'undefined') return;
+  
+  // Remove existing cache control meta tags
+  const existingTags = document.querySelectorAll('meta[http-equiv]');
+  existingTags.forEach(tag => {
+    const httpEquiv = tag.getAttribute('http-equiv');
+    if (httpEquiv === 'Cache-Control' || httpEquiv === 'Pragma' || httpEquiv === 'Expires') {
+      tag.remove();
+    }
+  });
+  
+  // Add comprehensive no-cache meta tags
+  const metaTags = [
+    { httpEquiv: 'Cache-Control', content: 'no-store, no-cache, must-revalidate, private, max-age=0' },
+    { httpEquiv: 'Pragma', content: 'no-cache' },
+    { httpEquiv: 'Expires', content: '0' },
+    { name: 'robots', content: 'noindex, nofollow, noarchive, nosnippet, noimageindex' }
+  ];
+  
+  metaTags.forEach(({ httpEquiv, name, content }) => {
+    const meta = document.createElement('meta');
+    if (httpEquiv) meta.setAttribute('http-equiv', httpEquiv);
+    if (name) meta.setAttribute('name', name);
+    meta.setAttribute('content', content);
+    document.head.appendChild(meta);
+  });
+  
+  console.log('[AuthPage] No-cache meta tags set');
+};
+
+// Helper function to remove no-cache meta tags when leaving auth page
+const removeNoCacheMeta = () => {
+  if (typeof document === 'undefined') return;
+  
+  const cacheMetaTags = document.querySelectorAll('meta[http-equiv="Cache-Control"], meta[http-equiv="Pragma"], meta[http-equiv="Expires"], meta[name="robots"][content*="noindex"]');
+  cacheMetaTags.forEach(tag => tag.remove());
+  
+  console.log('[AuthPage] No-cache meta tags removed');
+};
+
 export default function AuthPage() {
   const { user, loginMutation } = useAuth();
   const [, navigate] = useLocation();
@@ -53,6 +95,13 @@ export default function AuthPage() {
   // Handle client-side hydration
   useEffect(() => {
     setIsClient(true);
+    // Set no-cache meta tags when auth page loads
+    setNoCacheMeta();
+    
+    // Cleanup function to remove meta tags when component unmounts
+    return () => {
+      removeNoCacheMeta();
+    };
   }, []);
 
   // Enhanced modal state management for production
