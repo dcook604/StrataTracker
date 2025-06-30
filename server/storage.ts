@@ -580,6 +580,13 @@ export class DatabaseStorage implements IStorage {
       }));
     } catch (error) {
       console.error(`[ERROR_DB] Failed to getViolationsByStatus for status "${status}":`, error);
+      
+      // Check if it's a missing UUID column error and provide helpful context
+      if (error instanceof Error && error.message.includes('column violations.uuid does not exist')) {
+        console.error(`[PRODUCTION_ERROR] The violations table is missing the uuid column. Run the UUID migration to fix this.`);
+        throw new Error(`Database schema mismatch: UUID column missing. Please run the production migration.`);
+      }
+      
       throw error;
     }
   }
@@ -609,20 +616,32 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getRecentViolations(limit: number): Promise<(Violation & { unit: PropertyUnit })[]> {
-    const result = await db
-      .select({
-        violation: violations,
-        unit: propertyUnits
-      })
-      .from(violations)
-      .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
-      .orderBy(desc(violations.createdAt))
-      .limit(limit);
+    try {
+      const result = await db
+        .select({
+          violation: violations,
+          unit: propertyUnits
+        })
+        .from(violations)
+        .innerJoin(propertyUnits, eq(violations.unitId, propertyUnits.id))
+        .orderBy(desc(violations.createdAt))
+        .limit(limit);
+        
+      return result.map((r) => ({
+        ...r.violation,
+        unit: r.unit
+      }));
+    } catch (error) {
+      console.error(`[ERROR_DB] Failed to getRecentViolations:`, error);
       
-    return result.map((r) => ({
-      ...r.violation,
-      unit: r.unit
-    }));
+      // Check if it's a missing UUID column error
+      if (error instanceof Error && error.message.includes('column violations.uuid does not exist')) {
+        console.error(`[PRODUCTION_ERROR] The violations table is missing the uuid column. Run the UUID migration to fix this.`);
+        throw new Error(`Database schema mismatch: UUID column missing. Please run the production migration.`);
+      }
+      
+      throw error;
+    }
   }
   
   async createViolation(violation: InsertViolation): Promise<Violation> {
