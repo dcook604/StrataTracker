@@ -49,6 +49,7 @@ services:
       
       # Security
       SESSION_SECRET: ${SESSION_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
       TRUST_PROXY: 1
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
       
