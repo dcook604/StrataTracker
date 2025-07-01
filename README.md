@@ -1,3 +1,242 @@
+# StrataTracker
+
+A comprehensive strata violation management system built with React, Node.js, and PostgreSQL. Designed for strata councils and property management companies to efficiently track, manage, and resolve property violations.
+
+## 🚀 Production Status
+
+**Current Version**: Production-Ready with Enhanced Deployment Safety  
+**Deployment Status**: ✅ **SAFE FOR REDEPLOYMENT**  
+**Last Updated**: January 15, 2025
+
+### Key Features
+- ✅ **Safe Redeployments**: Consolidated schema ensures no manual migrations needed
+- ✅ **Email Deduplication**: Comprehensive duplicate prevention system  
+- ✅ **UUID Security**: Non-enumerable violation URLs for enhanced security
+- ✅ **CORS Fixed**: Production-ready cross-origin configuration
+- ✅ **Data Persistence**: Docker volumes preserve all data between deployments
+
+## 🏗️ Architecture
+
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + Radix UI
+- **Backend**: Node.js + Express + TypeScript
+- **Database**: PostgreSQL 15 + Drizzle ORM
+- **Email**: SMTP with comprehensive deduplication (SMTP2GO)
+- **Authentication**: Supabase Auth + Session-based RBAC
+- **Containerization**: Docker + Docker Compose for Coolify deployment
+
+## 📊 Current Features
+
+### Violation Management
+- **Complete Workflow**: Creation → Approval → Dispute → Resolution
+- **UUID Support**: Secure, non-enumerable violation URLs
+- **Enhanced Dispute System**: Dedicated admin interface with real-time updates
+- **Email Notifications**: Modern deduplication system prevents duplicate sends
+
+### Unit & Resident Management  
+- **Dynamic Forms**: React Hook Form with proper loading states
+- **Persons System**: Modern contact management replacing legacy email fields
+- **Facility Tracking**: Parking spots, storage lockers, bike lockers
+
+### Communication System
+- **Email Campaigns**: Bulk communications with tracking
+- **Deduplication**: Content-based and idempotency-based duplicate prevention
+- **Templates**: Reusable email templates with variable substitution
+- **Monitoring**: Real-time email stats and delivery tracking
+
+### Administrative Features
+- **Role-Based Access**: Admin, Council, and User roles
+- **Audit Logging**: Complete action tracking
+- **Bylaw Management**: Comprehensive bylaw system with categories
+- **Reports**: PDF and CSV export capabilities
+
+## 🔧 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 15+
+- Docker & Docker Compose (for production)
+
+### Development Setup
+```bash
+# Clone repository
+git clone [repository-url]
+cd StrataTracker
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start development environment (recommended)
+bash start-dev.sh
+
+# Or start services individually:
+# Database in Docker
+docker-compose up -d db
+
+# Backend locally (with live reloading)
+npm run dev:backend
+
+# Frontend locally (with Vite)
+npm run dev
+```
+
+### Production Deployment (Coolify)
+
+1. **Set Environment Variables** in Coolify:
+   ```env
+   DATABASE_URL=postgres://spectrum4:spectrum4password@postgres:5432/spectrum4
+   APP_URL=https://your-domain.com
+   CORS_ORIGIN=https://your-domain.com
+   SMTP_HOST=mail.smtp2go.com
+   SMTP_USER=your-email
+   SMTP_PASS=your-password
+   SESSION_SECRET=your-secret
+   ```
+
+2. **Deploy**: Use `docker-compose.coolify.yml` configuration
+
+3. **Verify Deployment**:
+   ```bash
+   # Test deployment safety
+   bash scripts/verify-deployment-safety.sh
+   ```
+
+## 🛡️ Deployment Safety
+
+### Guaranteed Safe Operations
+- ✅ **Standard Redeployments**: Code updates, config changes
+- ✅ **Fresh Deployments**: New installations get complete schema automatically  
+- ✅ **Data Persistence**: PostgreSQL data, uploads, logs preserved via Docker volumes
+- ✅ **No Manual Migrations**: Consolidated schema includes all fixes
+
+### Data Protection
+- **Docker Volumes**: `postgres_data`, `uploads_data`, `app_logs` persist between deployments
+- **Schema Detection**: Automatically detects fresh vs. existing databases
+- **Backward Compatibility**: Maintains existing data structure
+
+**📖 Full Guide**: See `docs/DEPLOYMENT_SAFETY_GUIDE.md` for comprehensive deployment safety information.
+
+## 🔑 Default Credentials
+
+**Fresh installations** automatically create:
+- **Email**: `admin@spectrum4.ca`  
+- **Password**: `admin123`
+
+⚠️ **IMPORTANT**: Change the default password immediately after first login!
+
+## 📁 Project Structure
+
+```
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Page components
+│   │   ├── lib/           # Utilities, API client, auth
+│   │   └── hooks/         # Custom React hooks
+├── server/                 # Node.js backend
+│   ├── routes/            # API endpoints
+│   ├── email.ts           # Email system with deduplication
+│   └── storage.ts         # Database operations
+├── shared/                 # Shared TypeScript schemas
+├── db/                     # Database configuration
+│   └── init/              # Consolidated schema & initialization
+├── docs/                   # Documentation
+├── scripts/               # Deployment & verification scripts
+└── migrations/            # Historical migrations (consolidated)
+```
+
+## 🚀 Key Workflows
+
+### Violation Management
+1. **Create Violation**: Auto-assigns "pending_approval" status
+2. **Admin Review**: Approve with fine amount or reject with reason
+3. **Dispute Process**: Residents can dispute via secure email links
+4. **Resolution**: Admin processes disputes through dedicated interface
+
+### Email System
+- **Deduplication**: Prevents duplicate emails using content hashing + idempotency keys
+- **Rate Limiting**: 100ms delays between bulk sends
+- **Monitoring**: Real-time stats and delivery tracking
+- **Cleanup**: Automated daily cleanup of expired records
+
+### Unit Management
+- **Modern Forms**: React Hook Form with dynamic arrays for contacts
+- **Person-Based**: Uses persons table instead of legacy email fields
+- **Facility Tracking**: Comprehensive parking, storage, bike locker management
+
+## 📊 Monitoring & Health
+
+### Health Checks
+```bash
+# Application health
+curl https://your-domain.com/api/health
+
+# Email system status  
+curl https://your-domain.com/api/communications/email-stats?hours=24
+
+# Database connectivity
+curl https://your-domain.com/api/violations?limit=1
+```
+
+### Performance Targets
+- **Frontend Load**: < 2 seconds
+- **API Response**: < 500ms  
+- **Database Queries**: < 100ms
+- **Email Sending**: < 5 seconds
+
+## 🔧 Development Commands
+
+```bash
+# Development
+npm run dev                 # Start frontend
+npm run dev:backend        # Start backend with live reload
+bash start-dev.sh          # Start both (recommended)
+
+# Database
+npm run db:push            # Sync schema changes
+npm run db:studio          # Visual database browser
+
+# Testing & Quality
+npm run test               # Run test suite
+npm run test:watch         # Watch mode testing
+npm run build              # Production build
+npm run preview            # Preview build locally
+
+# Deployment Safety
+bash scripts/verify-deployment-safety.sh  # Comprehensive deployment check
+```
+
+## 📚 Documentation
+
+- [`docs/DEPLOYMENT_SAFETY_GUIDE.md`](docs/DEPLOYMENT_SAFETY_GUIDE.md) - Comprehensive deployment safety
+- [`docs/CORS_CONFIGURATION_GUIDE.md`](docs/CORS_CONFIGURATION_GUIDE.md) - CORS setup and troubleshooting  
+- [`docs/EMAIL_DEDUPLICATION_SYSTEM.md`](docs/EMAIL_DEDUPLICATION_SYSTEM.md) - Email system architecture
+- [`docs/LOGOUT_ENHANCEMENT.md`](docs/LOGOUT_ENHANCEMENT.md) - Secure logout implementation
+- [`docs/UNIT_MANAGEMENT_FIXES.md`](docs/UNIT_MANAGEMENT_FIXES.md) - Form management solutions
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Test your changes: `bash scripts/verify-deployment-safety.sh`
+4. Commit changes: `git commit -m "Description"`
+5. Push to branch: `git push origin feature-name`
+6. Create Pull Request
+
+## 📧 Support
+
+For deployment issues or questions:
+- Check `docs/DEPLOYMENT_SAFETY_GUIDE.md` for troubleshooting
+- Review application logs in Coolify dashboard
+- Verify system health with verification script
+
+---
+
+**Built for production strata management** • **Safe for redeployment** • **Last updated: January 15, 2025**
+
 # StrataTracker - Advanced Strata Corporation Management System
 
 [![Status](https://img.shields.io/badge/Status-Production--Ready-green)](https://github.com/your-repo/stratatracker)
@@ -379,6 +618,10 @@ sudo docker compose down -v
 ```
 ├── client/                 # React frontend
 │   ├── src/               # Source code
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Page components
+│   │   ├── lib/           # Utilities, API client, auth
+│   │   └── hooks/         # Custom React hooks
 │   ├── public/            # Static assets
 │   └── index.html         # Entry point
 ├── server/                # Express backend
