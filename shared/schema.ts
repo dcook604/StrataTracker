@@ -727,9 +727,14 @@ export const emailIdempotencyKeys = pgTable("email_idempotency_keys", {
 export const emailSendAttempts = pgTable("email_send_attempts", {
   id: serial("id").primaryKey(),
   idempotencyKey: text("idempotency_key").notNull().references(() => emailIdempotencyKeys.idempotencyKey),
-  attemptNumber: integer("attempt_number").notNull().default(1),
+  recipient: text("recipient").notNull(),
+  subject: text("subject").notNull(),
   status: text("status").notNull(), // 'pending', 'sent', 'failed', 'retrying'
   errorMessage: text("error_message"),
+  attemptCount: integer("attempt_count").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  attemptNumber: integer("attempt_number").notNull().default(1),
   attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),
 });
@@ -737,12 +742,17 @@ export const emailSendAttempts = pgTable("email_send_attempts", {
 // Comprehensive email deduplication log
 export const emailDeduplicationLog = pgTable("email_deduplication_log", {
   id: serial("id").primaryKey(),
+  contentHash: text("content_hash").notNull(), // Hash of subject + content
+  recipient: text("recipient").notNull(),
+  subject: text("subject").notNull(),
+  firstSentAt: timestamp("first_sent_at").defaultNow().notNull(),
+  lastAttemptedAt: timestamp("last_attempted_at").defaultNow().notNull(),
+  attemptCount: integer("attempt_count").notNull().default(1),
+  preventedAt: timestamp("prevented_at").defaultNow().notNull(),
   recipientEmail: text("recipient_email").notNull(),
   emailType: text("email_type").notNull(),
-  contentHash: text("content_hash").notNull(), // Hash of subject + content
-  originalIdempotencyKey: text("original_idempotency_key").notNull(),
-  duplicateIdempotencyKey: text("duplicate_idempotency_key").notNull(),
-  preventedAt: timestamp("prevented_at").defaultNow().notNull(),
+  originalIdempotencyKey: text("original_idempotency_key"),
+  duplicateIdempotencyKey: text("duplicate_idempotency_key"),
   metadata: jsonb("metadata"), // Context about why it was prevented
 });
 
