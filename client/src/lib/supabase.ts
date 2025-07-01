@@ -47,5 +47,29 @@ export const supabase = createClient(finalUrl, finalKey, {
     persistSession: true,
     detectSessionInUrl: true,
     autoRefreshToken: true,
-  }
+    // Important for production CORS handling
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'x-client-info': 'supabase-js/2.38.4'
+    }
+  },
+  // Ensure proper CORS handling for production
+  db: {
+    schema: 'public'
+  },
+  // Add custom fetch for additional CORS handling if needed
+  ...(import.meta.env.PROD && {
+    fetch: (url: RequestInfo | URL, init?: RequestInit) => {
+      const customInit: RequestInit = {
+        ...init,
+        headers: {
+          ...init?.headers,
+          'Access-Control-Allow-Credentials': 'true'
+        }
+      };
+      return fetch(url, customInit);
+    }
+  })
 }); 

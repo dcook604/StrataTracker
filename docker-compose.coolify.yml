@@ -33,12 +33,18 @@ services:
       context: .
       dockerfile: Dockerfile.coolify
       args:
-        # Pass Vite environment variables as build arguments
+        # Pass Vite environment variables as build arguments for Coolify
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     restart: unless-stopped
     ports:
       - "3365:3001"
+    
+    # Coolify-specific labels for better integration
+    labels:
+      - "coolify.managed=true"
+      - "coolify.version=1.0"
+      - "coolify.type=application"
     environment:
       # Core Configuration
       NODE_ENV: production
@@ -55,8 +61,8 @@ services:
       
       # URLs
       APP_URL: ${APP_URL:-https://violation.spectrum4.ca}
-      CORS_ORIGIN: ${CORS_ORIGIN}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://violation.spectrum4.ca}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://violation.spectrum4.ca}
       
       # Supabase Auth
       SUPABASE_URL: ${SUPABASE_URL}

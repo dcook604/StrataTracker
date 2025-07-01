@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
+import cors from 'cors';
 
 // Ensure log directory exists
 function ensureLogDirectoryExists() {
@@ -53,6 +54,54 @@ console.log('Timestamp:', new Date().toISOString());
       console.log('Configuring trust proxy for reverse proxy/Cloudflare');
       app.set('trust proxy', true);
     }
+
+    // Enhanced CORS configuration for production
+    const corsOptions = {
+      origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+          'https://violation.spectrum4.ca',
+          'http://localhost:5173',
+          'http://localhost:3000',
+          'http://localhost:3001',
+          process.env.CORS_ORIGIN,
+          process.env.APP_URL,
+          process.env.PUBLIC_BASE_URL
+        ].filter(Boolean);
+
+        console.log('[CORS] Request from origin:', origin);
+        console.log('[CORS] Allowed origins:', allowedOrigins);
+
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.warn('[CORS] Blocked request from unauthorized origin:', origin);
+          callback(new Error('Not allowed by CORS'), false);
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: [
+        'Origin',
+        'X-Requested-With', 
+        'Content-Type',
+        'Accept',
+        'Authorization',
+        'x-client-info',
+        'apikey'
+      ],
+      exposedHeaders: ['set-cookie'],
+      preflightContinue: false,
+      optionsSuccessStatus: 200
+    };
+
+    // Apply CORS middleware
+    app.use(cors(corsOptions));
+
+    // Handle preflight requests explicitly
+    app.options('*', cors(corsOptions));
 
     // Basic middleware
     app.use(express.json());

@@ -40,17 +40,36 @@ export async function apiRequest(method: string, url: string, data?: unknown, to
   
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    // Include Supabase-specific headers for CORS compatibility
+    'x-client-info': 'supabase-js/2.38.4',
   };
 
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
+    // Include apikey header if we have the anon key (for Supabase compatibility)
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (supabaseAnonKey) {
+      headers['apikey'] = supabaseAnonKey;
+    }
   }
 
-  const response = await fetch(url, {
+  const requestOptions: RequestInit = {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
+    // Ensure credentials are included for CORS
+    credentials: 'include',
+    // Handle preflight requests properly
+    mode: 'cors',
+  };
+
+  console.log(`[API Request] ${method} ${url}`, { 
+    hasAuth: !!accessToken,
+    origin: window.location.origin 
   });
+
+  const response = await fetch(url, requestOptions);
 
   if (response.status === 401) {
     handle401Error();
@@ -59,7 +78,12 @@ export async function apiRequest(method: string, url: string, data?: unknown, to
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("API Error:", errorText);
+    console.error("API Error:", { 
+      status: response.status, 
+      statusText: response.statusText, 
+      error: errorText,
+      url 
+    });
     throw new Error(errorText || 'An unexpected API error occurred');
   }
 

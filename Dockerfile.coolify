@@ -1,5 +1,8 @@
-# Coolify-optimized Dockerfile for StrataTracker (ClamAV disabled)
-FROM node:18-alpine AS builder
+# Coolify-optimized Dockerfile for StrataTracker
+FROM node:18-alpine as builder
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -7,63 +10,61 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY vite.config.ts ./
-COPY tsconfig.server.json ./
-
-# Copy source code
-COPY server ./server
-COPY shared ./shared
-COPY client ./client
 
 # Install dependencies
-RUN npm install
+RUN npm ci --only=production --ignore-scripts
 
-# Declare build arguments for Vite environment variables
+# Copy source code
+COPY . .
+
+# Build arguments for Vite environment variables (passed from docker-compose.coolify.yml)
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 
-# Set environment variables from build arguments for Vite build process
-ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+# Set environment variables for build process
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV NODE_ENV=production
 
-# Debug: Show what environment variables are set (non-blocking)
-RUN echo "Build environment check:" || true && \
-    echo "VITE_SUPABASE_URL is set: $([ -n "$VITE_SUPABASE_URL" ] && echo 'YES' || echo 'NO')" || true && \
-    echo "VITE_SUPABASE_ANON_KEY is set: $([ -n "$VITE_SUPABASE_ANON_KEY" ] && echo 'YES' || echo 'NO')" || true
+# Log build-time environment for debugging
+RUN echo "Build-time Supabase URL: $VITE_SUPABASE_URL" && \
+    echo "Build-time Supabase Key: ${VITE_SUPABASE_ANON_KEY:0:20}..." && \
+    echo "Node environment: $NODE_ENV"
 
 # Build the application
 RUN npm run build
 
-# Production stage (simplified without ClamAV)
-FROM node:18-alpine AS production
+# Production stage
+FROM node:18-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Install minimal required dependencies
-RUN apk update && apk add --no-cache \
-    curl \
-    netcat-openbsd \
-    && rm -rf /var/cache/apk/*
+# Copy package files for production dependencies
+COPY package*.json ./
+RUN npm ci --only=production --ignore-scripts
 
 # Copy built application
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/dist ./dist/
-COPY --from=builder /app/shared ./shared/
-COPY --from=builder /app/node_modules ./node_modules/
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/migrations ./migrations
 
 # Create necessary directories
-RUN mkdir -p /app/uploads /app/logs
+RUN mkdir -p /app/uploads /app/logs && \
+    chown -R node:node /app
 
-# Set environment
-ENV NODE_ENV=production
-ENV PORT=3001
-ENV VIRUS_SCANNING_ENABLED=false
+# Switch to non-root user
+USER node
+
+# Health check for Coolify
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3001/api/health || exit 1
 
 # Expose port
 EXPOSE 3001
 
-# Simple health check for Node.js app only
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:3001/api/health || exit 1
-
-# Run Node.js directly without supervisor
-CMD ["node", "dist/server/index.js"] 
+# Start the application
+CMD ["npm", "start"] 
