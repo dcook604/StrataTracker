@@ -26,55 +26,14 @@ import { db, migrationRunner } from './db.js';
 import { authenticateUser, requireAdmin, AuthenticatedRequest } from './middleware/supabase-auth-middleware.js';
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Public health endpoint for Docker health checks (no authentication required)
+  // Health check endpoint
   app.get("/api/health", async (req, res) => {
     try {
-      const checks = {
-        database: false,
-        supabase: false,
-        profileAutoCreation: false,
-      };
-
-      // Database connectivity check
-      try {
-        await db.execute(sql`SELECT 1`);
-        checks.database = true;
-      } catch (error) {
-        console.error('[Health] Database check failed:', error);
-      }
-
-      // Supabase connectivity check  
-      try {
-        const { supabase } = await import('./supabase-client.js');
-        const { error } = await supabase.auth.getSession();
-        checks.supabase = !error;
-      } catch (error) {
-        console.error('[Health] Supabase check failed:', error);
-      }
-
-      // Profile auto-creation readiness (check profiles table exists)
-      try {
-        const { profiles } = await import('#shared/schema.js');
-        await db.select().from(profiles).limit(1);
-        checks.profileAutoCreation = true;
-      } catch (error) {
-        console.error('[Health] Profile auto-creation check failed:', error);
-      }
-
-      const status = checks.database && checks.supabase && checks.profileAutoCreation ? "healthy" : "degraded";
-      
-      // Log production health status
-      if (process.env.NODE_ENV === 'production') {
-        console.log(`[PRODUCTION_HEALTH] Status: ${status} | DB: ${checks.database} | Supabase: ${checks.supabase} | ProfileAutoCreate: ${checks.profileAutoCreation}`);
-      }
-
-      res.status(status === "healthy" ? 200 : 503).json({ 
-        status,
+      await db.execute(sql`SELECT 1 as test`);
+      res.json({ 
+        status: "healthy", 
         timestamp: new Date().toISOString(),
-        service: "StrataTracker API",
-        environment: process.env.NODE_ENV,
-        checks,
-        version: "production-ready-with-auto-profile-creation"
+        database: "connected"
       });
     } catch (error) {
       console.error('[Health] Critical health check failure:', error);
@@ -85,6 +44,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
+  });
+
+  // Debug endpoint for CSP configuration
+  app.get("/api/debug/csp", (req, res) => {
+    const enableCSP = !process.env.NGINX_PROXY && process.env.NODE_ENV === 'production';
+    res.json({
+      timestamp: new Date().toISOString(),
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        NGINX_PROXY: process.env.NGINX_PROXY || 'undefined',
+        enableCSP: enableCSP,
+      },
+      cspConfig: enableCSP ? 'Custom CSP enabled with Supabase/Google Fonts support' : 'CSP disabled (nginx handles it)',
+      headers: {
+        'Content-Security-Policy': res.getHeader('Content-Security-Policy') || 'not set',
+      },
+      detectedPlatform: 'Coolify deployment'
+    });
   });
 
   // Add helmet for security headers 
@@ -158,6 +135,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use((req, res, next) => {
       res.removeHeader('Content-Security-Policy');
       res.removeHeader('Content-Security-Policy-Report-Only');
+      next();
+    });
+  } else {
+    // Force CSP headers to override any defaults (including Cloudflare)
+    app.use((req, res, next) => {
+      const cspDirective = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' wss: ws: https: *.cloudflare.com *.supabase.co *.supabase.com cloudflareinsights.com; object-src 'none'; media-src 'self'; frame-src 'none'; worker-src 'self' blob:; child-src 'self' blob:";
+      res.setHeader('Content-Security-Policy', cspDirective);
+      console.log('[CSP Override] Custom CSP header set:', cspDirective.substring(0, 100) + '...');
       next();
     });
   }
