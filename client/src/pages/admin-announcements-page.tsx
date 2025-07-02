@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { TiptapEditor } from '@/components/tiptap-editor';
+import { apiRequest } from '@/lib/queryClient';
 import { 
   Plus, 
   Edit, 
@@ -56,7 +57,7 @@ export function AdminAnnouncementsPage() {
   
   const [formData, setFormData] = useState<AnnouncementFormData>({
     title: '',
-    content: null,
+    content: '',
     htmlContent: '',
     isActive: true,
     priority: 0,
@@ -69,26 +70,13 @@ export function AdminAnnouncementsPage() {
     error: _error 
   } = useQuery<AdminAnnouncement[]>({
     queryKey: ['admin-announcements-manage'],
-    queryFn: async () => {
-      const response = await fetch('/api/admin-announcements/manage');
-      if (!response.ok) {
-        throw new Error('Failed to fetch announcements');
-      }
-      return response.json();
-    },
+    queryFn: () => apiRequest("GET", "/api/admin-announcements/manage").then((res) => res.json()),
   });
 
   // Create announcement mutation
   const createMutation = useMutation({
     mutationFn: async (data: AnnouncementFormData) => {
-      const response = await fetch('/api/admin-announcements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to create announcement');
-      }
+      const response = await apiRequest('POST', '/api/admin-announcements', data);
       return response.json();
     },
     onSuccess: () => {
@@ -113,14 +101,7 @@ export function AdminAnnouncementsPage() {
   // Update announcement mutation
   const updateMutation = useMutation({
     mutationFn: async (data: { id: number } & AnnouncementFormData) => {
-      const response = await fetch(`/api/admin-announcements/${data.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to update announcement');
-      }
+      const response = await apiRequest('PUT', `/api/admin-announcements/${data.id}`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -146,12 +127,7 @@ export function AdminAnnouncementsPage() {
   // Delete announcement mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/admin-announcements/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete announcement');
-      }
+      await apiRequest('DELETE', `/api/admin-announcements/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-announcements'] });
@@ -174,7 +150,7 @@ export function AdminAnnouncementsPage() {
   const resetForm = () => {
     setFormData({
       title: '',
-      content: null,
+      content: '',
       htmlContent: '',
       isActive: true,
       priority: 0,
@@ -229,26 +205,20 @@ export function AdminAnnouncementsPage() {
     setFormData(prev => ({
       ...prev,
       htmlContent: html,
-      content: json,
+      content: JSON.stringify(json),
     }));
   };
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`/api/admin-announcements/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !currentStatus }),
-      });
+      await apiRequest('PUT', `/api/admin-announcements/${id}`, { isActive: !currentStatus });
       
-      if (response.ok) {
-        queryClient.invalidateQueries({ queryKey: ['admin-announcements'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-announcements-manage'] });
-        toast({
-          title: "Success",
-          description: `Announcement ${!currentStatus ? 'activated' : 'deactivated'}`,
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ['admin-announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-announcements-manage'] });
+      toast({
+        title: "Success",
+        description: `Announcement ${!currentStatus ? 'activated' : 'deactivated'}`,
+      });
     } catch {
       toast({
         title: "Error",

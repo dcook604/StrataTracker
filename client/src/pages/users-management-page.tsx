@@ -33,7 +33,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Badge } from '@/components/ui/badge';
 import { Trash2, UserPlus, RefreshCw } from 'lucide-react';
 import { Layout } from "@/components/layout";
-// We're using direct fetch calls instead of apiRequest
+import { apiRequest } from '@/lib/queryClient';
 
 // Define user type
 type User = {
@@ -66,10 +66,7 @@ export function UsersManagementPage() {
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['/api/users'],
     queryFn: async () => {
-      const response = await fetch('/api/users');
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
+      const response = await apiRequest('GET', '/api/users');
       return response.json() as Promise<User[]>;
     }
   });
@@ -87,25 +84,13 @@ export function UsersManagementPage() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (data: CreateUserFormData) => {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: data.email,
-          fullName: data.fullName,
-          is_council_member: data.role === 'council',
-          is_admin: data.role === 'admin',
-          is_user: data.role === 'user',
-        }),
+      const response = await apiRequest('POST', '/api/users', {
+        email: data.email,
+        fullName: data.fullName,
+        is_council_member: data.role === 'council',
+        is_admin: data.role === 'admin',
+        is_user: data.role === 'user',
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create user');
-      }
-      
       return response.json();
     },
     onSuccess: () => {
@@ -129,15 +114,7 @@ export function UsersManagementPage() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete user');
-      }
-      
+      const response = await apiRequest('DELETE', `/api/users/${userId}`);
       return response.json();
     },
     onSuccess: () => {
@@ -161,19 +138,7 @@ export function UsersManagementPage() {
   // Send password reset email
   const resetPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await fetch('/api/users/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to send password reset');
-      }
-      
+      const response = await apiRequest('POST', '/api/users/forgot-password', { email });
       return response.json();
     },
     onSuccess: () => {

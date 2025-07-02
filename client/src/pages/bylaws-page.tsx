@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { apiRequest } from '@/lib/queryClient';
 
 interface Bylaw {
   id: number;
@@ -69,8 +70,7 @@ export default function BylawsPage() {
       if (selectedPart !== 'all') params.append('part', selectedPart);
       if (selectedCategory !== 'all') params.append('category', selectedCategory);
       
-      const response = await fetch(`/api/bylaws?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch bylaws');
+      const response = await apiRequest('GET', `/api/bylaws?${params}`);
       return response.json();
     }
   });
@@ -79,8 +79,7 @@ export default function BylawsPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ['bylaw-categories'],
     queryFn: async () => {
-      const response = await fetch('/api/bylaws/categories');
-      if (!response.ok) throw new Error('Failed to fetch categories');
+      const response = await apiRequest('GET', '/api/bylaws/categories');
       return response.json();
     }
   });
@@ -88,18 +87,23 @@ export default function BylawsPage() {
   // Import bylaws mutation
   const importMutation = useMutation({
     mutationFn: async (file?: File) => {
-      const formData = new FormData();
       if (file) {
+        // For file uploads, use FormData with credentials: 'include' like violation form
+        const formData = new FormData();
         formData.append('bylawsFile', file);
+        
+        const response = await fetch('/api/bylaws/import', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        if (!response.ok) throw new Error('Failed to import bylaws');
+        return response.json();
+      } else {
+        // For regular API calls without files
+        const response = await apiRequest('POST', '/api/bylaws/import');
+        return response.json();
       }
-      
-      const response = await fetch('/api/bylaws/import', {
-        method: 'POST',
-        body: file ? formData : undefined,
-        headers: file ? undefined : { 'Content-Type': 'application/json' }
-      });
-      if (!response.ok) throw new Error('Failed to import bylaws');
-      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -122,16 +126,11 @@ export default function BylawsPage() {
   // Update bylaw mutation
   const updateMutation = useMutation({
     mutationFn: async (data: { id: number; title: string; content: string; sectionNumber: string }) => {
-      const response = await fetch(`/api/bylaws/${data.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: data.title,
-          content: data.content,
-          sectionNumber: data.sectionNumber
-        })
+      const response = await apiRequest('PUT', `/api/bylaws/${data.id}`, {
+        title: data.title,
+        content: data.content,
+        sectionNumber: data.sectionNumber
       });
-      if (!response.ok) throw new Error('Failed to update bylaw');
       return response.json();
     },
     onSuccess: () => {
@@ -217,7 +216,7 @@ export default function BylawsPage() {
     }
   }
 
-  const canEdit = user?.isAdmin || user?.isCouncilMember;
+  const canEdit = user?.profile?.role === 'admin' || user?.profile?.role === 'council';
 
   return (
     <Layout title="Bylaws">

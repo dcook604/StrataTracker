@@ -397,8 +397,7 @@ export default function UnitsPage() {
 
   const fetchUnitDetails = async (unitId: number) => {
     try {
-      const response = await fetch(`/api/units/${unitId}/details`);
-      if (!response.ok) throw new Error('Failed to fetch unit details');
+      const response = await apiRequest('GET', `/api/units/${unitId}/details`);
       const details: UnitDetailsForDelete = await response.json();
       setUnitToDelete(details);
     } catch (error) {

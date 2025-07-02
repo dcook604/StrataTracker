@@ -1,5 +1,24 @@
 # Coolify Docker Compose Configuration for StrataTracker
 # Simplified configuration optimized for Coolify deployment
+#
+# 🏗️ ARCHITECTURE OVERVIEW:
+# ========================
+# StrataTracker uses a HYBRID DATABASE ARCHITECTURE:
+# 
+# 📡 Supabase (Authentication ONLY):
+#    - Handles user login/logout/JWT tokens
+#    - Stores auth.users table for authentication
+#    - Used by frontend for auth state management
+#
+# 🗄️ PostgreSQL (ALL Application Data):
+#    - Stores profiles table with user roles (admin/council/user)
+#    - Stores all business data (violations, units, etc.)
+#    - Backend reads user roles from profiles table (NOT Supabase)
+#
+# ⚠️ IMPORTANT: When troubleshooting user roles/permissions:
+#    - Check PostgreSQL profiles table (NOT Supabase)
+#    - User authentication flows: Supabase JWT → PostgreSQL profile lookup
+#
 version: '3.8'
 
 services:
