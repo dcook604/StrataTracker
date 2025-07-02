@@ -466,6 +466,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings/upload-logo', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
       const data = await res.json();
       if (res.ok && data.filename) {

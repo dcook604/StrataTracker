@@ -35,9 +35,13 @@ export default function EmailMonitoring() {
   const {
     data: stats,
     isLoading: isLoadingStats,
-  } = useQuery(["email-stats", timeframe], () =>
-    apiRequest("GET", `/api/communications/email-stats?hours=${timeframe}`)
-  );
+  } = useQuery({
+    queryKey: ["email-stats", timeframe],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/communications/email-stats?hours=${timeframe}`);
+      return response.json();
+    }
+  });
 
   // Fetch deduplication logs
   const { data: logs, isLoading: logsLoading } = useQuery<{
@@ -48,12 +52,7 @@ export default function EmailMonitoring() {
   }>({
     queryKey: ['email-dedup-logs', timeframe],
     queryFn: async () => {
-      const response = await fetch(`/api/communications/email-deduplication-logs?hours=${timeframe}&limit=100`, {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch deduplication logs');
-      }
+      const response = await apiRequest('GET', `/api/communications/email-deduplication-logs?hours=${timeframe}&limit=100`);
       return response.json();
     },
     refetchInterval: 30000
@@ -62,13 +61,7 @@ export default function EmailMonitoring() {
   // Cleanup mutation
   const cleanupMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/communications/email-cleanup', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to run cleanup');
-      }
+      const response = await apiRequest('POST', '/api/communications/email-cleanup');
       return response.json();
     },
     onSuccess: (data) => {
