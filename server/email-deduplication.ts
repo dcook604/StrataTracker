@@ -134,9 +134,12 @@ export class EmailDeduplicationService {
         
         // Log the duplicate prevention
         await db.insert(emailDeduplicationLog).values({
+          contentHash: emailHash,
+          recipient: emailRequest.to.toLowerCase().trim(),
+          subject: emailRequest.subject,
+          attemptCount: 1,
           recipientEmail: emailRequest.to.toLowerCase().trim(),
           emailType: emailRequest.emailType,
-          contentHash: emailHash,
           originalIdempotencyKey: originalEmail.idempotencyKey,
           duplicateIdempotencyKey: idempotencyKey,
           metadata: {
@@ -185,7 +188,10 @@ export class EmailDeduplicationService {
       // Record the attempt
       const [attempt] = await db.insert(emailSendAttempts).values({
         idempotencyKey,
+        recipient: emailRequest.to,
+        subject: emailRequest.subject,
         attemptNumber,
+        attemptCount: 1,
         status: 'pending'
       }).returning();
 
