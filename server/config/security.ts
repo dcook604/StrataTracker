@@ -43,7 +43,9 @@ export const securityConfig = {
         scriptSrc: [
           "'self'",
           "'unsafe-inline'", // Required for React dev tools
-          "'unsafe-eval'"   // Required for React dev mode
+          "'unsafe-eval'",   // Required for React dev mode
+          "blob:",
+          "https://static.cloudflareinsights.com"
         ],
         styleSrc: [
           "'self'",
@@ -52,17 +54,30 @@ export const securityConfig = {
         ],
         fontSrc: [
           "'self'",
-          "https://fonts.gstatic.com"
+          "https://fonts.gstatic.com",
+          "data:"
         ],
         imgSrc: [
           "'self'",
           "data:",
-          "https:"
+          "https:",
+          "blob:"
         ],
-        connectSrc: ["'self'"],
+        connectSrc: [
+          "'self'",
+          "wss:",
+          "ws:",
+          "https:",
+          "*.cloudflare.com",
+          "*.supabase.co",
+          "*.supabase.com",
+          "cloudflareinsights.com"
+        ],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
-        frameSrc: ["'none'"]
+        frameSrc: ["'none'"],
+        workerSrc: ["'self'", "blob:"],
+        childSrc: ["'self'", "blob:"]
       }
     },
     crossOriginEmbedderPolicy: false, // Disable for compatibility

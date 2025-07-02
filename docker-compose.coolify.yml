@@ -92,6 +92,11 @@ services:
       DB_POOL_MIN: ${DB_POOL_MIN:-2}
       DB_POOL_MAX: ${DB_POOL_MAX:-10}
       SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-30}
+      
+      # Security - CSP Configuration
+      # Note: NGINX_PROXY is intentionally NOT set here so that the application
+      # handles Content Security Policy directly (required for Supabase auth)
+      # When NGINX_PROXY is not set, the app enables CSP with proper Supabase/Google Fonts support
     
     volumes:
       - uploads_data:/app/uploads

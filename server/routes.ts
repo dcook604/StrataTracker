@@ -87,9 +87,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add helmet for security headers (disable CSP to avoid conflicts with nginx)
+  // Add helmet for security headers 
+  // Enable CSP when running without nginx (e.g., Coolify deployment)
+  const enableCSP = !process.env.NGINX_PROXY && process.env.NODE_ENV === 'production';
+  
   app.use(helmet({
-    contentSecurityPolicy: false, // CSP handled by nginx
+    contentSecurityPolicy: enableCSP ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "blob:",
+          "https://static.cloudflareinsights.com"
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com"
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.gstatic.com",
+          "data:"
+        ],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "https:",
+          "blob:"
+        ],
+        connectSrc: [
+          "'self'",
+          "wss:",
+          "ws:",
+          "https:",
+          "*.cloudflare.com",
+          "*.supabase.co",
+          "*.supabase.com",
+          "cloudflareinsights.com"
+        ],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        workerSrc: ["'self'", "blob:"],
+        childSrc: ["'self'", "blob:"]
+      }
+    } : false, // CSP handled by nginx when NGINX_PROXY is set
   }));
 
   // Add CORS
