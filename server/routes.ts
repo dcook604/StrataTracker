@@ -91,51 +91,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enable CSP when running without nginx (e.g., Coolify deployment)
   const enableCSP = !process.env.NGINX_PROXY && process.env.NODE_ENV === 'production';
   
+  // Debug logging for CSP configuration
+  console.log('[CSP Debug]', {
+    NODE_ENV: process.env.NODE_ENV,
+    NGINX_PROXY: process.env.NGINX_PROXY,
+    enableCSP: enableCSP,
+    timestamp: new Date().toISOString()
+  });
+  
+  const cspConfig = enableCSP ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "blob:",
+        "https://static.cloudflareinsights.com"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com"
+      ],
+      fontSrc: [
+        "'self'",
+        "https://fonts.gstatic.com",
+        "data:"
+      ],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "https:",
+        "blob:"
+      ],
+      connectSrc: [
+        "'self'",
+        "wss:",
+        "ws:",
+        "https:",
+        "*.cloudflare.com",
+        "*.supabase.co",
+        "*.supabase.com",
+        "cloudflareinsights.com"
+      ],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"]
+    }
+  } : false; // CSP handled by nginx when NGINX_PROXY is set
+  
+  console.log('[CSP Config]', enableCSP ? 'Custom CSP enabled' : 'CSP disabled (nginx handles it)');
+  
   app.use(helmet({
-    contentSecurityPolicy: enableCSP ? {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
-          "blob:",
-          "https://static.cloudflareinsights.com"
-        ],
-        styleSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://fonts.googleapis.com"
-        ],
-        fontSrc: [
-          "'self'",
-          "https://fonts.gstatic.com",
-          "data:"
-        ],
-        imgSrc: [
-          "'self'",
-          "data:",
-          "https:",
-          "blob:"
-        ],
-        connectSrc: [
-          "'self'",
-          "wss:",
-          "ws:",
-          "https:",
-          "*.cloudflare.com",
-          "*.supabase.co",
-          "*.supabase.com",
-          "cloudflareinsights.com"
-        ],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"],
-        workerSrc: ["'self'", "blob:"],
-        childSrc: ["'self'", "blob:"]
-      }
-    } : false, // CSP handled by nginx when NGINX_PROXY is set
+    contentSecurityPolicy: cspConfig,
+    // Explicitly disable other security headers that might interfere
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
   }));
+
+  // If CSP is disabled (nginx handles it), ensure no CSP headers are set by middleware
+  if (!enableCSP) {
+    app.use((req, res, next) => {
+      res.removeHeader('Content-Security-Policy');
+      res.removeHeader('Content-Security-Policy-Report-Only');
+      next();
+    });
+  }
 
   // Add CORS
   const allowedOrigin = process.env.NODE_ENV === 'production'
