@@ -137,6 +137,16 @@ export default function AuthPage() {
     }
   }, [isClient]);
 
+  // Debug: Log form states when they change
+  useEffect(() => {
+    console.log('[AuthPage] State changed:', {
+      isLoading,
+      showForgotPassword,
+      isPasswordReset,
+      isResetEmailSent
+    });
+  }, [isLoading, showForgotPassword, isPasswordReset, isResetEmailSent]);
+
   // Enhanced modal state management for production
   useEffect(() => {
     if (!isClient) return; // Only run on client side
@@ -392,6 +402,13 @@ export default function AuthPage() {
               </div>
             )}
 
+            {/* Debug info for troubleshooting */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-xs text-gray-500 mb-2">
+                Debug: isLoading={isLoading.toString()}, showForgotPassword={showForgotPassword.toString()}, isPasswordReset={isPasswordReset.toString()}
+              </div>
+            )}
+
             {isPasswordReset ? (
               <Form {...passwordResetForm}>
                 <form onSubmit={passwordResetForm.handleSubmit(onPasswordResetSubmit)} className="space-y-4">
@@ -476,7 +493,7 @@ export default function AuthPage() {
               </Form>
             ) : showForgotPassword ? (
               <Form {...forgotPasswordForm}>
-                <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                <form key="forgot-password-form" onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
                   {isResetEmailSent ? (
                     <div className="text-center py-4">
                       <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-4">
@@ -491,6 +508,8 @@ export default function AuthPage() {
                         onClick={() => {
                           setShowForgotPassword(false);
                           setIsResetEmailSent(false);
+                          setIsLoading(false); // Reset loading state
+                          setError(null); // Clear any errors
                           forgotPasswordForm.reset();
                         }}
                       >
@@ -510,6 +529,8 @@ export default function AuthPage() {
                                 type="email" 
                                 placeholder="Enter your email address" 
                                 disabled={isLoading}
+                                autoComplete="email"
+                                autoFocus
                                 {...field} 
                               />
                             </FormControl>
@@ -533,6 +554,7 @@ export default function AuthPage() {
                         onClick={() => {
                           setShowForgotPassword(false);
                           setError(null);
+                          setIsLoading(false); // Reset loading state
                           forgotPasswordForm.reset();
                         }}
                         disabled={isLoading}
@@ -600,7 +622,9 @@ export default function AuthPage() {
                       onClick={() => {
                         setShowForgotPassword(true);
                         setError(null);
+                        setIsLoading(false); // Reset loading state
                         loginForm.reset();
+                        forgotPasswordForm.reset(); // Reset forgot password form
                       }}
                       disabled={isLoading}
                     >
