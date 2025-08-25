@@ -47,8 +47,13 @@ const passwordResetSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Valid email is required"),
+});
+
 type LoginFormValues = z.infer<typeof loginSchema>;
 type PasswordResetFormValues = z.infer<typeof passwordResetSchema>;
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 // Helper function to set no-cache meta tags
 const setNoCacheMeta = () => {
@@ -103,6 +108,8 @@ export default function AuthPage() {
   const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [isResetEmailSent, setIsResetEmailSent] = useState(false);
 
   // Handle client-side hydration
   useEffect(() => {
@@ -215,6 +222,14 @@ export default function AuthPage() {
     },
   });
 
+  // Forgot password form
+  const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
+
 
   // Handle login submission
   const onLoginSubmit = async (values: LoginFormValues) => {
@@ -274,6 +289,36 @@ export default function AuthPage() {
     }
   };
 
+  // Handle forgot password submission
+  const onForgotPasswordSubmit = async (values: ForgotPasswordFormValues) => {
+    try {
+      console.log('[AuthPage] Starting forgot password...');
+      setIsLoading(true);
+      setError(null);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      console.log('[AuthPage] Password reset email sent successfully');
+      setIsResetEmailSent(true);
+      toast({
+        title: "Password Reset Email Sent",
+        description: "Check your email for a password reset link. The link will expire in 1 hour.",
+      });
+      
+    } catch (err) {
+      console.error('[AuthPage] Forgot password failed:', err);
+      setError(err instanceof Error ? err.message : "Failed to send reset email. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleExpiredModalClose = () => {
     console.log('[AuthPage] Closing expired modal');
     setShowExpiredModal(false);
@@ -323,11 +368,20 @@ export default function AuthPage() {
             />
           </div>
           <CardHeader className="space-y-1 text-center pt-0">
-            <CardTitle>{isPasswordReset ? "Reset Password" : "Sign In"}</CardTitle>
+            <CardTitle>
+              {isPasswordReset 
+                ? "Reset Password" 
+                : showForgotPassword 
+                  ? "Forgot Password" 
+                  : "Sign In"
+              }
+            </CardTitle>
             <CardDescription>
               {isPasswordReset 
                 ? "Enter your new password below" 
-                : "Enter your credentials to access the system"
+                : showForgotPassword
+                  ? "Enter your email to receive a password reset link"
+                  : "Enter your credentials to access the system"
               }
             </CardDescription>
           </CardHeader>
@@ -420,6 +474,75 @@ export default function AuthPage() {
                   </Button>
                 </form>
               </Form>
+            ) : showForgotPassword ? (
+              <Form {...forgotPasswordForm}>
+                <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                  {isResetEmailSent ? (
+                    <div className="text-center py-4">
+                      <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-4">
+                        <p className="text-green-800 font-medium">Password reset email sent!</p>
+                        <p className="text-green-700 text-sm mt-1">
+                          Check your email for a password reset link. The link will expire in 1 hour.
+                        </p>
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setIsResetEmailSent(false);
+                          forgotPasswordForm.reset();
+                        }}
+                      >
+                        Back to Sign In
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <FormField
+                        control={forgotPasswordForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="email" 
+                                placeholder="Enter your email address" 
+                                disabled={isLoading}
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <Button 
+                        type="submit" 
+                        className="w-full"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Send Reset Email"}
+                      </Button>
+
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        className="w-full"
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setError(null);
+                          forgotPasswordForm.reset();
+                        }}
+                        disabled={isLoading}
+                      >
+                        Back to Sign In
+                      </Button>
+                    </>
+                  )}
+                </form>
+              </Form>
             ) : (
               <Form {...loginForm}>
                 <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
@@ -468,6 +591,22 @@ export default function AuthPage() {
                   >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
                   </Button>
+
+                  <div className="text-center">
+                    <Button 
+                      type="button" 
+                      variant="link" 
+                      className="text-sm text-muted-foreground hover:text-primary"
+                      onClick={() => {
+                        setShowForgotPassword(true);
+                        setError(null);
+                        loginForm.reset();
+                      }}
+                      disabled={isLoading}
+                    >
+                      Forgot your password?
+                    </Button>
+                  </div>
                 </form>
               </Form>
             )}
