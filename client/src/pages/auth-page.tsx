@@ -141,7 +141,8 @@ export default function AuthPage() {
       setError(null);
       setShowForgotPassword(false);
       
-      // Verify the token to establish the session
+      // Verify the token to establish the session (this is Supabase's intended design)
+      // The user will be automatically authenticated, but we show the password reset form
       supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: 'recovery'
@@ -204,14 +205,20 @@ export default function AuthPage() {
     
     console.log('[AuthPage] User state changed:', { 
       user: user ? `${user.email} (${user.profile?.role})` : null,
-      isLoading: loginMutation.isPending 
+      isLoading: loginMutation.isPending,
+      isPasswordReset,
+      tokenVerified
     });
     
-    if (user) {
+    // Only redirect if user is authenticated AND not in password reset mode
+    // If in password reset mode, user should complete password update first
+    if (user && !isPasswordReset) {
       console.log('[AuthPage] User authenticated, navigating to dashboard...');
       navigate("/");
+    } else if (user && isPasswordReset) {
+      console.log('[AuthPage] User authenticated via password reset link, showing password reset form...');
     }
-  }, [user, navigate, isClient]);
+  }, [user, navigate, isClient, isPasswordReset]);
 
   // Handle URL parameters (logout success/error)
   useEffect(() => {
@@ -325,13 +332,18 @@ export default function AuthPage() {
       console.log('[AuthPage] Password reset successful');
       toast({
         title: "Password Reset Successful",
-        description: "Your password has been updated successfully. You can now log in with your new password.",
+        description: "Your password has been updated successfully. Redirecting to dashboard...",
       });
       
-      // Clear the URL and switch back to login form
+      // Clear the URL and redirect to dashboard
       window.history.replaceState({}, '', '/auth');
       setIsPasswordReset(false);
       setTokenVerified(false);
+      
+      // Small delay to ensure state is updated before navigation
+      setTimeout(() => {
+        navigate("/");
+      }, 1000);
       
     } catch (err) {
       console.error('[AuthPage] Password reset failed:', err);
@@ -396,7 +408,8 @@ export default function AuthPage() {
   console.log('[AuthPage] Rendering main form, user:', user ? 'logged in' : 'not logged in');
 
   // If user is already set, show loading until navigation completes
-  if (user) {
+  // BUT allow password reset flow to continue
+  if (user && !isPasswordReset) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <div className="flex items-center space-x-2">
