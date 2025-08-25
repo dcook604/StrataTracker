@@ -134,6 +134,9 @@ export default function AuthPage() {
     if (type === 'recovery') {
       console.log('[AuthPage] Password reset token detected');
       setIsPasswordReset(true);
+      setIsLoading(false); // Reset loading state for password reset
+      setError(null); // Clear any previous errors
+      setShowForgotPassword(false); // Ensure forgot password form is hidden
     }
   }, [isClient]);
 
@@ -231,6 +234,13 @@ export default function AuthPage() {
       confirmPassword: "",
     },
   });
+
+  // Reset password form when entering password reset mode
+  useEffect(() => {
+    if (isPasswordReset) {
+      passwordResetForm.reset();
+    }
+  }, [isPasswordReset, passwordResetForm]);
 
   // Forgot password form
   const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
@@ -411,7 +421,7 @@ export default function AuthPage() {
 
             {isPasswordReset ? (
               <Form {...passwordResetForm}>
-                <form onSubmit={passwordResetForm.handleSubmit(onPasswordResetSubmit)} className="space-y-4">
+                <form key="password-reset-form" onSubmit={passwordResetForm.handleSubmit(onPasswordResetSubmit)} className="space-y-4">
                   <FormField
                     control={passwordResetForm.control}
                     name="password"
@@ -424,6 +434,8 @@ export default function AuthPage() {
                               type={showPassword ? "text" : "password"}
                               placeholder="Enter your new password" 
                               disabled={isLoading}
+                              autoComplete="new-password"
+                              autoFocus
                               {...field} 
                             />
                             <Button
@@ -459,6 +471,7 @@ export default function AuthPage() {
                               type={showConfirmPassword ? "text" : "password"}
                               placeholder="Confirm your new password" 
                               disabled={isLoading}
+                              autoComplete="new-password"
                               {...field} 
                             />
                             <Button
