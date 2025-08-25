@@ -5,7 +5,8 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { 
   Card, 
   CardContent, 
@@ -38,8 +39,16 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+const passwordResetSchema = z.object({
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string().min(8, "Please confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+type PasswordResetFormValues = z.infer<typeof passwordResetSchema>;
 
 // Helper function to set no-cache meta tags
 const setNoCacheMeta = () => {
@@ -91,6 +100,9 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Handle client-side hydration
   useEffect(() => {
@@ -104,6 +116,19 @@ export default function AuthPage() {
       removeNoCacheMeta();
     };
   }, []);
+
+  // Check for password reset token in URL
+  useEffect(() => {
+    if (!isClient) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const type = urlParams.get('type');
+    
+    if (type === 'recovery') {
+      console.log('[AuthPage] Password reset token detected');
+      setIsPasswordReset(true);
+    }
+  }, [isClient]);
 
   // Enhanced modal state management for production
   useEffect(() => {
@@ -181,6 +206,15 @@ export default function AuthPage() {
     },
   });
 
+  // Password reset form
+  const passwordResetForm = useForm<PasswordResetFormValues>({
+    resolver: zodResolver(passwordResetSchema),
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
 
   // Handle login submission
   const onLoginSubmit = async (values: LoginFormValues) => {
@@ -202,6 +236,39 @@ export default function AuthPage() {
     } catch (err) {
       console.error('[AuthPage] Login failed:', err);
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle password reset submission
+  const onPasswordResetSubmit = async (values: PasswordResetFormValues) => {
+    try {
+      console.log('[AuthPage] Starting password reset...');
+      setIsLoading(true);
+      setError(null);
+      
+      const { error } = await supabase.auth.updateUser({
+        password: values.password
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      console.log('[AuthPage] Password reset successful');
+      toast({
+        title: "Password Reset Successful",
+        description: "Your password has been updated successfully. You can now log in with your new password.",
+      });
+      
+      // Clear the URL and switch back to login form
+      window.history.replaceState({}, '', '/auth');
+      setIsPasswordReset(false);
+      
+    } catch (err) {
+      console.error('[AuthPage] Password reset failed:', err);
+      setError(err instanceof Error ? err.message : "Password reset failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -256,20 +323,106 @@ export default function AuthPage() {
             />
           </div>
           <CardHeader className="space-y-1 text-center pt-0">
-            <CardTitle>Sign In</CardTitle>
+            <CardTitle>{isPasswordReset ? "Reset Password" : "Sign In"}</CardTitle>
             <CardDescription>
-              Enter your credentials to access the system
+              {isPasswordReset 
+                ? "Enter your new password below" 
+                : "Enter your credentials to access the system"
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {error && (
+              <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md mb-4">
+                {error}
+              </div>
+            )}
+
+            {isPasswordReset ? (
+              <Form {...passwordResetForm}>
+                <form onSubmit={passwordResetForm.handleSubmit(onPasswordResetSubmit)} className="space-y-4">
+                  <FormField
+                    control={passwordResetForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input 
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Enter your new password" 
+                              disabled={isLoading}
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                              disabled={isLoading}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={passwordResetForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input 
+                              type={showConfirmPassword ? "text" : "password"}
+                              placeholder="Confirm your new password" 
+                              disabled={isLoading}
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              disabled={isLoading}
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Reset Password"}
+                  </Button>
+                </form>
+              </Form>
+            ) : (
               <Form {...loginForm}>
                 <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-          {error && (
-            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-              {error}
-            </div>
-          )}
-          
                   <FormField
                     control={loginForm.control}
                     name="email"
@@ -277,12 +430,12 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="Enter your email" 
-                        disabled={isLoading}
-                        {...field} 
-                      />
+                          <Input 
+                            type="email" 
+                            placeholder="Enter your email" 
+                            disabled={isLoading}
+                            {...field} 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -296,12 +449,12 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="Enter your password" 
-                        disabled={isLoading}
-                        {...field} 
-                      />
+                          <Input 
+                            type="password" 
+                            placeholder="Enter your password" 
+                            disabled={isLoading}
+                            {...field} 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -317,6 +470,7 @@ export default function AuthPage() {
                   </Button>
                 </form>
               </Form>
+            )}
               
               <div className="mt-4 text-center text-sm text-muted-foreground">
                 <p>Only administrators can add new users to the system.</p>
