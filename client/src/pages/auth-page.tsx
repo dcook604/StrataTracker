@@ -110,6 +110,8 @@ export default function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isResetEmailSent, setIsResetEmailSent] = useState(false);
+  const [isVerifyingToken, setIsVerifyingToken] = useState(false);
+  const [tokenVerified, setTokenVerified] = useState(false);
 
   // Handle client-side hydration
   useEffect(() => {
@@ -124,19 +126,41 @@ export default function AuthPage() {
     };
   }, []);
 
-  // Check for password reset token in URL
+  // Check for password reset token in URL and verify it
   useEffect(() => {
     if (!isClient) return;
     
     const urlParams = new URLSearchParams(window.location.search);
     const type = urlParams.get('type');
+    const tokenHash = urlParams.get('token_hash');
     
-    if (type === 'recovery') {
-      console.log('[AuthPage] Password reset token detected');
+    if (type === 'recovery' && tokenHash) {
+      console.log('[AuthPage] Password reset token detected, verifying...');
       setIsPasswordReset(true);
-      setIsLoading(false); // Reset loading state for password reset
-      setError(null); // Clear any previous errors
-      setShowForgotPassword(false); // Ensure forgot password form is hidden
+      setIsVerifyingToken(true);
+      setError(null);
+      setShowForgotPassword(false);
+      
+      // Verify the token to establish the session
+      supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: 'recovery'
+      }).then(({ error }) => {
+        if (error) {
+          console.error('[AuthPage] Token verification failed:', error);
+          setError('Password reset link is invalid or has expired. Please request a new password reset.');
+          setIsPasswordReset(false);
+        } else {
+          console.log('[AuthPage] Token verified successfully');
+          setTokenVerified(true);
+        }
+      }).catch((err) => {
+        console.error('[AuthPage] Token verification error:', err);
+        setError('Failed to verify password reset link. Please try again.');
+        setIsPasswordReset(false);
+      }).finally(() => {
+        setIsVerifyingToken(false);
+      });
     }
   }, [isClient]);
 
@@ -146,9 +170,11 @@ export default function AuthPage() {
       isLoading,
       showForgotPassword,
       isPasswordReset,
-      isResetEmailSent
+      isResetEmailSent,
+      isVerifyingToken,
+      tokenVerified
     });
-  }, [isLoading, showForgotPassword, isPasswordReset, isResetEmailSent]);
+  }, [isLoading, showForgotPassword, isPasswordReset, isResetEmailSent, isVerifyingToken, tokenVerified]);
 
   // Enhanced modal state management for production
   useEffect(() => {
@@ -283,6 +309,11 @@ export default function AuthPage() {
       setIsLoading(true);
       setError(null);
       
+      if (!tokenVerified) {
+        throw new Error('Password reset session is not verified. Please try accessing the reset link again.');
+      }
+      
+      // Update the password (session is already established from token verification)
       const { error } = await supabase.auth.updateUser({
         password: values.password
       });
@@ -300,6 +331,7 @@ export default function AuthPage() {
       // Clear the URL and switch back to login form
       window.history.replaceState({}, '', '/auth');
       setIsPasswordReset(false);
+      setTokenVerified(false);
       
     } catch (err) {
       console.error('[AuthPage] Password reset failed:', err);
@@ -415,11 +447,17 @@ export default function AuthPage() {
             {/* Debug info for troubleshooting */}
             {process.env.NODE_ENV === 'development' && (
               <div className="text-xs text-gray-500 mb-2">
-                Debug: isLoading={isLoading.toString()}, showForgotPassword={showForgotPassword.toString()}, isPasswordReset={isPasswordReset.toString()}
+                Debug: isLoading={isLoading.toString()}, showForgotPassword={showForgotPassword.toString()}, isPasswordReset={isPasswordReset.toString()}, isVerifyingToken={isVerifyingToken.toString()}, tokenVerified={tokenVerified.toString()}
               </div>
             )}
 
             {isPasswordReset ? (
+              isVerifyingToken ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                  <p className="text-muted-foreground">Verifying your password reset link...</p>
+                </div>
+              ) : (
               <Form {...passwordResetForm}>
                 <form key="password-reset-form" onSubmit={passwordResetForm.handleSubmit(onPasswordResetSubmit)} className="space-y-4">
                   <FormField
@@ -504,6 +542,7 @@ export default function AuthPage() {
                   </Button>
                 </form>
               </Form>
+              )
             ) : showForgotPassword ? (
               <Form {...forgotPasswordForm}>
                 <form key="forgot-password-form" onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
