@@ -1063,8 +1063,48 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllUnitsPaginated(_page: number = 1, _limit: number = 20, _sortBy?: string, _sortOrder?: 'asc' | 'desc', _search?: string): Promise<{ units: PropertyUnit[], total: number }> {
-    throw new Error("Method not implemented.");
+  async getAllUnitsPaginated(page: number = 1, limit: number = 20, sortBy?: string, sortOrder?: 'asc' | 'desc', search?: string): Promise<{ units: PropertyUnit[], total: number }> {
+    // For now, use a simple implementation that gets all units and applies pagination in memory
+    // This can be optimized later for large datasets
+    const allUnits = await this.getAllPropertyUnits();
+    
+    // Apply search filter
+    let filteredUnits = allUnits;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredUnits = allUnits.filter(unit => 
+        unit.unitNumber.toLowerCase().includes(searchLower) ||
+        (unit.ownerName && unit.ownerName.toLowerCase().includes(searchLower)) ||
+        (unit.tenantName && unit.tenantName.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply sorting
+    filteredUnits.sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+      
+      if (sortBy === 'floor') {
+        aValue = a.floor || 0;
+        bValue = b.floor || 0;
+      } else {
+        aValue = a.unitNumber;
+        bValue = b.unitNumber;
+      }
+      
+      if (sortOrder === 'desc') {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+      } else {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+      }
+    });
+
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    const units = filteredUnits.slice(offset, offset + limit);
+    const total = filteredUnits.length;
+
+    return { units, total };
   }
 
   async createUnitWithPersons(unitData: {
