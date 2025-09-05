@@ -439,6 +439,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Temporary debugging endpoint for production user investigation
+  app.get("/api/debug-production-user", async (req, res) => {
+    try {
+      // This is a temporary debugging endpoint - remove after investigation
+      const productionDbUrl = "postgres://spectrum4:lY0_6JVAcSG8utftr_MA@postgres:5432/spectrum4";
+      
+      // Import PostgreSQL client for this specific request
+      const { Client } = await import('pg');
+      const client = new Client({ connectionString: productionDbUrl });
+      
+      console.log('[DEBUG] Connecting to production database...');
+      await client.connect();
+      
+      // Search for dcook user in multiple ways
+      const searches = {
+        byEmailPattern: await client.query(
+          "SELECT id, full_name, role, updated_at FROM profiles WHERE full_name ILIKE $1",
+          ['%dcook%']
+        ),
+        byAdminRole: await client.query(
+          "SELECT id, full_name, role, updated_at FROM profiles WHERE role = 'admin' ORDER BY updated_at DESC"
+        ),
+        userStats: await client.query(
+          "SELECT role, COUNT(*) as count FROM profiles GROUP BY role ORDER BY role"
+        ),
+        dataStats: await client.query(`
+          SELECT 
+            (SELECT COUNT(*) FROM violations) as violations,
+            (SELECT COUNT(*) FROM property_units) as units,
+            (SELECT COUNT(*) FROM profiles) as total_users,
+            (SELECT COUNT(*) FROM profiles WHERE role = 'admin') as admin_users
+        `)
+      };
+      
+      await client.end();
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        searches: {
+          usersByEmailPattern: searches.byEmailPattern.rows,
+          adminUsers: searches.byAdminRole.rows,
+          userRoleDistribution: searches.userStats.rows,
+          databaseStats: searches.dataStats.rows[0]
+        }
+      });
+      
+    } catch (error) {
+      console.error('[DEBUG] Production database error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Register modular routes - apply authentication middleware where needed
   app.use("/api/users", authenticateUser, userManagementRoutes);
   app.use("/api/email-config", authenticateUser, emailConfigRoutes);
