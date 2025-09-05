@@ -24,6 +24,7 @@ import { eq, desc, sql } from 'drizzle-orm';
 import { AuditLogger, AuditAction, TargetType } from './audit-logger.js';
 import { db, migrationRunner } from './db.js';
 import { authenticateUser, requireAdmin, AuthenticatedRequest } from './middleware/supabase-auth-middleware.js';
+import { storage as dbStorage } from './storage.js';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint
@@ -492,6 +493,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // POST /api/units-with-persons (create unit with persons and facilities) - Inline route before modular routes
+  app.post("/api/units-with-persons", authenticateUser, async (req, res) => {
+    try {
+      const { unit, facilities, persons } = req.body;
+      
+      // Validate required fields
+      if (!unit || !persons) {
+        return res.status(400).json({ message: "Unit data and persons are required" });
+      }
+      
+      const result = await dbStorage.createUnitWithPersons({
+        unit,
+        facilities: facilities || {},
+        persons
+      });
+      
+      // Log audit event
+      await AuditLogger.logFromRequest(req, AuditAction.UNIT_CREATED, {
+        targetType: TargetType.UNIT,
+        targetId: result.unit.id.toString(),
+        details: {
+          unitNumber: result.unit.unitNumber,
+          floor: result.unit.floor,
+          personsCount: persons.length,
+          facilitiesCount: Object.keys(facilities || {}).length,
+        },
+      });
+      
+      res.status(201).json(result);
+    } catch (error: unknown) {
+      logger.error("Failed to create unit with persons:", error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ 
+        message: "Failed to create unit with persons", 
+        details: error instanceof Error ? error.message : 'Unknown error' 
       });
     }
   });
