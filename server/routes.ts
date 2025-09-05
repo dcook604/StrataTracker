@@ -490,7 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[DEBUG] Production database error:', error);
       res.status(500).json({
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
     }
