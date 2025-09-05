@@ -1264,8 +1264,72 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async getUnitWithPersonsAndFacilities(_id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean; })[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[]; } | undefined> {
-    throw new Error("Method not implemented.");
+  async getUnitWithPersonsAndFacilities(id: number): Promise<{ unit: PropertyUnit; persons: (Person & { role: string; receiveEmailNotifications: boolean; })[]; facilities: { parkingSpots: ParkingSpot[]; storageLockers: StorageLocker[]; bikeLockers: BikeLocker[]; }; violationCount: number; violations: { id: number; referenceNumber: string; violationType: string; status: string; createdAt: Date; }[]; } | undefined> {
+    // Get the unit
+    const [unit] = await db
+      .select()
+      .from(propertyUnits)
+      .where(eq(propertyUnits.id, id));
+
+    if (!unit) {
+      return undefined;
+    }
+
+    // Get persons with their roles for this unit
+    const personsWithRoles = await db
+      .select({
+        person: persons,
+        role: unitPersonRoles.role,
+        receiveEmailNotifications: unitPersonRoles.receiveEmailNotifications
+      })
+      .from(unitPersonRoles)
+      .innerJoin(persons, eq(unitPersonRoles.personId, persons.id))
+      .where(eq(unitPersonRoles.unitId, id));
+
+    // Get facilities
+    const unitParkingSpots = await db
+      .select()
+      .from(parkingSpots)
+      .where(eq(parkingSpots.unitId, id));
+
+    const unitStorageLockers = await db
+      .select()
+      .from(storageLockers)
+      .where(eq(storageLockers.unitId, id));
+
+    const unitBikeLockers = await db
+      .select()
+      .from(bikeLockers)
+      .where(eq(bikeLockers.unitId, id));
+
+    // Get violations for this unit
+    const unitViolations = await db
+      .select({
+        id: violations.id,
+        referenceNumber: violations.referenceNumber,
+        violationType: violations.violationType,
+        status: violations.status,
+        createdAt: violations.createdAt
+      })
+      .from(violations)
+      .where(eq(violations.unitId, id))
+      .orderBy(desc(violations.createdAt));
+
+    return {
+      unit,
+      persons: personsWithRoles.map(p => ({
+        ...p.person,
+        role: p.role,
+        receiveEmailNotifications: p.receiveEmailNotifications
+      })),
+      facilities: {
+        parkingSpots: unitParkingSpots,
+        storageLockers: unitStorageLockers,
+        bikeLockers: unitBikeLockers
+      },
+      violationCount: unitViolations.length,
+      violations: unitViolations
+    };
   }
 
   async getPendingApprovalViolations(userId: string): Promise<(Violation & { unit: PropertyUnit })[]> {
