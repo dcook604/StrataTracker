@@ -1136,9 +1136,22 @@ export class DatabaseStorage implements IStorage {
     const { unit, facilities, persons: personsData } = unitData;
 
     const result = await db.transaction(async (tx) => {
+      // Find the primary owner for backward compatibility with deprecated fields
+      const primaryOwner = personsData.find(p => p.role === 'owner');
+      const primaryTenant = personsData.find(p => p.role === 'tenant');
+      
+      // Create unit with deprecated fields populated for backward compatibility
+      const unitWithDeprecatedFields = {
+        ...unit,
+        ownerName: primaryOwner?.fullName || null,
+        ownerEmail: primaryOwner?.email || null,
+        tenantName: primaryTenant?.fullName || null,
+        tenantEmail: primaryTenant?.email || null,
+      };
+
       const [newUnit] = await tx
         .insert(propertyUnits)
-        .values(unit)
+        .values(unitWithDeprecatedFields)
         .returning();
 
       const newFacilities: {
